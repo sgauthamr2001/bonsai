@@ -19,21 +19,22 @@ struct GatherFreeVars : public IRVisitor {
     void visit(const Var *node) override {
         if (seen_vars.count(node->name) == 0) {
             free_vars.emplace_back(node->name, node->type);
+            seen_vars.insert(node->name);
         }
-        seen_vars.insert(node->name);
     }
 
     void visit(const Store *node) override {
         if (seen_vars.count(node->name) == 0) {
             Type ptr_t = Ptr_t::make(node->value.type());
             free_vars.emplace_back(node->name, std::move(ptr_t));
+            seen_vars.insert(node->name);
         }
-        seen_vars.insert(node->name);
         // TODO: consider implications on recursive definition.
         IRVisitor::visit(node);
     }
 
     void visit(const LetStmt *node) override {
+        // TODO: use Scope + ScopedBinding?
         seen_vars.insert(node->name);
         node->body.accept(this);
         seen_vars.erase(node->name);
@@ -127,6 +128,32 @@ struct ReturnType : public IRVisitor {
     }
 };
 
+struct GatherStructTypes : public IRVisitor {
+    // return in seen-order
+    std::vector<const Struct_t *> struct_types;
+    // no duplicates
+    std::set<std::string> seen_structs;
+
+    void visit(const Struct_t *node) override {
+        if (seen_structs.count(node->name) == 0) {
+            struct_types.push_back(node);
+            seen_structs.insert(node->name);
+        }
+    }
+
+    // TODO: override all Expr/Stmt ops that might interact
+    // with a Struct_t and make sure the IRVisitor recurses
+
+    void visit(const Build *node) override {
+        node->type.accept(this);
+        IRVisitor::visit(node);
+    }
+
+    void visit(const Access *node) override {
+        node->value.type().accept(this);
+        IRVisitor::visit(node);
+    }
+};
 
 }  // namespace
 
@@ -134,13 +161,13 @@ struct ReturnType : public IRVisitor {
 std::vector<std::pair<std::string, Type>> gather_free_vars(const Expr &expr) {
     GatherFreeVars gather;
     expr.accept(&gather);
-    return gather.free_vars;
+    return std::move(gather.free_vars);
 }
 
 std::vector<std::pair<std::string, Type>> gather_free_vars(const Stmt &stmt) {
     GatherFreeVars gather;
     stmt.accept(&gather);
-    return gather.free_vars;
+    return std::move(gather.free_vars);
 }
 
 bool always_returns(const Stmt &stmt) {
@@ -155,6 +182,12 @@ Type get_return_type(const Stmt &stmt) {
     stmt.accept(&getter);
     assert(getter.type.defined());
     return getter.type;
+}
+
+std::vector<const Struct_t *> gather_struct_types(const Stmt &stmt) {
+    GatherStructTypes gather;
+    stmt.accept(&gather);
+    return std::move(gather.struct_types);
 }
 
 } // namespace bonsai

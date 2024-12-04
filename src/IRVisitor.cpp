@@ -74,6 +74,15 @@ void IRVisitor::visit(const Ramp *node) {
     node->stride.accept(this);
 }
 
+void IRVisitor::visit(const Build *node) {
+    visit_list(this, node->values);
+}
+
+void IRVisitor::visit(const Access *node) {
+    node->value.accept(this);
+}
+
+
 void IRVisitor::visit(const Return *node) {
     node->value.accept(this);
 }

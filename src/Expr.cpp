@@ -176,4 +176,76 @@ Expr Ramp::make(Expr base, Expr stride, int lanes) {
     return node;
 }
 
+Expr Build::make(Type type, std::vector<Expr> values) {
+    if (!type.defined()) {
+        throw std::runtime_error("Build of undefined Type");
+    }
+    if (values.empty()) {
+        throw std::runtime_error("Build with no values, of type: " + to_string(type));
+    }
+    for (const auto& expr : values) {
+        if (!expr.defined()) {
+            throw std::runtime_error("Build with undefined field");
+        }
+    }
+    // TODO: should this only allow OrderedStruct_t? Otherwise
+    // user needs to know std::map ordering...
+    if (!(type.is<Vector_t>() || type.is<Struct_t>())) {
+        throw std::runtime_error("Build with non-(vector, struct) type: " + to_string(type));
+    }
+    if (type.is<Vector_t>()) {
+        if (type.as<Vector_t>()->lanes != values.size()) {
+            throw std::runtime_error("Build<Vector_t> with incorrect number of arguments, expected: " + to_string(type) + " but recieved " + std::to_string(values.size()) + " elements.");
+        }
+        Type etype = type.as<Vector_t>()->etype;
+        for (const auto& expr : values) {
+            if (!equals(expr.type(), etype)) {
+                throw std::runtime_error("Build<Vector_t> requires uniform element type, expected: " + to_string(etype) + " but recieved " + to_string(expr.type()));
+            }
+        }
+    } else {
+        // Struct_t
+        if (type.as<Struct_t>()->fields.size() != values.size()) {
+            throw std::runtime_error("Build<Struct_t> with incorrect number of arguments, expected: " + to_string(type) + " but recieved " + std::to_string(values.size()) + " elements.");
+        }
+        // TODO: this is wonky with Struct_t being unordered.
+        size_t i = 0;
+        for (const auto& [key, value] : type.as<Struct_t>()->fields) {
+            const Type& etype = values[i].type();
+            if (!equals(value, etype)) {
+                throw std::runtime_error("Build<Vector_t> requires matching field types, expected: " + to_string(value) + " but recieved " + to_string(etype) + " from value " + to_string(values[i]));
+            }
+            i++;
+        }
+    }
+
+    Build *node = new Build;
+    node->type = std::move(type);
+    node->values = std::move(values);
+    return node;
+}
+
+Expr Access::make(std::string field, Expr value) {
+    if (field.empty()) {
+        throw std::runtime_error("Access with empty field");
+    }
+    if (!value.defined()) {
+        throw std::runtime_error("Access with undefined value");
+    }
+
+    if (const Struct_t *as_struct = value.type().as<Struct_t>()) {
+        if (as_struct->fields.count(field) == 0) {
+            throw std::runtime_error("Access with field name not in struct: " + field + " of " + to_string(value.type()));
+        }
+        Access *node = new Access;
+        node->type = as_struct->fields.at(field);
+        node->field = std::move(field);
+        node->value = std::move(value);
+        return node;
+    } else {
+        // TODO: also support OrderedStruct_T
+        throw std::runtime_error("Access of non-struct: " + to_string(value));
+    }
+}
+
 } // namespace bonsai

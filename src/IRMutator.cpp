@@ -133,6 +133,26 @@ Expr IRMutator::visit(const Ramp *node) {
     return Ramp::make(std::move(base), std::move(stride), node->lanes);
 }
 
+Expr IRMutator::visit(const Build *node) {
+    auto [values, not_changed] = visit_list(this, node->values);
+    if (not_changed) {
+        return node;
+    } else {
+        // TODO: can mutation ever change underlying type?
+        // If so, need to explicitly handle imo.
+        return Build::make(node->type, std::move(values));
+    }
+}
+
+Expr IRMutator::visit(const Access *node) {
+    Expr value = mutate(node->value);
+    if (value.same_as(node->value)) {
+        return node;
+    } else {
+        return Access::make(node->field, std::move(value));
+    }
+}
+
 
 Stmt IRMutator::visit(const Return *node) {
     Expr value = mutate(node->value);

@@ -236,6 +236,20 @@ void IRPrinter::visit(const Ramp *node) {
     os << ", " << node->lanes << ")";
 }
 
+void IRPrinter::visit(const Build *node) {
+    os << "build<";
+    print(node->type);
+    os << ">(";
+    print_expr_list(node->values);
+    os << ")";
+}
+
+void IRPrinter::visit(const Access *node) {
+    // TODO: parens?
+    print(node->value);
+    os << "." << node->field;
+}
+
 
 void IRPrinter::visit(const Return *node) {
     os << get_indent();

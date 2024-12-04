@@ -20,6 +20,8 @@ struct BinOp;
 struct Broadcast;
 struct VectorReduce;
 struct Ramp;
+struct Build;
+struct Access;
 
 // Stmts
 struct Stmt;

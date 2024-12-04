@@ -24,6 +24,8 @@ enum class IRExprEnum {
     Broadcast,
     VectorReduce,
     Ramp,
+    Build,
+    Access,
 };
 
 using IRExprNode = IRNode<Expr, IRExprEnum>;
@@ -177,10 +179,30 @@ struct Ramp : ExprNode<Ramp> {
     static const IRExprEnum _node_type = IRExprEnum::Ramp;
 };
 
+// Construct a value of a Type (e.g. Vector_t or Struct_t)
+struct Build : ExprNode<Build> {
+    std::vector<Expr> values;
+
+    static Expr make(Type type, std::vector<Expr> values);
+
+    static const IRExprEnum _node_type = IRExprEnum::Build;
+};
+
+// Access a value of a Struct_t
+// TODO: implement for Vector_t?
+struct Access : ExprNode<Access> {
+    std::string field;
+    Expr value;
+
+    static Expr make(std::string field, Expr value);
+
+    static const IRExprEnum _node_type = IRExprEnum::Access;
+};
+
 // TODO: need Load with more info than Halide, can load from arbitrary pointer...
 
 
-// TODO: Call, Set Intrinsics, Lambdas, ??? Select, Load, Access, Ramp, (?)Let, Not, Negate
+// TODO: Call, Set Intrinsics, Lambdas, ??? Select, Load, (?)Let, Not, Negate
 // TODO: intrinsics
 
 } // namespace bonsai

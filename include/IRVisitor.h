@@ -20,6 +20,8 @@ struct IRVisitor {
     virtual void visit(const Broadcast *);
     virtual void visit(const VectorReduce *);
     virtual void visit(const Ramp *);
+    virtual void visit(const Build *);
+    virtual void visit(const Access *);
     // Stmts
     virtual void visit(const Return *);
     virtual void visit(const Store *);

@@ -34,6 +34,9 @@ protected:
     llvm::Value *codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx);
     void add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const Expr &index);
 
+    // TODO: these should be OrderedStruct_ts once proper lowering is done.
+    void declare_struct_types(const std::vector<const Struct_t *> structs);
+
     /** Get a unique name for the actual block of memory that an
      * allocate node uses. Used so that alias analysis understands
      * when multiple Allocate nodes shared the same memory. */
@@ -56,6 +59,8 @@ protected:
     virtual void visit(const Broadcast *) override;
     virtual void visit(const VectorReduce *) override;
     virtual void visit(const Ramp *) override;
+    virtual void visit(const Build *) override;
+    virtual void visit(const Access *) override;
     // Stmts
     virtual void visit(const Return *) override;
     virtual void visit(const Store *) override;
@@ -75,6 +80,7 @@ protected:
     std::unique_ptr<llvm::Module> module;
     std::unique_ptr<llvm::IRBuilder<>> builder;
     Scope<llvm::Value *> scope;
+    std::map<std::string, llvm::StructType*> struct_types;
 
     /** Some useful llvm types */
     // @{

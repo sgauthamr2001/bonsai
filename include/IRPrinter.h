@@ -53,6 +53,8 @@ struct IRPrinter : public IRVisitor {
     void print(const VectorReduce::OpType &op);
     void visit(const VectorReduce *) override;
     void visit(const Ramp *) override;
+    void visit(const Build *) override;
+    void visit(const Access *) override;
     // Stmts
     void visit(const Return *) override;
     void visit(const Store *) override;

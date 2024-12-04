@@ -134,6 +134,11 @@ void CodeGen_LLVM::print_expr_function(const Expr &expr) {
 }
 
 void CodeGen_LLVM::print_stmt_function(const Stmt &stmt) {
+    // TODO: this should be called ONCE on a whole Module.
+    auto struct_types = gather_struct_types(stmt);
+    // Must be called before getting ret_type, in case ret_type is struct
+    declare_struct_types(struct_types);
+
     // Make function type
     llvm::Type *ret_type = codegen_type(get_return_type(stmt));
 
@@ -385,7 +390,10 @@ void CodeGen_LLVM::visit(const Vector_t *node) {
 }
 
 void CodeGen_LLVM::visit(const Struct_t *node) {
-    throw std::runtime_error("Cannot lower Struct_t to LLVM: " + to_string(node));
+    // TODO: throw error once OrderedStruct_t is implemented.
+    // throw std::runtime_error("Cannot lower Struct_t to LLVM: " + to_string(node));
+    // TODO: could just use module->getTypeByName
+    type = struct_types[node->name];
 }
 
 void CodeGen_LLVM::visit(const IntImm *node) {
@@ -555,6 +563,35 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
 
 void CodeGen_LLVM::visit(const Ramp *node) {
     throw std::runtime_error("TODO: implement Ramp lowering " + to_string(node));
+}
+
+void CodeGen_LLVM::visit(const Build *node) {
+    // This will be a StructType or a VectorType
+    llvm::Type *build_type = codegen_type(node->type);
+    const size_t n = node->values.size();
+    std::vector<llvm::Value *> values(n);
+    for (size_t i = 0; i < n; i++) {
+        values[i] = codegen_expr(node->values[i]);
+    }
+
+    // This is poison instead of undef bc optimizations rewrite undef here to poison for some reason.
+    value = llvm::PoisonValue::get(build_type);
+
+    if (build_type->isVectorTy()) {
+        for (size_t i = 0; i < n; i++) {
+            value = builder->CreateInsertElement(value, values[i], i);
+        }
+    } else if (build_type->isStructTy()) {
+        for (size_t i = 0; i < n; i++) {
+            value = builder->CreateInsertValue(value, values[i], i);
+        }
+    } else {
+        throw std::runtime_error("Unexpected llvm Type in Build lowering: " + to_string(node));
+    }
+}
+
+void CodeGen_LLVM::visit(const Access *node) {
+    throw std::runtime_error("TODO: implement Access lowering " + to_string(node));
 }
 
 void CodeGen_LLVM::visit(const Return *node) {
@@ -766,6 +803,32 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
 
     inst->setMetadata("tbaa", tbaa);
 }
+
+// TODO: these should be OrderedStruct_ts once proper lowering is done.
+void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> structs) {
+    if (!struct_types.empty()) {
+        throw std::runtime_error("declare_struct_types called with non-empty struct_types!");
+    }
+    // TODO: does this handle recursive types properly?
+    // First insert empty StructTypes into struct_types, to handle
+    // weird ordering on types.
+    // TODO: maybe make sure there's never an infinitely-recursive type?
+    for (const auto& _struct : structs) {
+        struct_types[_struct->name] = llvm::StructType::create(*context, _struct->name);
+    }
+    // Now build bodies, possibly referencing other struct types.
+    for (const auto& _struct : structs) {
+        // TODO: This is where we need OrderedStruct_t - we assume std::map ordering here.
+        std::vector<llvm::Type *> types(_struct->fields.size());
+        size_t i = 0;
+        for (const auto& [key, value] : _struct->fields) {
+            types[i++] = codegen_type(value);
+        }
+        struct_types[_struct->name]->setBody(types);
+    }
+
+}
+
 
 llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx) {
     llvm::DataLayout d(module.get());
