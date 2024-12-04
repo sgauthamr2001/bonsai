@@ -13,7 +13,16 @@ uint32_t Type::bits() const {
     } else if (auto as_float = this->as<Float_t>()) {
         return as_float->bits;
     } else {
-        throw std::runtime_error("Called bits() on bad type");
+        throw std::runtime_error("Called bits() on bad type: " + to_string(*this));
+    }
+}
+
+uint32_t Type::lanes() const {
+    if (auto as_vec = this->as<Vector_t>()) {
+        // TODO: handle recursive vectors?
+        return as_vec->lanes;
+    } else {
+        throw std::runtime_error("Called lanes() on bad type: " + to_string(*this));
     }
 }
 
@@ -68,6 +77,7 @@ Type Type::element_of() const {
 }
 
 Type Int_t::make(uint32_t bits) {
+    // TODO: consider caching common bit-widths, here and below.
     // TODO: assert safety.
     Int_t *node = new Int_t;
     node->bits = bits;

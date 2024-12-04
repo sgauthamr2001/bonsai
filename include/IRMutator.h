@@ -24,6 +24,7 @@ struct IRMutator {
     virtual Expr visit(const BinOp *);
     virtual Expr visit(const Broadcast *);
     virtual Expr visit(const VectorReduce *);
+    virtual Expr visit(const Ramp *);
     // Stmts
     virtual Stmt visit(const Return *);
     virtual Stmt visit(const Store *);

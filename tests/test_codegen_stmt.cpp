@@ -57,10 +57,31 @@ void test_example4() {
     }
 }
 
+void test_example5() {
+    constexpr int WIDTH = 16;
+    Type f32 = Float_t::make(32);
+    Type f32x4 = Vector_t::make(f32, WIDTH);
+    Expr a = Var::make(f32x4, "a");
+    // TODO: operator overloading
+    Expr _1x = Broadcast::make(WIDTH, FloatImm::make(f32, 1.0f));
+    Expr b = BinOp::make(BinOp::Add, a, _1x);
+    for (const int stride : {1, 2, 4, 8}) {
+        Expr idx = Ramp::make(0, stride, WIDTH);
+        Stmt stmt = Sequence::make({
+            Store::make("buffer", idx, b),
+            Return::make(b),
+        });
+        std::cout << stmt << std::endl;
+        CodeGen_LLVM codegen;
+        codegen.print_stmt_function(stmt);
+    }
+}
+
 
 int main(void) {
-    // test_example();
-    // test_example2();
-    // test_example3();
+    test_example();
+    test_example2();
+    test_example3();
     test_example4();
+    test_example5();
 }

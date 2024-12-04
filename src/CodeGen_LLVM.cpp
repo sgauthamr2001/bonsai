@@ -553,6 +553,10 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
     }
 }
 
+void CodeGen_LLVM::visit(const Ramp *node) {
+    throw std::runtime_error("TODO: implement Ramp lowering " + to_string(node));
+}
+
 void CodeGen_LLVM::visit(const Return *node) {
     llvm::Value *ret_val = codegen_expr(node->value);
     // Add return statement.
@@ -564,15 +568,73 @@ void CodeGen_LLVM::visit(const Store *node) {
     // TODO: eventually handle predication...
     llvm::Value *expr = codegen_expr(node->value);
     Type value_type = node->value.type();
+
     if (value_type.is_scalar()) {
         // Scalar
         llvm::Value *ptr = codegen_buffer_pointer(node->name, value_type, node->index);
+        // TODO: handle booleans better.
         llvm::StoreInst *store = builder->CreateAlignedStore(expr, ptr, llvm::Align(value_type.bytes()));
         // TODO: fix this, add type-based metadata to all stores to allow reordering!
         // annotate_store(store, op->index);
         add_tbaa_metadata(store, node->name, node->index);
     } else {
-        throw std::runtime_error("TODO: implement codegen for vector stores!\n");
+        // TODO: handle alignment info better.
+        int alignment = value_type.element_of().bytes();
+        const Ramp *ramp = node->index.as<Ramp>();
+        bool is_dense = ramp && is_const_one(ramp->stride);
+
+        if (is_dense) {
+            // Generate native vector store(s).
+            // TODO: do manual splitting into native vector stores.
+            llvm::Value *base_ptr = codegen_buffer_pointer(node->name, value_type.element_of(), ramp->base);
+            llvm::Value *vec_ptr = builder->CreateBitCast(base_ptr, llvm::PointerType::getUnqual(expr->getType()));
+            // TODO: is this always aligned? figure out alignment stuff.
+            llvm::StoreInst *store = builder->CreateAlignedStore(expr, vec_ptr, llvm::Align(alignment));
+            add_tbaa_metadata(store, node->name, node->index);
+        } else if (ramp) {
+            // Generate strided stores.
+            Type ptr_type = value_type.element_of();
+            llvm::Value *ptr = codegen_buffer_pointer(node->name, ptr_type, ramp->base);
+            const IntImm *const_stride = ramp->stride.as<IntImm>();
+            llvm::Value *stride = codegen_expr(ramp->stride);
+            llvm::Type *load_type = codegen_type(ptr_type);
+            // Scatter without generating the indices as a vector
+            for (int i = 0; i < ramp->lanes; i++) {
+                llvm::Constant *lane = llvm::ConstantInt::get(i32_t, i);
+                llvm::Value *v = builder->CreateExtractElement(expr, lane);
+                if (const_stride) {
+                    // Use a constant offset from the base pointer
+                    llvm::Value *p =
+                        builder->CreateConstInBoundsGEP1_32(
+                            load_type, ptr,
+                            const_stride->value * i);
+                    llvm::StoreInst *store = builder->CreateStore(v, p);
+                    // annotate_store(store, op->index);
+                    add_tbaa_metadata(store, node->name, node->index);
+                } else {
+                    // Increment the pointer by the stride for each element
+                    llvm::StoreInst *store = builder->CreateStore(v, ptr);
+                    // annotate_store(store, op->index);
+                    add_tbaa_metadata(store, node->name, node->index);
+                    // ptr = CreateInBoundsGEP(builder.get(), load_type, ptr, stride);
+                    ptr = builder->CreateInBoundsGEP(load_type, ptr, {stride});
+                }
+            }
+        } else {
+            // Generate scatter.
+            // TODO: do better on some archs?
+            llvm::Value *index = codegen_expr(node->index);
+            for (int i = 0; i < value_type.lanes(); i++) {
+                llvm::Value *lane = llvm::ConstantInt::get(i32_t, i);
+                llvm::Value *idx = builder->CreateExtractElement(index, lane);
+                llvm::Value *v = builder->CreateExtractElement(expr, lane);
+                llvm::Value *ptr = codegen_buffer_pointer(node->name, value_type.element_of(), idx);
+                llvm::StoreInst *store = builder->CreateStore(v, ptr);
+                // annotate_store(store, node->index);
+                add_tbaa_metadata(store, node->name, node->index);
+            }
+        }
+        // throw std::runtime_error("TODO: implement codegen for vector stores!\n");
     }
 }
 
@@ -647,14 +709,31 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
     int64_t width = 1;
 
     if (index.defined()) {
-        if (index.type().is_scalar()) {
+        if (const Ramp *ramp = index.as<Ramp>()) {
+            const int64_t *pstride = as_const_int(ramp->stride);
+            const int64_t *pbase = as_const_int(ramp->base);
+            if (pstride && pbase) {
+                // We want to find the smallest aligned width and offset
+                // that contains this ramp.
+                int64_t stride = *pstride;
+                base = *pbase;
+                if (base < 0) {
+                    throw std::runtime_error("base of ramp is negative");
+                }
+                width = next_power_of_two(ramp->lanes * stride);
+
+                while (base % width) {
+                    base -= base % width;
+                    width *= 2;
+                }
+                constant_index = true;
+            }
+        } else {
             const int64_t *pbase = as_const_int(index);
             if (pbase) {
                 base = *pbase;
                 constant_index = true;
             }
-        } else {
-            throw std::runtime_error("TODO: handle non-scalar index in add_tbaa_metdata");
         }
     } else {
         // Index is implied 0
@@ -688,7 +767,7 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
     inst->setMetadata("tbaa", tbaa);
 }
 
-llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, const Expr &idx) {
+llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx) {
     llvm::DataLayout d(module.get());
     llvm::Value *base_address = scope.get(buffer);
 
@@ -702,30 +781,33 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, con
     base_address = builder->CreatePointerCast(base_address, pointer_load_type);
 
     // TODO: support Halide's nice optimizations here.
-    if (!idx.defined()) {
+    if (idx == nullptr) {
         return base_address;
     }
 
-    // TODO: upgrade to 64 or 32 bits?
-    llvm::Value *offset = codegen_expr(idx);
-
-    llvm::Constant *constant_index = llvm::dyn_cast<llvm::Constant>(offset);
+    llvm::Constant *constant_index = llvm::dyn_cast<llvm::Constant>(idx);
     if (constant_index && constant_index->isZeroValue()) {
         return base_address;
     }
 
     // Promote index to 64-bit on targets that use 64-bit pointers.
     if (d.getPointerSize() == 8) {
-        llvm::Type *index_type = offset->getType();
+        llvm::Type *index_type = idx->getType();
         llvm::Type *desired_index_type = llvm::Type::getInt64Ty(*context); // TODO: cache this like Halide does.
         if (llvm::isa<llvm::VectorType>(index_type)) {
             desired_index_type = llvm::VectorType::get(desired_index_type,
                                                  llvm::dyn_cast<llvm::VectorType>(index_type)->getElementCount());
         }
-        offset = builder->CreateIntCast(offset, desired_index_type, /* isSigned */ true);
+        // TODO: is isSigned always true for us?
+        idx = builder->CreateIntCast(idx, desired_index_type, /* isSigned */ true);
     }
 
-    return builder->CreateInBoundsGEP(load_type, base_address, offset);
+    return builder->CreateInBoundsGEP(load_type, base_address, idx);
+}
+
+llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, const Expr &idx) {
+    llvm::Value *offset = idx.defined() ? codegen_expr(idx) : nullptr;
+    return codegen_buffer_pointer(buffer, type, offset);
 }
 
 llvm::Value *CodeGen_LLVM::codegen_expr(const Expr &e) {

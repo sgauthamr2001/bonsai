@@ -21,8 +21,9 @@ enum class IRExprEnum {
     BinOp,
     Add,
     Mul,
+    Broadcast,
     VectorReduce,
-    Broadcast
+    Ramp,
 };
 
 using IRExprNode = IRNode<Expr, IRExprEnum>;
@@ -80,6 +81,12 @@ struct Expr : public IRHandle<IRExprNode> {
     Type type() const {
         return get()->type;
     }
+
+    explicit Expr(int8_t x);
+    explicit Expr(int16_t x);
+    Expr(int32_t x);
+    explicit Expr(int64_t x);
+    // TODO: floats, uints, etc.
 };
 
 template<typename T>
@@ -160,6 +167,18 @@ struct VectorReduce : ExprNode<VectorReduce> {
 
     static const IRExprEnum _node_type = IRExprEnum::VectorReduce;
 };
+
+struct Ramp : ExprNode<Ramp> {
+    Expr base, stride;
+    int lanes;
+
+    static Expr make(Expr base, Expr stride, int lanes);
+
+    static const IRExprEnum _node_type = IRExprEnum::Ramp;
+};
+
+// TODO: need Load with more info than Halide, can load from arbitrary pointer...
+
 
 // TODO: Call, Set Intrinsics, Lambdas, ??? Select, Load, Access, Ramp, (?)Let, Not, Negate
 // TODO: intrinsics

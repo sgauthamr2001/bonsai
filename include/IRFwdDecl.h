@@ -19,6 +19,7 @@ struct Var;
 struct BinOp;
 struct Broadcast;
 struct VectorReduce;
+struct Ramp;
 
 // Stmts
 struct Stmt;

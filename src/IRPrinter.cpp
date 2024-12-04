@@ -227,6 +227,16 @@ void IRPrinter::visit(const VectorReduce *node) {
     os << ")";
 }
 
+void IRPrinter::visit(const Ramp *node) {
+    // TODO: print type?
+    os << "ramp(";
+    print_no_parens(node->base);
+    os << ", ";
+    print_no_parens(node->stride);
+    os << ", " << node->lanes << ")";
+}
+
+
 void IRPrinter::visit(const Return *node) {
     os << get_indent();
     os << "return ";

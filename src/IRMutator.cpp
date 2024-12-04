@@ -123,6 +123,16 @@ Expr IRMutator::visit(const VectorReduce *node) {
     }
 }
 
+Expr IRMutator::visit(const Ramp *node) {
+    Expr base = mutate(node->base);
+    Expr stride = mutate(node->stride);
+    if (base.same_as(node->base) &&
+        stride.same_as(node->stride)) {
+        return node;
+    }
+    return Ramp::make(std::move(base), std::move(stride), node->lanes);
+}
+
 
 Stmt IRMutator::visit(const Return *node) {
     Expr value = mutate(node->value);

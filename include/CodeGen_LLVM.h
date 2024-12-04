@@ -31,6 +31,7 @@ protected:
     llvm::Type *codegen_type(const Type &type);
 
     llvm::Value *codegen_buffer_pointer(const std::string &buffer, const Type &type, const Expr &idx);
+    llvm::Value *codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx);
     void add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const Expr &index);
 
     /** Get a unique name for the actual block of memory that an
@@ -54,6 +55,7 @@ protected:
     virtual void visit(const BinOp *) override;
     virtual void visit(const Broadcast *) override;
     virtual void visit(const VectorReduce *) override;
+    virtual void visit(const Ramp *) override;
     // Stmts
     virtual void visit(const Return *) override;
     virtual void visit(const Store *) override;

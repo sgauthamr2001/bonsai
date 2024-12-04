@@ -7,12 +7,25 @@ namespace bonsai {
 const int64_t *as_const_int(const Expr &e) {
     if (!e.defined()) {
         return nullptr;
-    // } else if (const Broadcast *b = e.as<Broadcast>()) {
-    //     return as_const_int(b->value);
+    } else if (const Broadcast *b = e.as<Broadcast>()) {
+        return as_const_int(b->value);
     } else if (const IntImm *i = e.as<IntImm>()) {
         return &(i->value);
     } else {
         return nullptr;
+    }
+}
+
+bool is_const_one(const Expr &e) {
+    if (!e.defined()) {
+        return false; // throw std::runtime_error?
+    } else if (const Broadcast *b = e.as<Broadcast>()) {
+        return is_const_one(b->value);
+    } else if (const IntImm *i = e.as<IntImm>()) {
+        return i->value == 1;
+    // TODO: unsigned integers
+    } else {
+        return false;
     }
 }
 
@@ -40,6 +53,14 @@ Expr make_one(const Type &t) {
     } else {
         throw std::runtime_error("TODO: handle " + to_string(t) + " in make_one");
     }
+}
+
+bool is_power_of_two(int32_t x) {
+    return (x & (x - 1)) == 0;
+}
+
+int32_t next_power_of_two(int32_t x) {
+    return static_cast<int32_t>(1) << static_cast<int32_t>(std::ceil(std::log2(x)));
 }
 
 } // namespace bonsai

@@ -9,6 +9,21 @@
 
 namespace bonsai {
 
+Expr::Expr(int8_t x)
+    : IRHandle(IntImm::make(Int_t::make(8), x)) {
+}
+
+Expr::Expr(int16_t x)
+    : IRHandle(IntImm::make(Int_t::make(16), x)) {
+}
+
+Expr::Expr(int32_t x)
+    : IRHandle(IntImm::make(Int_t::make(32), x)) {
+}
+
+Expr::Expr(int64_t x)
+    : IRHandle(IntImm::make(Int_t::make(64), x)) {
+}
 
 const Expr IntImm::make(Type t, int64_t value) {
     // TODO: assert safety.
@@ -28,7 +43,6 @@ const Expr IntImm::make(Type t, int64_t value) {
     IntImm *node = new IntImm;
     node->type = t;
     node->value = value;
-    std::cout << "Making IntImm: " << value << "\n";
     return node;
 }
 
@@ -86,6 +100,7 @@ bool BinOp::is_boolean_op(const BinOp::OpType &op) {
 }
 
 Expr BinOp::make(BinOp::OpType op, Expr a, Expr b) {
+    // TODO: operator overloading and broadcasting!
     if (!a.defined() || !b.defined()) {
         throw std::runtime_error("BinOp of undefined: " + to_string(a) + " op " + to_string(b));
     }
@@ -135,6 +150,29 @@ Expr VectorReduce::make(VectorReduce::OpType op, Expr value) {
     node->type = value.type().element_of();
     node->op = op;
     node->value = std::move(value);
+    return node;
+}
+
+Expr Ramp::make(Expr base, Expr stride, int lanes) {
+    // TODO: would be far easier with internal_assert
+    if (!base.defined()) {
+        throw std::runtime_error("Ramp of undefined (base)");
+    }
+    if (!stride.defined()) {
+        throw std::runtime_error("Ramp of undefined (stride)");
+    }
+    if (lanes <= 1) {
+        throw std::runtime_error("Ramp of lanes 1 >= " + std::to_string(lanes));
+    }
+    if (!equals(stride.type(), base.type())) {
+        throw std::runtime_error("Ramp of mismatched types: " + to_string(stride) + " vs " + to_string(base));
+    }
+
+    Ramp *node = new Ramp;
+    node->type = Vector_t::make(base.type(), lanes);
+    node->base = std::move(base);
+    node->stride = std::move(stride);
+    node->lanes = lanes;
     return node;
 }
 

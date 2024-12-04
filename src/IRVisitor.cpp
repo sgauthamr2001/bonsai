@@ -69,6 +69,11 @@ void IRVisitor::visit(const VectorReduce *node) {
     node->value.accept(this);
 }
 
+void IRVisitor::visit(const Ramp *node) {
+    node->base.accept(this);
+    node->stride.accept(this);
+}
+
 void IRVisitor::visit(const Return *node) {
     node->value.accept(this);
 }
