@@ -390,8 +390,6 @@ void CodeGen_LLVM::visit(const Vector_t *node) {
 }
 
 void CodeGen_LLVM::visit(const Struct_t *node) {
-    // TODO: throw error once OrderedStruct_t is implemented.
-    // throw std::runtime_error("Cannot lower Struct_t to LLVM: " + to_string(node));
     // TODO: could just use module->getTypeByName
     type = struct_types[node->name];
 }
@@ -804,7 +802,6 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
     inst->setMetadata("tbaa", tbaa);
 }
 
-// TODO: these should be OrderedStruct_ts once proper lowering is done.
 void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> structs) {
     if (!struct_types.empty()) {
         throw std::runtime_error("declare_struct_types called with non-empty struct_types!");
@@ -818,7 +815,6 @@ void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> stru
     }
     // Now build bodies, possibly referencing other struct types.
     for (const auto& _struct : structs) {
-        // TODO: This is where we need OrderedStruct_t - we assume std::map ordering here.
         std::vector<llvm::Type *> types(_struct->fields.size());
         size_t i = 0;
         for (const auto& [key, value] : _struct->fields) {

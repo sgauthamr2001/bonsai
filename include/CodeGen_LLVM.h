@@ -34,7 +34,6 @@ protected:
     llvm::Value *codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx);
     void add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const Expr &index);
 
-    // TODO: these should be OrderedStruct_ts once proper lowering is done.
     void declare_struct_types(const std::vector<const Struct_t *> structs);
 
     /** Get a unique name for the actual block of memory that an

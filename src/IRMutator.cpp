@@ -64,9 +64,9 @@ Type IRMutator::visit(const Vector_t *node) {
 }
 
 Type IRMutator::visit(const Struct_t *node) {
-    std::map<std::string, Type> fields = node->fields; // copy
+    Struct_t::Map fields = node->fields; // copy
     bool changed = false;
-    // TODO: lift into a visit_map
+    // TODO: lift into helper func?
     for (auto& [key, value] : fields) {
         Type t = mutate(value);
         if (!t.same_as(value)) {

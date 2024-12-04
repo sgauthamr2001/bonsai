@@ -35,14 +35,12 @@ bool equals(const Type &t0, const Type &t1) {
             if (s0->fields.size() != s1->fields.size()) {
                 return false;
             }
-            for (const auto& [key, v0] : s0->fields) {
-                const auto it1 = s1->fields.find(key);
-                if (it1 == s1->fields.end()) {
+            const size_t n = s0->fields.size();
+            for (size_t i = 0; i < n; i++) {
+                if (s0->fields[i].first != s1->fields[i].first) {
                     return false;
                 }
-
-                const Type &v1 = it1->second;
-                if (!equals(v0, v1)) {
+                if (!equals(s0->fields[i].second, s1->fields[i].second)) {
                     return false;
                 }
             }

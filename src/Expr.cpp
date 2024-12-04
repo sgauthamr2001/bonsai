@@ -188,11 +188,7 @@ Expr Build::make(Type type, std::vector<Expr> values) {
             throw std::runtime_error("Build with undefined field");
         }
     }
-    // TODO: should this only allow OrderedStruct_t? Otherwise
-    // user needs to know std::map ordering...
-    if (!(type.is<Vector_t>() || type.is<Struct_t>())) {
-        throw std::runtime_error("Build with non-(vector, struct) type: " + to_string(type));
-    }
+
     if (type.is<Vector_t>()) {
         if (type.as<Vector_t>()->lanes != values.size()) {
             throw std::runtime_error("Build<Vector_t> with incorrect number of arguments, expected: " + to_string(type) + " but recieved " + std::to_string(values.size()) + " elements.");
@@ -203,20 +199,19 @@ Expr Build::make(Type type, std::vector<Expr> values) {
                 throw std::runtime_error("Build<Vector_t> requires uniform element type, expected: " + to_string(etype) + " but recieved " + to_string(expr.type()));
             }
         }
-    } else {
+    } else if (type.is<Struct_t>()) {
         // Struct_t
         if (type.as<Struct_t>()->fields.size() != values.size()) {
             throw std::runtime_error("Build<Struct_t> with incorrect number of arguments, expected: " + to_string(type) + " but recieved " + std::to_string(values.size()) + " elements.");
         }
-        // TODO: this is wonky with Struct_t being unordered.
-        size_t i = 0;
-        for (const auto& [key, value] : type.as<Struct_t>()->fields) {
-            const Type& etype = values[i].type();
-            if (!equals(value, etype)) {
-                throw std::runtime_error("Build<Vector_t> requires matching field types, expected: " + to_string(value) + " but recieved " + to_string(etype) + " from value " + to_string(values[i]));
+        const auto &fields = type.as<Struct_t>()->fields;
+        for (size_t i = 0; i < values.size(); i++) {
+            if (!equals(fields[i].second, values[i].type())) {
+                throw std::runtime_error("Build<Vector_t> requires matching field types, expected: " + to_string(fields[i].second) + " but recieved " + to_string(values[i].type()) + " from value " + to_string(values[i]));
             }
-            i++;
         }
+    } else {
+        throw std::runtime_error("Build with non-(vector, struct) type: " + to_string(type));
     }
 
     Build *node = new Build;
@@ -234,16 +229,23 @@ Expr Access::make(std::string field, Expr value) {
     }
 
     if (const Struct_t *as_struct = value.type().as<Struct_t>()) {
-        if (as_struct->fields.count(field) == 0) {
+        Type etype;
+        for (const auto& [key, value] : as_struct->fields) {
+            if (key == field) {
+                etype = value;
+                break;
+            }
+        }
+        if (!etype.defined()) {
             throw std::runtime_error("Access with field name not in struct: " + field + " of " + to_string(value.type()));
         }
         Access *node = new Access;
-        node->type = as_struct->fields.at(field);
+        node->type = std::move(etype);
         node->field = std::move(field);
         node->value = std::move(value);
         return node;
     } else {
-        // TODO: also support OrderedStruct_T
+        // TODO: also support UnorderedStruct_t
         throw std::runtime_error("Access of non-struct: " + to_string(value));
     }
 }

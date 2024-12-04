@@ -111,7 +111,7 @@ Type Vector_t::make(Type etype, uint32_t lanes) {
     return node;
 }
 
-Type Struct_t::make(std::string name, std::map<std::string, Type> fields) {
+Type Struct_t::make(std::string name, Struct_t::Map fields) {
     // TODO: assert safety?
     Struct_t *node = new Struct_t;
     node->name = std::move(name);

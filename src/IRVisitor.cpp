@@ -10,18 +10,17 @@ namespace {
 
 template<typename T>
 void visit_list(IRVisitor *v, const std::vector<T> nodes) {
-    for (const auto & node : nodes) {
+    for (const auto& node : nodes) {
         node.accept(v);
     }
 }
 
-template<typename T>
-void visit_map(IRVisitor *v, const std::map<std::string, T> fields) {
-    for (const auto& [key, value] : fields) {
-        value.accept(v);
-    }
-}
-
+// template<typename T>
+// void visit_map(IRVisitor *v, const std::map<std::string, T> fields) {
+//     for (const auto& [key, value] : fields) {
+//         value.accept(v);
+//     }
+// }
 
 }
 
@@ -43,7 +42,9 @@ void IRVisitor::visit(const Vector_t *node) {
 }
 
 void IRVisitor::visit(const Struct_t *node) {
-    visit_map(this, node->fields);
+    for (const auto& [_, value] : node->fields) {
+        value.accept(this);
+    }
 }
 
 

@@ -136,14 +136,13 @@ struct Vector_t : TypeNode<Vector_t> {
 };
 
 struct Struct_t : TypeNode<Struct_t> {
-    // intentionally unordered!
-    // TODO: let users control order?
-    // this helps with packing, but should be a low-level concern, I think.
-    // let this be user-facing.
+    // intentionally ordered.
+    // TODO: re-implement an unordered version (for the front-end): UnorderedStruct_t
+    typedef std::vector<std::pair<std::string, Type>> Map;
     std::string name;
-    std::map<std::string, Type> fields;
+    Map fields;
 
-    static Type make(std::string name, std::map<std::string, Type> fields);
+    static Type make(std::string name, Map fields);
 
     static const IRTypeEnum _node_type = IRTypeEnum::Struct_t;
 };
