@@ -589,7 +589,16 @@ void CodeGen_LLVM::visit(const Build *node) {
 }
 
 void CodeGen_LLVM::visit(const Access *node) {
-    throw std::runtime_error("TODO: implement Access lowering " + to_string(node));
+    if (!node->value.type().is<Struct_t>()) {
+        throw std::runtime_error("Lowering of an Access encountered non-Struct_t value: " + to_string(node));
+    }
+    llvm::Value *_struct = codegen_expr(node->value);
+    if (!_struct->getType()->isStructTy()) {
+        throw std::runtime_error("Lowering of an Access's value did not result in a struct type: " + to_string(node));
+    }
+
+    const size_t idx = find_struct_index(node->field, node->value.type().as<Struct_t>()->fields);
+    value = builder->CreateExtractValue(_struct, idx);
 }
 
 void CodeGen_LLVM::visit(const Return *node) {

@@ -13,4 +13,6 @@ Expr make_one(const Type &t);
 bool is_power_of_two(int32_t x);
 int32_t next_power_of_two(int32_t x);
 
+size_t find_struct_index(const std::string &field, const Struct_t::Map &fields);
+
 }  // namespace bonsai

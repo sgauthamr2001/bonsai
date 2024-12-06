@@ -63,4 +63,13 @@ int32_t next_power_of_two(int32_t x) {
     return static_cast<int32_t>(1) << static_cast<int32_t>(std::ceil(std::log2(x)));
 }
 
+size_t find_struct_index(const std::string &field, const Struct_t::Map &fields) {
+    for (size_t i = 0; i < fields.size(); i++) {
+        if (field == fields[i].first) {
+            return i;
+        }
+    }
+    throw std::runtime_error("find_struct_index did not find field " + field);
+}
+
 } // namespace bonsai
