@@ -2,9 +2,8 @@
 
 #include "CodeGen_LLVM.h"
 
-#include "Expr.h"
-#include "Stmt.h"
-#include "Type.h"
+#include "IR/Expr.h"
+#include "IR/Stmt.h"
+#include "IR/Type.h"
 
-#include "ExampleTypeMutate.h"
-#include "IRPrinter.h"
+#include "IR/IRPrinter.h"

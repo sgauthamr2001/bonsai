@@ -1,13 +1,14 @@
-#include "Expr.h"
+#include "IR/Expr.h"
 
 #include <iostream>
 #include <stdexcept>
 #include <utility>
 
-#include "IREquality.h"
-#include "IRPrinter.h"
+#include "IR/IREquality.h"
+#include "IR/IRPrinter.h"
 
 namespace bonsai {
+namespace ir {
 
 Expr::Expr(int8_t x)
     : IRHandle(IntImm::make(Int_t::make(8), x)) {
@@ -250,4 +251,5 @@ Expr Access::make(std::string field, Expr value) {
     }
 }
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

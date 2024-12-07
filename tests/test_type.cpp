@@ -1,5 +1,6 @@
 #include "Bonsai.h"
 
+using namespace bonsai::ir;
 using namespace bonsai;
 
 void test_example() {
@@ -8,9 +9,7 @@ void test_example() {
     Type f32x2x2 = Vector_t::make(f32x2, 2);
     std::cout << f32x2x2 << std::endl;
     Type p_f32x2x2 = Ptr_t::make(f32x2x2);
-
-    Type mut = merge_float2x2_to_float4(p_f32x2x2);
-    std::cout << mut << std::endl;
+    std::cout << p_f32x2x2 << std::endl;
 }
 
 int main(void) {

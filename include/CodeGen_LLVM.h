@@ -8,33 +8,33 @@
 
 #include <memory>
 
-#include "IRVisitor.h"
+#include "IR/IRVisitor.h"
 #include "LLVMIncl.h"
 #include "Scope.h"
 
 
 namespace bonsai {
 
-struct CodeGen_LLVM : public IRVisitor {
+struct CodeGen_LLVM : public ir::IRVisitor {
     CodeGen_LLVM();
 
     // TODO: all entry points must set function!
 
     // TODO: remove, just for simple testing.
-    void print_expr_function(const Expr &expr);
-    void print_stmt_function(const Stmt &stmt);
+    void print_expr_function(const ir::Expr &expr);
+    void print_stmt_function(const ir::Stmt &stmt);
 protected:
     virtual void optimize_module();
 
-    llvm::Value *codegen_expr(const Expr &expr);
-    void codegen_stmt(const Stmt &stmt);
-    llvm::Type *codegen_type(const Type &type);
+    llvm::Value *codegen_expr(const ir::Expr &expr);
+    void codegen_stmt(const ir::Stmt &stmt);
+    llvm::Type *codegen_type(const ir::Type &type);
 
-    llvm::Value *codegen_buffer_pointer(const std::string &buffer, const Type &type, const Expr &idx);
-    llvm::Value *codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx);
-    void add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const Expr &index);
+    llvm::Value *codegen_buffer_pointer(const std::string &buffer, const ir::Type &type, const ir::Expr &idx);
+    llvm::Value *codegen_buffer_pointer(const std::string &buffer, const ir::Type &type, llvm::Value *idx);
+    void add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const ir::Expr &index);
 
-    void declare_struct_types(const std::vector<const Struct_t *> structs);
+    void declare_struct_types(const std::vector<const ir::Struct_t *> structs);
 
     /** Get a unique name for the actual block of memory that an
      * allocate node uses. Used so that alias analysis understands
@@ -44,27 +44,27 @@ protected:
     }
 
     // Types
-    virtual void visit(const Int_t *) override;
-    virtual void visit(const Float_t *) override;
-    virtual void visit(const Bool_t *) override;
-    virtual void visit(const Ptr_t *) override;
-    virtual void visit(const Vector_t *) override;
-    virtual void visit(const Struct_t *) override;
+    virtual void visit(const ir::Int_t *) override;
+    virtual void visit(const ir::Float_t *) override;
+    virtual void visit(const ir::Bool_t *) override;
+    virtual void visit(const ir::Ptr_t *) override;
+    virtual void visit(const ir::Vector_t *) override;
+    virtual void visit(const ir::Struct_t *) override;
     // Expressions
-    virtual void visit(const IntImm *) override;
-    virtual void visit(const FloatImm *) override;
-    virtual void visit(const Var *) override;
-    virtual void visit(const BinOp *) override;
-    virtual void visit(const Broadcast *) override;
-    virtual void visit(const VectorReduce *) override;
-    virtual void visit(const Ramp *) override;
-    virtual void visit(const Build *) override;
-    virtual void visit(const Access *) override;
+    virtual void visit(const ir::IntImm *) override;
+    virtual void visit(const ir::FloatImm *) override;
+    virtual void visit(const ir::Var *) override;
+    virtual void visit(const ir::BinOp *) override;
+    virtual void visit(const ir::Broadcast *) override;
+    virtual void visit(const ir::VectorReduce *) override;
+    virtual void visit(const ir::Ramp *) override;
+    virtual void visit(const ir::Build *) override;
+    virtual void visit(const ir::Access *) override;
     // Stmts
-    virtual void visit(const Return *) override;
-    virtual void visit(const Store *) override;
-    virtual void visit(const LetStmt *) override;
-    virtual void visit(const IfElse *) override;
+    virtual void visit(const ir::Return *) override;
+    virtual void visit(const ir::Store *) override;
+    virtual void visit(const ir::LetStmt *) override;
+    virtual void visit(const ir::IfElse *) override;
     // default behavior is good enough
     // virtual void visit(const Sequence *) override;
 

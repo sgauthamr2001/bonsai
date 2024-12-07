@@ -3,6 +3,7 @@
 #include "IRFwdDecl.h"
 
 namespace bonsai {
+namespace ir {
 
 struct IRVisitor {
     // Types
@@ -30,4 +31,5 @@ struct IRVisitor {
     virtual void visit(const Sequence *);
 };
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

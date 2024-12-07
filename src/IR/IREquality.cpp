@@ -1,6 +1,7 @@
-#include "IREquality.h"
+#include "IR/IREquality.h"
 
 namespace bonsai {
+namespace ir {
 
 bool equals(const Type &t0, const Type &t1) {
     if (t0.node_type() != t1.node_type()) {
@@ -49,4 +50,5 @@ bool equals(const Type &t0, const Type &t1) {
     }
 }
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

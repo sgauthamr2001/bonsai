@@ -1,8 +1,10 @@
 #include "Utils.h"
 
-#include "IRPrinter.h"
+#include "IR/IRPrinter.h"
 
 namespace bonsai {
+
+using namespace ir;
 
 const int64_t *as_const_int(const Expr &e) {
     if (!e.defined()) {

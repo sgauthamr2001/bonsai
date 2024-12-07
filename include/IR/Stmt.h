@@ -11,6 +11,7 @@
 #include "Expr.h"
 
 namespace bonsai {
+namespace ir {
 
 struct Stmt;
 
@@ -23,16 +24,6 @@ enum class IRStmtEnum {
 };
 
 using IRStmtNode = IRNode<Stmt, IRStmtEnum>;
-
-template<>
-inline RefCount &ref_count<IRStmtNode>(const IRStmtNode *t) noexcept {
-    return t->ref_count;
-}
-
-template<>
-inline void destroy<IRStmtNode>(const IRStmtNode *t) {
-    delete t;
-}
 
 /* This is necessary to get mutate() to work properly... */
 struct BaseStmtNode : public IRStmtNode {
@@ -124,4 +115,16 @@ struct Sequence : StmtNode<Sequence> {
     static const IRStmtEnum _node_type = IRStmtEnum::Sequence;
 };
 
-} // namespace bonsai
+}  // namespace ir
+
+template<>
+inline RefCount &ref_count<ir::IRStmtNode>(const ir::IRStmtNode *t) noexcept {
+    return t->ref_count;
+}
+
+template<>
+inline void destroy<ir::IRStmtNode>(const ir::IRStmtNode *t) {
+    delete t;
+}
+
+}  // namespace bonsai

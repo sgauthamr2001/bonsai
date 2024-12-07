@@ -3,6 +3,7 @@
 #include "IntrusivePtr.h"
 
 namespace bonsai {
+namespace ir {
 
 template<typename IR, typename _TypeEnum>
 struct IRNode {
@@ -36,4 +37,5 @@ struct IRNode {
 
 // All instances of IRNode need to implement ref_count and destroy!
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

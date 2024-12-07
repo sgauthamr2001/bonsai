@@ -5,7 +5,9 @@
 #include "Type.h"
 
 namespace bonsai {
+namespace ir {
 
 bool equals(const Type &t0, const Type &t1);
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

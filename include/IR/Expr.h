@@ -11,6 +11,7 @@
 #include "Type.h"
 
 namespace bonsai {
+namespace ir {
 
 struct Expr;
 
@@ -21,6 +22,7 @@ enum class IRExprEnum {
     BinOp,
     Add,
     Mul,
+    Intrinsic,
     Broadcast,
     VectorReduce,
     Ramp,
@@ -29,16 +31,6 @@ enum class IRExprEnum {
 };
 
 using IRExprNode = IRNode<Expr, IRExprEnum>;
-
-template<>
-inline RefCount &ref_count<IRExprNode>(const IRExprNode *t) noexcept {
-    return t->ref_count;
-}
-
-template<>
-inline void destroy<IRExprNode>(const IRExprNode *t) {
-    delete t;
-}
 
 /** This is necessary to get mutate() to work properly...
  *  They all contain their types (e.g. Int(32), Float(32))
@@ -205,4 +197,16 @@ struct Access : ExprNode<Access> {
 // TODO: Call, Set Intrinsics, Lambdas, ??? Select, Load, (?)Let, Not, Negate
 // TODO: intrinsics
 
-} // namespace bonsai
+}  // namespace ir
+
+template<>
+inline RefCount &ref_count<ir::IRExprNode>(const ir::IRExprNode *t) noexcept {
+    return t->ref_count;
+}
+
+template<>
+inline void destroy<ir::IRExprNode>(const ir::IRExprNode *t) {
+    delete t;
+}
+
+}  // namespace bonsai

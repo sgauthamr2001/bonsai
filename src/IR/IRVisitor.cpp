@@ -1,10 +1,11 @@
-#include "IRVisitor.h"
+#include "IR/IRVisitor.h"
 
-#include "Expr.h"
-#include "Stmt.h"
-#include "Type.h"
+#include "IR/Expr.h"
+#include "IR/Stmt.h"
+#include "IR/Type.h"
 
 namespace bonsai {
+namespace ir {
 
 namespace {
 
@@ -112,4 +113,5 @@ void IRVisitor::visit(const Sequence *node) {
     visit_list(this, node->stmts);
 }
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

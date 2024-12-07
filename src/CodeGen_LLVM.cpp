@@ -32,17 +32,19 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/TargetSelect.h>
 
-#include "Analysis.h"
-#include "Expr.h"
-#include "IRPrinter.h"
-#include "Stmt.h"
-#include "Type.h"
+#include "IR/Analysis.h"
+#include "IR/Expr.h"
+#include "IR/IRPrinter.h"
+#include "IR/Stmt.h"
+#include "IR/Type.h"
 #include "Utils.h"
 
 #include <sstream>
 
 
 namespace bonsai {
+
+using namespace ir;
 
 CodeGen_LLVM::CodeGen_LLVM() {
     // open new context and module

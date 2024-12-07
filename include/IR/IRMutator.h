@@ -3,6 +3,7 @@
 #include "IRFwdDecl.h"
 
 namespace bonsai {
+namespace ir {
 
 struct IRMutator {
     virtual Type mutate(const Type &type);
@@ -36,4 +37,5 @@ struct IRMutator {
     virtual Stmt visit(const Sequence *);
 };
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

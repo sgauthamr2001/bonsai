@@ -4,6 +4,7 @@
 #include <cstring>
 
 namespace bonsai {
+namespace ir {
 
 struct float16_t {
 
@@ -29,4 +30,5 @@ DstType reinterpret_bits(const SrcType &src) {
     return dst;
 }
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

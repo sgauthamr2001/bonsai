@@ -1,10 +1,11 @@
-#include "IRMutator.h"
+#include "IR/IRMutator.h"
 
-#include "Expr.h"
-#include "Stmt.h"
-#include "Type.h"
+#include "IR/Expr.h"
+#include "IR/Stmt.h"
+#include "IR/Type.h"
 
 namespace bonsai {
+namespace ir {
 
 namespace {
 
@@ -205,5 +206,5 @@ Stmt IRMutator::visit(const Sequence *node) {
     }
 }
 
-
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

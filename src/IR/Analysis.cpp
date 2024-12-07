@@ -1,12 +1,13 @@
-#include "Analysis.h"
+#include "IR/Analysis.h"
 
-#include "IREquality.h"
-#include "IRPrinter.h"
-#include "IRVisitor.h"
+#include "IR/IREquality.h"
+#include "IR/IRPrinter.h"
+#include "IR/IRVisitor.h"
 
 #include <set>
 
 namespace bonsai {
+namespace ir {
 
 namespace {
 
@@ -190,4 +191,5 @@ std::vector<const Struct_t *> gather_struct_types(const Stmt &stmt) {
     return std::move(gather.struct_types);
 }
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

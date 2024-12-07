@@ -1,11 +1,12 @@
-#include "Type.h"
+#include "IR/Type.h"
 
 #include <utility>
 #include <stdexcept>
 
-#include "IRPrinter.h"
+#include "IR/IRPrinter.h"
 
 namespace bonsai {
+namespace ir {
 
 uint32_t Type::bits() const {
     if (auto as_int = this->as<Int_t>()) {
@@ -119,4 +120,5 @@ Type Struct_t::make(std::string name, Struct_t::Map fields) {
     return node;
 }
 
-} // namespace bonsai
+}  // namespace ir
+}  // namespace bonsai

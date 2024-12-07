@@ -10,6 +10,7 @@
 #include <string>
 
 namespace bonsai {
+namespace ir {
 
 struct Type;
 
@@ -23,16 +24,6 @@ enum class IRTypeEnum {
 };
 
 using IRTypeNode = IRNode<Type, IRTypeEnum>;
-
-template<>
-inline RefCount &ref_count<IRTypeNode>(const IRTypeNode *t) noexcept {
-    return t->ref_count;
-}
-
-template<>
-inline void destroy<IRTypeNode>(const IRTypeNode *t) {
-    delete t;
-}
 
 /* This is necessary to get mutate() to work properly... */
 struct BaseTypeNode : public IRTypeNode {
@@ -147,7 +138,19 @@ struct Struct_t : TypeNode<Struct_t> {
     static const IRTypeEnum _node_type = IRTypeEnum::Struct_t;
 };
 
-// TODO: Optional, Struct/Aggregate, List_t
+// TODO: Optional, List_t, Tensor_t
 
 
-} // namespace bonsai
+}  // namespace ir
+
+template<>
+inline RefCount &ref_count<ir::IRTypeNode>(const ir::IRTypeNode *t) noexcept {
+    return t->ref_count;
+}
+
+template<>
+inline void destroy<ir::IRTypeNode>(const ir::IRTypeNode *t) {
+    delete t;
+}
+
+}  // namespace bonsai

@@ -1,8 +1,9 @@
-#include "Float16.h"
+#include "IR/Float16.h"
 
 #include <cmath>
 
 namespace bonsai {
+namespace ir {
 
 // Conversion routines to and from float cribbed from Christian Rau's
 // half library (half.sourceforge.net)
@@ -334,5 +335,5 @@ double cast_to_float16(const double value) {
     return float16_to_float(f16);
 }
 
-} // namespace bonsai
-
+}  // namespace ir
+}  // namespace bonsai

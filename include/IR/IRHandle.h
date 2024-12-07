@@ -8,6 +8,7 @@
 #include <cassert>
 
 namespace bonsai {
+namespace ir {
 
 /** IR nodes are passed around opaque handles to them. This is a
    base class for those handles. It manages the reference count,
@@ -54,4 +55,5 @@ struct IRHandle : public IntrusivePtr<const IRNode> {
     }
 };
 
+}  // namespace ir
 }  // namespace bonsai

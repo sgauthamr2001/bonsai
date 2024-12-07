@@ -1,6 +1,7 @@
 #pragma once
 
 namespace bonsai {
+namespace ir {
 
 // Types
 struct Type;
@@ -31,4 +32,5 @@ struct LetStmt;
 struct IfElse;
 struct Sequence;
 
+}  // namespace ir
 }  // namespace bonsai

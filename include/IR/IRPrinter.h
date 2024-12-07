@@ -8,6 +8,7 @@
 #include "Scope.h"
 
 namespace bonsai {
+namespace ir {
 
 std::string to_string(const Expr &expr);
 std::ostream &operator<<(std::ostream& os, const Expr &expr);
@@ -90,4 +91,5 @@ protected:
     // TODO: stuff for indenting and whatever for Stmts
 };
 
+}  // namespace ir
 }  // namespace bonsai

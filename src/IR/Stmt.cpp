@@ -1,8 +1,9 @@
-#include "Stmt.h"
+#include "IR/Stmt.h"
 
-#include "IRPrinter.h"
+#include "IR/IRPrinter.h"
 
 namespace bonsai {
+namespace ir {
 
 Stmt Return::make(Expr value) {
     if (!value.defined()) {
@@ -75,4 +76,5 @@ Stmt Sequence::make(std::vector<Stmt> stmts) {
     return node;
 }
 
+}  // namespace ir
 }  // namespace bonsai

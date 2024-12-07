@@ -1,13 +1,14 @@
-#include "IRPrinter.h"
+#include "IR/IRPrinter.h"
 
 #include <vector>
 #include <sstream>
 
-#include "Expr.h"
-#include "Stmt.h"
-#include "Type.h"
+#include "IR/Expr.h"
+#include "IR/Stmt.h"
+#include "IR/Type.h"
 
 namespace bonsai {
+namespace ir {
 
 std::string to_string(const Expr &expr) {
     std::ostringstream oss;
@@ -312,4 +313,5 @@ void IRPrinter::visit(const Sequence *node) {
     }
 }
 
+}  // namespace ir
 }  // namespace bonsai

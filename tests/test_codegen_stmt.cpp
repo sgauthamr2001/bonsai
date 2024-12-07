@@ -1,5 +1,6 @@
 #include "Bonsai.h"
 
+using namespace bonsai::ir;
 using namespace bonsai;
 
 void test_example() {
