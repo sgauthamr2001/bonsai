@@ -1,4 +1,10 @@
-#include "Bonsai.h"
+#include "IR/Expr.h"
+#include "IR/Stmt.h"
+#include "IR/Type.h"
+#include "IR/IRPrinter.h"
+#include "CodeGen_LLVM.h"
+
+#include <iostream>
 
 using namespace bonsai::ir;
 using namespace bonsai;

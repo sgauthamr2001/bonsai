@@ -1,4 +1,5 @@
-#include "Bonsai.h"
+#include "IR/Type.h"
+#include "IR/IRPrinter.h"
 
 using namespace bonsai::ir;
 using namespace bonsai;
