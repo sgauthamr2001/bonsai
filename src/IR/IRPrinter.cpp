@@ -208,6 +208,9 @@ std::string to_string(const BinOp::OpType &op) {
         case BinOp::Eq: return "==";
         case BinOp::Le: return "<=";
         case BinOp::Lt: return "<";
+        case BinOp::And: return "&&";
+        case BinOp::Or: return "||";
+        case BinOp::Xor: return "^";
     }
 }
 

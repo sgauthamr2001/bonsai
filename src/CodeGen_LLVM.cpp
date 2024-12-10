@@ -461,6 +461,7 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 value = builder->CreateFCmpOEQ(a, b);
                 return;
             }
+            default: throw std::runtime_error("Unimplemented BinOp lowering: " + ir::to_string(node));
         }
     } else if (node->type.is_int()) {
         // TODO: do we ever want NSW?
@@ -496,6 +497,7 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 value = builder->CreateICmpEQ(a, b);
                 return;
             }
+            default: throw std::runtime_error("Unimplemented BinOp lowering: " + ir::to_string(node));
         }
     }
     throw std::runtime_error("Cannot codegen BinOp:\n" + to_string(node));

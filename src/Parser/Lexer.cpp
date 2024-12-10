@@ -1,11 +1,38 @@
 #include "Parser/Lexer.h"
 
+#include <iostream>
+#include <fstream>
 #include <sstream>
 
 namespace bonsai {
 namespace parser {
 
+class Lexer {
+public:
+    Lexer() {}
+    // TODO: support better error handling?
+
+    TokenStream lex(std::istream &);
+
+private:
+    enum class ScanState {INITIAL, SLTEST, MLTEST};
+
+    private:
+    static Token::Type getTokenType(const std::string);
+
+    void reportError(std::string msg, uint32_t line, uint32_t col) {
+        throw std::runtime_error("Parser error: " + msg + "\n  on line " + std::to_string(line) + " and column " + std::to_string(col));
+        // errors->push_back(ParseError(line, col, line, col, msg));
+    }
+
+    char handleEscapedChar(std::istream &programStream, uint32_t line, uint32_t col);
+
+private:
+    // std::vector<ParseError> *errors;
+};
+
 Token::Type Lexer::getTokenType(const std::string token) {
+    if (token == "import") return  Token::Type::IMPORT;
     if (token == "element") return  Token::Type::ELEMENT;
     if (token == "interface") return  Token::Type::INTERFACE;
     if (token == "extern") return  Token::Type::EXTERN;
@@ -126,6 +153,10 @@ TokenStream Lexer::lex(std::istream &programStream) {
                         reportError("SINGLE | not supported", line, col);
                         tokens.addToken(Token::Type::ERROR, line, col++);
                     }
+                    break;
+                case '^':
+                    programStream.get();
+                    tokens.addToken(Token::Type::XOR, line, col++);
                     break;
                 case '!':
                     programStream.get();
@@ -392,6 +423,17 @@ char Lexer::handleEscapedChar(std::istream &programStream, uint32_t line, uint32
     }
 }
 
+TokenStream lex(const std::string &filename) {
+    std::ifstream inputFile(filename);
+    if (!inputFile.is_open()) {
+        throw std::runtime_error("Error: Could not open file " + filename);
+    }
+
+    // Lexical analysis
+    TokenStream tokens = Lexer().lex(inputFile);
+    std::cerr << tokens << std::endl;
+    return tokens;
+}
 
 }  // namespace parser
 }  // namespace bonsai

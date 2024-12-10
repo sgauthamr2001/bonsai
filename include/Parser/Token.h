@@ -21,6 +21,7 @@ struct Token {
         IDENTIFIER,
 
         // Special words/characters
+        IMPORT, // import
         ELEMENT, // element
         INTERFACE, // interface
         EXTERN, // extern
@@ -54,6 +55,7 @@ struct Token {
         ASSIGN, // =
         AND, // &&
         OR, // ||
+        XOR, // ^
         NOT, // !
         PLUS, // +
         INC, // ++

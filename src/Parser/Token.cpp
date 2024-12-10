@@ -61,6 +61,7 @@ std::string Token::tokenTypeString(Token::Type type) {
         case Token::Type::FLOAT_LITERAL: return "float";
         case Token::Type::STRING_LITERAL: return "string";
         case Token::Type::IDENTIFIER: return "id";
+        case Token::Type::IMPORT: return "import";
         case Token::Type::ELEMENT: return "element";
         case Token::Type::INTERFACE: return "interface";
         case Token::Type::EXTERN: return "extern";
@@ -89,6 +90,7 @@ std::string Token::tokenTypeString(Token::Type type) {
         case Token::Type::ASSIGN: return "assign";
         case Token::Type::AND: return "and";
         case Token::Type::OR: return "or";
+        case Token::Type::XOR: return "xor";
         case Token::Type::NOT: return "not";
         case Token::Type::PLUS: return "plus";
         case Token::Type::INC: return "inc";

@@ -123,6 +123,9 @@ struct BinOp : ExprNode<BinOp> {
         Sub,
         // TODO: Mod, Min, Max, Ne?
         // TODO: And, Or, Not?
+        And,
+        Or,
+        Xor,
     };
 
     OpType op;
