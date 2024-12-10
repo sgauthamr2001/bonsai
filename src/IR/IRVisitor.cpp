@@ -28,6 +28,9 @@ void visit_list(IRVisitor *v, const std::vector<T> nodes) {
 void IRVisitor::visit(const Int_t *) {
 }
 
+void IRVisitor::visit(const UInt_t *) {
+}
+
 void IRVisitor::visit(const Float_t *) {
 }
 
@@ -46,6 +49,14 @@ void IRVisitor::visit(const Struct_t *node) {
     for (const auto& [_, value] : node->fields) {
         value.accept(this);
     }
+}
+
+void IRVisitor::visit(const Option_t *node) {
+    node->etype.accept(this);
+}
+
+void IRVisitor::visit(const Set_t *node) {
+    node->etype.accept(this);
 }
 
 

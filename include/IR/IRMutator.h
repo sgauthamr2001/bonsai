@@ -13,11 +13,14 @@ struct IRMutator {
 // protected:
     // Types
     virtual Type visit(const Int_t *);
+    virtual Type visit(const UInt_t *);
     virtual Type visit(const Float_t *);
     virtual Type visit(const Bool_t *);
     virtual Type visit(const Ptr_t *);
     virtual Type visit(const Vector_t *);
     virtual Type visit(const Struct_t *);
+    virtual Type visit(const Option_t *);
+    virtual Type visit(const Set_t *);
     // Exprs
     virtual Expr visit(const IntImm *);
     virtual Expr visit(const FloatImm *);

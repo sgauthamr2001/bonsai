@@ -353,6 +353,10 @@ void CodeGen_LLVM::visit(const Int_t *node) {
     type = llvm::Type::getIntNTy(*context, node->bits);
 }
 
+void CodeGen_LLVM::visit(const UInt_t *node) {
+    throw std::runtime_error("TODO: implement UInt_t code generation: " + to_string(node));
+}
+
 void CodeGen_LLVM::visit(const Bool_t *node) {
     type = llvm::Type::getInt1Ty(*context);
 }
@@ -394,6 +398,14 @@ void CodeGen_LLVM::visit(const Vector_t *node) {
 void CodeGen_LLVM::visit(const Struct_t *node) {
     // TODO: could just use module->getTypeByName
     type = struct_types[node->name];
+}
+
+void CodeGen_LLVM::visit(const Option_t *node) {
+    throw std::runtime_error("TODO: implement Option_t code generation: " + to_string(node));
+}
+
+void CodeGen_LLVM::visit(const Set_t *node) {
+    throw std::runtime_error("TODO: implement Set_t code generation: " + to_string(node));
 }
 
 void CodeGen_LLVM::visit(const IntImm *node) {

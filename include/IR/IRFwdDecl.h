@@ -6,11 +6,14 @@ namespace ir {
 // Types
 struct Type;
 struct Int_t;
+struct UInt_t;
 struct Float_t;
 struct Bool_t;
 struct Ptr_t;
 struct Vector_t;
 struct Struct_t;
+struct Option_t;
+struct Set_t;
 
 // Exprs
 struct Expr;

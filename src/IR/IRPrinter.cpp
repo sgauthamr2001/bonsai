@@ -100,6 +100,10 @@ void IRPrinter::visit(const Int_t *node) {
     os << "i" << node->bits;
 }
 
+void IRPrinter::visit(const UInt_t *node) {
+    os << "u" << node->bits;
+}
+
 void IRPrinter::visit(const Float_t *node) {
     os << "f" << node->bits;
 }
@@ -134,6 +138,18 @@ void IRPrinter::visit(const Struct_t *node) {
         print(value);
     }
     os << " }";
+}
+
+void IRPrinter::visit(const Option_t *node) {
+    os << "option<";
+    print(node->etype);
+    os << ">";
+}
+
+void IRPrinter::visit(const Set_t *node) {
+    os << "set<";
+    print(node->etype);
+    os << ">";
 }
 
 

@@ -45,11 +45,14 @@ protected:
 
     // Types
     virtual void visit(const ir::Int_t *) override;
+    virtual void visit(const ir::UInt_t *) override;
     virtual void visit(const ir::Float_t *) override;
     virtual void visit(const ir::Bool_t *) override;
     virtual void visit(const ir::Ptr_t *) override;
     virtual void visit(const ir::Vector_t *) override;
     virtual void visit(const ir::Struct_t *) override;
+    virtual void visit(const ir::Option_t *) override;
+    virtual void visit(const ir::Set_t *) override;
     // Expressions
     virtual void visit(const ir::IntImm *) override;
     virtual void visit(const ir::FloatImm *) override;

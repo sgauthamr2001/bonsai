@@ -85,6 +85,13 @@ Type Int_t::make(uint32_t bits) {
     return node;
 }
 
+Type UInt_t::make(uint32_t bits) {
+    // TODO: assert safety.
+    UInt_t *node = new UInt_t;
+    node->bits = bits;
+    return node;
+}
+
 Type Float_t::make(uint32_t bits) {
     // TODO: assert safety.
     Float_t *node = new Float_t;
@@ -117,6 +124,22 @@ Type Struct_t::make(std::string name, Struct_t::Map fields) {
     Struct_t *node = new Struct_t;
     node->name = std::move(name);
     node->fields = std::move(fields);
+    return node;
+}
+
+Type Option_t::make(Type etype) {
+    // TODO: assert safety?
+    assert(etype.defined());
+    Option_t *node = new Option_t;
+    node->etype = std::move(etype);
+    return node;
+}
+
+Type Set_t::make(Type etype) {
+    // TODO: assert safety?
+    assert(etype.defined());
+    Set_t *node = new Set_t;
+    node->etype = std::move(etype);
     return node;
 }
 

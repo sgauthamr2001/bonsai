@@ -39,11 +39,14 @@ struct IRPrinter : public IRVisitor {
 
     // Types
     void visit(const Int_t *) override;
+    void visit(const UInt_t *) override;
     void visit(const Float_t *) override;
     void visit(const Bool_t *) override;
     void visit(const Ptr_t *) override;
     void visit(const Vector_t *) override;
     void visit(const Struct_t *) override;
+    void visit(const Option_t *) override;
+    void visit(const Set_t *) override;
     // Exprs
     void visit(const IntImm *) override;
     void visit(const FloatImm *) override;

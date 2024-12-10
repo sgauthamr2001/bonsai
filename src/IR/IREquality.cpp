@@ -12,6 +12,9 @@ bool equals(const Type &t0, const Type &t1) {
         case IRTypeEnum::Int_t: {
             return t0.as<Int_t>()->bits == t1.as<Int_t>()->bits;
         }
+        case IRTypeEnum::UInt_t: {
+            return t0.as<UInt_t>()->bits == t1.as<UInt_t>()->bits;
+        }
         case IRTypeEnum::Float_t: {
             return t0.as<Float_t>()->bits == t1.as<Float_t>()->bits;
         }
@@ -46,6 +49,12 @@ bool equals(const Type &t0, const Type &t1) {
                 }
             }
             return true;
+        }
+        case IRTypeEnum::Option_t: {
+            return equals(t0.as<Option_t>()->etype, t1.as<Option_t>()->etype);
+        }
+        case IRTypeEnum::Set_t: {
+            return equals(t0.as<Set_t>()->etype, t1.as<Set_t>()->etype);
         }
     }
 }

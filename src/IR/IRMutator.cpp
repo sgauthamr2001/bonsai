@@ -38,6 +38,10 @@ Type IRMutator::visit(const Int_t *node) {
     return node;
 }
 
+Type IRMutator::visit(const UInt_t *node) {
+    return node;
+}
+
 Type IRMutator::visit(const Float_t *node) {
     return node;
 }
@@ -80,6 +84,24 @@ Type IRMutator::visit(const Struct_t *node) {
         return node;
     } else {
         return Struct_t::make(node->name, std::move(fields));
+    }
+}
+
+Type IRMutator::visit(const Option_t *node) {
+    Type etype = mutate(node->etype);
+    if (etype.same_as(node->etype)) {
+        return node;
+    } else {
+        return Option_t::make(std::move(etype));
+    }
+}
+
+Type IRMutator::visit(const Set_t *node) {
+    Type etype = mutate(node->etype);
+    if (etype.same_as(node->etype)) {
+        return node;
+    } else {
+        return Set_t::make(std::move(etype));
     }
 }
 

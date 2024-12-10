@@ -8,11 +8,14 @@ namespace ir {
 struct IRVisitor {
     // Types
     virtual void visit(const Int_t *);
+    virtual void visit(const UInt_t *);
     virtual void visit(const Float_t *);
     virtual void visit(const Bool_t *);
     virtual void visit(const Ptr_t *);
     virtual void visit(const Vector_t *);
     virtual void visit(const Struct_t *);
+    virtual void visit(const Option_t *);
+    virtual void visit(const Set_t *);
     // Exprs
     virtual void visit(const IntImm *);
     virtual void visit(const FloatImm *);

@@ -22,7 +22,7 @@ enum class IRExprEnum {
     BinOp,
     Add,
     Mul,
-    Intrinsic,
+    // Intrinsic,
     Broadcast,
     VectorReduce,
     Ramp,
@@ -135,6 +135,41 @@ struct BinOp : ExprNode<BinOp> {
     static bool is_numeric_op(const OpType &op);
     static bool is_boolean_op(const OpType &op);
 };
+
+/*
+struct Intrinsic : ExprNode<Intrinsic> {
+    // For now, just supporting (seemingly relevant) LLVM intrinsic ops:
+    // https://llvm.org/docs/LangRef.html#standard-c-c-library-intrinsics
+    enum OpType {
+        abs,
+        sqrt,
+        powi,
+        sin,
+        cos,
+        tan,
+        asin,
+        acos,
+        atan,
+        atan2,
+        sinh,
+        cosh,
+        tanh,
+        sincos,
+        pow,
+        exp,
+        exp2,
+        exp10,
+
+    };
+
+    OpType op;
+    Expr value;
+
+    static Expr make(OpType op, Expr value);
+
+    static const IRExprEnum _node_type = IRExprEnum::VectorReduce;
+};
+*/
 
 struct Broadcast : ExprNode<Broadcast> {
     uint32_t lanes;

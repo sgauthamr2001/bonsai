@@ -16,11 +16,14 @@ struct Type;
 
 enum class IRTypeEnum {
     Int_t,
+    UInt_t,
     Float_t,
     Bool_t,
     Ptr_t,
     Vector_t,
     Struct_t,
+    Option_t,
+    Set_t,
 };
 
 using IRTypeNode = IRNode<Type, IRTypeEnum>;
@@ -95,6 +98,14 @@ struct Int_t : TypeNode<Int_t> {
     static const IRTypeEnum _node_type = IRTypeEnum::Int_t;
 };
 
+struct UInt_t : TypeNode<UInt_t> {
+    uint32_t bits;
+
+    static Type make(uint32_t bits);
+
+    static const IRTypeEnum _node_type = IRTypeEnum::UInt_t;
+};
+
 struct Float_t : TypeNode<Float_t> {
     uint32_t bits;
 
@@ -138,7 +149,23 @@ struct Struct_t : TypeNode<Struct_t> {
     static const IRTypeEnum _node_type = IRTypeEnum::Struct_t;
 };
 
-// TODO: Optional, List_t, Tensor_t
+struct Option_t : TypeNode<Option_t> {
+    Type etype;
+
+    static Type make(Type etype);
+
+    static const IRTypeEnum _node_type = IRTypeEnum::Option_t;
+};
+
+struct Set_t : TypeNode<Set_t> {
+    Type etype;
+
+    static Type make(Type etype);
+
+    static const IRTypeEnum _node_type = IRTypeEnum::Set_t;
+};
+
+// TODO: List_t, Tensor_t
 
 
 }  // namespace ir

@@ -7,6 +7,8 @@
 #include "IR/IREquality.h"
 #include "IR/IRPrinter.h"
 
+#include "IR/TypeEnforcement.h"
+
 namespace bonsai {
 namespace ir {
 
@@ -105,7 +107,7 @@ Expr BinOp::make(BinOp::OpType op, Expr a, Expr b) {
     if (!a.defined() || !b.defined()) {
         throw std::runtime_error("BinOp of undefined: " + to_string(a) + " op " + to_string(b));
     }
-    if (!equals(a.type(), b.type())) {
+    if (type_enforcement_enabled() && !equals(a.type(), b.type())) {
         throw std::runtime_error("BinOp of mismatched types: " + to_string(a) + " op " + to_string(b));
     }
 
@@ -128,7 +130,7 @@ Expr Broadcast::make(uint32_t lanes, Expr value) {
     if (!value.defined()) {
         throw std::runtime_error("Broadcast of undefined: " + to_string(value));
     }
-    if (!value.type().is_scalar()) {
+    if (type_enforcement_enabled() && !value.type().is_scalar()) {
         // TODO: support.
         throw std::runtime_error("Broadcast of non-scalar: " + to_string(value));
     }
@@ -143,7 +145,7 @@ Expr VectorReduce::make(VectorReduce::OpType op, Expr value) {
     if (!value.defined()) {
         throw std::runtime_error("VectorReduce of undefined: " + to_string(value));
     }
-    if (!value.type().is_vector()) {
+    if (type_enforcement_enabled() && !value.type().is_vector()) {
         // TODO: support.
         throw std::runtime_error("VectorReduce of non-vector: " + to_string(value));
     }
@@ -165,7 +167,7 @@ Expr Ramp::make(Expr base, Expr stride, int lanes) {
     if (lanes <= 1) {
         throw std::runtime_error("Ramp of lanes 1 >= " + std::to_string(lanes));
     }
-    if (!equals(stride.type(), base.type())) {
+    if (type_enforcement_enabled() && !equals(stride.type(), base.type())) {
         throw std::runtime_error("Ramp of mismatched types: " + to_string(stride) + " vs " + to_string(base));
     }
 
@@ -190,6 +192,10 @@ Expr Build::make(Type type, std::vector<Expr> values) {
         }
     }
 
+    // TODO: how to handle type_enforcement_enabled() (when disabled)?
+    if (!type_enforcement_enabled()) {
+        throw std::runtime_error("Disable Build::make inference!");
+    }
     if (type.is<Vector_t>()) {
         if (type.as<Vector_t>()->lanes != values.size()) {
             throw std::runtime_error("Build<Vector_t> with incorrect number of arguments, expected: " + to_string(type) + " but recieved " + std::to_string(values.size()) + " elements.");
@@ -229,6 +235,10 @@ Expr Access::make(std::string field, Expr value) {
         throw std::runtime_error("Access with undefined value");
     }
 
+    // TODO: how to handle type_enforcement_enabled() (when disabled)?
+    if (!type_enforcement_enabled()) {
+        throw std::runtime_error("Disable Access::make inference!");
+    }
     if (const Struct_t *as_struct = value.type().as<Struct_t>()) {
         Type etype;
         for (const auto& [key, value] : as_struct->fields) {
