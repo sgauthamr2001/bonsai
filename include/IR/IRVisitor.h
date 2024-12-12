@@ -28,6 +28,7 @@ struct IRVisitor {
     virtual void visit(const Access *);
     virtual void visit(const Intrinsic *);
     virtual void visit(const Lambda *);
+    virtual void visit(const GeomOp *);
     virtual void visit(const SetOp *);
     virtual void visit(const Call *);
     // Stmts

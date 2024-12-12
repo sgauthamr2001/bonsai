@@ -103,6 +103,11 @@ void IRVisitor::visit(const Lambda *node) {
     node->value.accept(this);
 }
 
+void IRVisitor::visit(const GeomOp *node) {
+    node->a.accept(this);
+    node->b.accept(this);
+}
+
 void IRVisitor::visit(const SetOp *node) {
     node->a.accept(this);
     node->b.accept(this);

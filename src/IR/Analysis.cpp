@@ -215,7 +215,7 @@ bool is_constant_expr(const Expr &expr) {
         // should only be checking if the accessed field is a constant.
         return is_constant_expr(expr.as<Access>()->value);
     } else {
-        // TODO: Intrinsic, Lambda, SetOp, Call (constant folding)
+        // TODO: Intrinsic, Lambda, GeomOp, SetOp, Call (constant folding)
         throw std::runtime_error("is_constant_expr() called on: " + to_string(expr));
     }
 }

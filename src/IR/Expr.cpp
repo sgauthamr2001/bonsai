@@ -333,6 +333,21 @@ Expr Lambda::make(std::vector<Lambda::Argument> args, Expr value) {
     return node;
 }
 
+Expr GeomOp::make(OpType op, Expr a, Expr b) {
+    if (!a.defined() || !b.defined()) {
+        throw std::runtime_error("GeomOp::make received undefined value: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+    }
+    GeomOp *node = new GeomOp;
+    if (type_enforcement_enabled()) {
+        throw std::runtime_error("TODO: implement type enforcement for Geometric Op: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+    }
+
+    node->op = op;
+    node->a = std::move(a);
+    node->b = std::move(b);
+    return node;
+}
+
 Expr SetOp::make(OpType op, Expr a, Expr b) {
     if (!a.defined() || !b.defined()) {
         throw std::runtime_error("SetOp::make received undefined value: " + to_string(op) + " " + to_string(a) + " " + to_string(b));

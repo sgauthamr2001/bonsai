@@ -587,6 +587,10 @@ void CodeGen_LLVM::visit(const Lambda *node) {
     throw std::runtime_error("TODO: implement Lambda lowering " + to_string(node));
 }
 
+void CodeGen_LLVM::visit(const GeomOp *node) {
+    throw std::runtime_error("TODO: implement GeomOp lowering " + to_string(node));
+}
+
 void CodeGen_LLVM::visit(const SetOp *node) {
     throw std::runtime_error("TODO: implement SetOp lowering " + to_string(node));
 }

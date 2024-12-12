@@ -194,6 +194,17 @@ Expr IRMutator::visit(const Lambda *node) {
     }
 }
 
+Expr IRMutator::visit(const GeomOp *node) {
+    Expr a = mutate(node->a);
+    Expr b = mutate(node->b);
+    if (a.same_as(node->a) && b.same_as(node->b)) {
+        return node;
+    } else {
+        return GeomOp::make(node->op, std::move(a), std::move(b));
+    }
+}
+
+
 Expr IRMutator::visit(const SetOp *node) {
     Expr a = mutate(node->a);
     Expr b = mutate(node->b);

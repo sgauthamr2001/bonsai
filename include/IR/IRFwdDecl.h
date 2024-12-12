@@ -28,6 +28,7 @@ struct Build;
 struct Access;
 struct Intrinsic;
 struct Lambda;
+struct GeomOp;
 struct SetOp;
 struct Call;
 

@@ -32,6 +32,7 @@ enum class IRExprEnum {
     // Calls
     Intrinsic,
     Lambda,
+    GeomOp,
     SetOp,
     Call,
 };
@@ -233,6 +234,22 @@ struct Lambda : ExprNode<Lambda> {
     static Expr make(std::vector<Argument> args, Expr value);
 
     static const IRExprEnum _node_type = IRExprEnum::Lambda;
+};
+
+struct GeomOp : ExprNode<GeomOp> {
+    enum OpType {
+        distance, // minimum (TODO: maximum?)
+        intersects,
+        contains,
+        // TODO: the rest
+    };
+
+    OpType op;
+    Expr a, b;
+
+    static Expr make(OpType op, Expr a, Expr b);
+
+    static const IRExprEnum _node_type = IRExprEnum::GeomOp;
 };
 
 struct SetOp : ExprNode<SetOp> {

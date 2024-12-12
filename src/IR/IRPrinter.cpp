@@ -307,6 +307,24 @@ void IRPrinter::visit(const Lambda *node) {
     print(node->value);
 }
 
+std::string to_string(const GeomOp::OpType &op) {
+    switch (op) {
+        case GeomOp::distance: return "distance";
+        case GeomOp::intersects: return "intersects";
+        case GeomOp::contains: return "contains";
+        
+    }
+}
+
+void IRPrinter::visit(const GeomOp *node) {
+    // TODO: print type?
+    os << to_string(node->op) << "(";
+    print_no_parens(node->a);
+    os << ", ";
+    print_no_parens(node->b);
+    os << ")";
+}
+
 std::string to_string(const SetOp::OpType &op) {
     switch (op) {
         case SetOp::argmin: return "argmin";
