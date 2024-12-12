@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <iostream>
 
 #include "Function.h"
 #include "Type.h"
@@ -20,6 +21,8 @@ struct Program {
     // TODO: interfaces / inheritance?
 
     Stmt main_body;
+
+    void dump(std::ostream& os) const;
 };
 
 }  // namespace ir

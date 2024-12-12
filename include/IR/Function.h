@@ -13,7 +13,7 @@ struct Function {
     struct Argument {
         std::string name;
         Type type;
-        std::optional<Expr> default_value;
+        Expr default_value;
     };
     std::vector<Argument> args;
     Type return_t;

@@ -67,7 +67,13 @@ std::ostream &operator<<(std::ostream &stream, const Indentation &indentation) {
 
 
 void IRPrinter::print(const Type &type) {
-    type->accept(this);
+    if (type.defined()) {
+        type->accept(this);
+    } else {
+        // Due to parsing pre-type inference, sometimes
+        // have a ton of undefined types.
+        os << "unknown";
+    }
 }
 
 void IRPrinter::print(const Expr &expr) {

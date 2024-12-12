@@ -215,7 +215,7 @@ private:
                 expect(Token::Type::COL);
                 ir::Type type = parseType();
 
-                std::optional<ir::Expr> default_value = std::nullopt;
+                ir::Expr default_value;
 
                 if (consume(Token::Type::ASSIGN)) {
                     // Optional default value.
@@ -224,8 +224,8 @@ private:
                     // TODO: this should not perform computation!
                     // Can we easily prevent that? Enforce is_constant?
                     default_value = parseExpr();
-                    if (!ir::is_constant_expr(*default_value)) {
-                        throw std::runtime_error("Function default values must be constants, received: " + ir::to_string(*default_value) + " for argument " + arg_name + " of func " + name);
+                    if (!ir::is_constant_expr(default_value)) {
+                        throw std::runtime_error("Function default values must be constants, received: " + ir::to_string(default_value) + " for argument " + arg_name + " of func " + name);
                     }
                 }
 
@@ -647,6 +647,7 @@ ir::Program parse(const std::string &filename) {
     ir::global_disable_type_enforcement();
     ir::Program program = Parser(tokens).parseProgram();
 
+    // TODO: remove this!
     if (program.externs.empty() && program.funcs.empty() && !program.main_body.defined()) {
         // Temporary cop-out to get imports of only elements to work.
         return program;
@@ -654,6 +655,8 @@ ir::Program parse(const std::string &filename) {
 
     // Now do type inference and enforcement
     ir::global_enable_type_enforcement();
+
+    program.dump(std::cout);
 
     // TODO: type inference / enforcement.
     throw std::runtime_error("TODO: type inference!");
