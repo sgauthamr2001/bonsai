@@ -294,7 +294,11 @@ void IRPrinter::visit(const Lambda *node) {
     const size_t n = node->args.size();
     // TODO: might need Lambdas to store arg types as well...
     for (size_t i = 0; i < n; i++) {
-        os << node->args[i];
+        os << node->args[i].name;
+        if (node->args[i].type.defined()) {
+            os << " : ";
+            print(node->args[i].type);
+        }
         if (i < n - 1) {
             os << ", ";
         }

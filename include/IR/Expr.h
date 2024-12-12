@@ -223,10 +223,14 @@ struct Intrinsic : ExprNode<Intrinsic> {
 
 struct Lambda : ExprNode<Lambda> {
     // TODO: do we need types for the args?
-    std::vector<std::string> args;
+    struct Argument {
+        std::string name;
+        Type type; // optional
+    };
+    std::vector<Argument> args;
     Expr value;
 
-    static Expr make(std::vector<std::string> args, Expr value);
+    static Expr make(std::vector<Argument> args, Expr value);
 
     static const IRExprEnum _node_type = IRExprEnum::Lambda;
 };

@@ -310,13 +310,16 @@ Expr Intrinsic::make(OpType op, Expr value) {
     return node;
 }
 
-Expr Lambda::make(std::vector<std::string> args, Expr value) {
+Expr Lambda::make(std::vector<Lambda::Argument> args, Expr value) {
     if (!value.defined()) {
         throw std::runtime_error("Lambda::make received undefined value");
     }
     for (const auto &arg : args) {
-        if (arg.empty()) {
+        if (arg.name.empty()) {
             throw std::runtime_error("Lambda::make received empty arg name");
+        }
+        if (type_enforcement_enabled() && !arg.type.defined()) {
+            throw std::runtime_error("Lambda::make received undefined arg type: " + arg.name);
         }
     }
     // TODO:implement type enforcement for lambdas?
