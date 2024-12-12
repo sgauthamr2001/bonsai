@@ -1,0 +1,11 @@
+// trace.bonsai
+
+// TODO: should these be string literals? It would solve the symbol problem.
+import apps/pathtracer/camera;
+import apps/pathtracer/triangle;
+import apps/pathtracer/ray;
+
+extern triangles : set[Triangle];
+
+func trace(ray : Ray) = argmin(lambda tri = distance(ray, tri), filter(lambda tri = intersects(ray, tri), triangles));
+
