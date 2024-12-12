@@ -22,12 +22,18 @@ enum class IRExprEnum {
     BinOp,
     Add,
     Mul,
-    // Intrinsic,
+    // Vector ops
     Broadcast,
     VectorReduce,
     Ramp,
+    // Struct ops.
     Build,
     Access,
+    // Calls
+    Intrinsic,
+    Lambda,
+    SetOp,
+    Call,
 };
 
 using IRExprNode = IRNode<Expr, IRExprEnum>;
@@ -115,17 +121,19 @@ struct Var : ExprNode<Var> {
 struct BinOp : ExprNode<BinOp> {
     enum OpType {
         Add,
+        And,
         Div,
         Eq,
         Le,
         Lt,
+        Mod,
         Mul,
-        Sub,
-        // TODO: Mod, Min, Max, Ne?
-        // TODO: And, Or, Not?
-        And,
+        Neq,
         Or,
+        Sub,
         Xor,
+        // TODO: Min/Max?
+        // TODO: UnaryOp for Neg/Not?
     };
 
     OpType op;
@@ -138,41 +146,6 @@ struct BinOp : ExprNode<BinOp> {
     static bool is_numeric_op(const OpType &op);
     static bool is_boolean_op(const OpType &op);
 };
-
-/*
-struct Intrinsic : ExprNode<Intrinsic> {
-    // For now, just supporting (seemingly relevant) LLVM intrinsic ops:
-    // https://llvm.org/docs/LangRef.html#standard-c-c-library-intrinsics
-    enum OpType {
-        abs,
-        sqrt,
-        powi,
-        sin,
-        cos,
-        tan,
-        asin,
-        acos,
-        atan,
-        atan2,
-        sinh,
-        cosh,
-        tanh,
-        sincos,
-        pow,
-        exp,
-        exp2,
-        exp10,
-
-    };
-
-    OpType op;
-    Expr value;
-
-    static Expr make(OpType op, Expr value);
-
-    static const IRExprEnum _node_type = IRExprEnum::VectorReduce;
-};
-*/
 
 struct Broadcast : ExprNode<Broadcast> {
     uint32_t lanes;
@@ -229,11 +202,69 @@ struct Access : ExprNode<Access> {
     static const IRExprEnum _node_type = IRExprEnum::Access;
 };
 
+struct Intrinsic : ExprNode<Intrinsic> {
+    // For now, just supporting (seemingly relevant) LLVM intrinsic ops:
+    // https://llvm.org/docs/LangRef.html#standard-c-c-library-intrinsics
+    enum OpType {
+        abs,
+        sqrt,
+        sin,
+        cos,
+        // TODO: more
+    };
+
+    OpType op;
+    Expr value;
+
+    static Expr make(OpType op, Expr value);
+
+    static const IRExprEnum _node_type = IRExprEnum::Intrinsic;
+};
+
+struct Lambda : ExprNode<Lambda> {
+    // TODO: do we need types for the args?
+    std::vector<std::string> args;
+    Expr value;
+
+    static Expr make(std::vector<std::string> args, Expr value);
+
+    static const IRExprEnum _node_type = IRExprEnum::Lambda;
+};
+
+struct SetOp : ExprNode<SetOp> {
+    enum OpType {
+        argmin,
+        filter,
+        map,
+        product,
+        // TODO: reduce
+        // TODO: geometric intrinsics for lambda
+    };
+
+    OpType op;
+    // For Argmin/Map/Filter, a: Lambda, b: Set
+    // For Product, a and b are Sets
+    Expr a, b;
+
+    static Expr make(OpType op, Expr a, Expr b);
+
+    static const IRExprEnum _node_type = IRExprEnum::SetOp;
+};
+
+struct Call : ExprNode<Call> {
+    Expr func;
+    std::vector<Expr> args;
+
+    static Expr make(Expr func, std::vector<Expr> args);
+
+    static const IRExprEnum _node_type = IRExprEnum::Call;
+};
+
+
 // TODO: need Load with more info than Halide, can load from arbitrary pointer...
 
 
-// TODO: Call, Set Intrinsics, Lambdas, ??? Select, Load, (?)Let, Not, Negate
-// TODO: intrinsics
+// TODO: ??? Select, Load, (?)Let, Not, Negate
 
 }  // namespace ir
 

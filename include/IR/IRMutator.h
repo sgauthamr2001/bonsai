@@ -31,6 +31,10 @@ struct IRMutator {
     virtual Expr visit(const Ramp *);
     virtual Expr visit(const Build *);
     virtual Expr visit(const Access *);
+    virtual Expr visit(const Intrinsic *);
+    virtual Expr visit(const Lambda *);
+    virtual Expr visit(const SetOp *);
+    virtual Expr visit(const Call *);
     // Stmts
     virtual Stmt visit(const Return *);
     virtual Stmt visit(const Store *);

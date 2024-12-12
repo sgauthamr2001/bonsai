@@ -95,6 +95,23 @@ void IRVisitor::visit(const Access *node) {
     node->value.accept(this);
 }
 
+void IRVisitor::visit(const Intrinsic *node) {
+    node->value.accept(this);
+}
+
+void IRVisitor::visit(const Lambda *node) {
+    node->value.accept(this);
+}
+
+void IRVisitor::visit(const SetOp *node) {
+    node->a.accept(this);
+    node->b.accept(this);
+}
+
+void IRVisitor::visit(const Call *node) {
+    node->func.accept(this);
+    visit_list(this, node->args);
+}
 
 void IRVisitor::visit(const Return *node) {
     node->value.accept(this);

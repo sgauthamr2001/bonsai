@@ -205,6 +205,8 @@ std::string to_string(const BinOp::OpType &op) {
         case BinOp::Mul: return "*";
         case BinOp::Div: return "/";
         case BinOp::Sub: return "-";
+        case BinOp::Mod: return "%";
+        case BinOp::Neq: return "!=";
         case BinOp::Eq: return "==";
         case BinOp::Le: return "<=";
         case BinOp::Lt: return "<";
@@ -268,6 +270,63 @@ void IRPrinter::visit(const Access *node) {
     // TODO: parens?
     print(node->value);
     os << "." << node->field;
+}
+
+std::string to_string(const Intrinsic::OpType &op) {
+    switch (op) {
+        case Intrinsic::abs: return "abs";
+        case Intrinsic::sqrt: return "sqrt";
+        case Intrinsic::sin: return "sin";
+        case Intrinsic::cos: return "cos";
+    }
+}
+
+void IRPrinter::visit(const Intrinsic *node) {
+    // TODO: print type?
+    os << to_string(node->op) << "(";
+    print_no_parens(node->value);
+    os << ")";
+}
+
+// TODO: work on syntax?
+void IRPrinter::visit(const Lambda *node) {
+    os << "|";
+    const size_t n = node->args.size();
+    // TODO: might need Lambdas to store arg types as well...
+    for (size_t i = 0; i < n; i++) {
+        os << node->args[i];
+        if (i < n - 1) {
+            os << ", ";
+        }
+    }
+    os << "| ";
+    print(node->value);
+}
+
+std::string to_string(const SetOp::OpType &op) {
+    switch (op) {
+        case SetOp::argmin: return "argmin";
+        case SetOp::filter: return "filter";
+        case SetOp::map: return "map";
+        case SetOp::product: return "product";
+    }
+}
+
+void IRPrinter::visit(const SetOp *node) {
+    // TODO: print type?
+    os << to_string(node->op) << "(";
+    print_no_parens(node->a);
+    os << ", ";
+    print_no_parens(node->b);
+    os << ")";
+}
+
+void IRPrinter::visit(const Call *node) {
+    // TODO: print type?
+    print_no_parens(node->func);
+    os << "(";
+    print_expr_list(node->args);
+    os << ")";
 }
 
 

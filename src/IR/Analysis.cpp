@@ -191,5 +191,34 @@ std::vector<const Struct_t *> gather_struct_types(const Stmt &stmt) {
     return std::move(gather.struct_types);
 }
 
+bool is_constant_expr(const Expr &expr) {
+    // TODO: constant fold first?
+    if (expr.is<IntImm>() ||
+        // expr.is<UIntImm>() ||
+        expr.is<FloatImm>()) {
+        return true;
+    } else if (expr.is<Broadcast>()) {
+        return is_constant_expr(expr.as<Broadcast>()->value);
+    } else if (expr.is<VectorReduce>()) {
+        return is_constant_expr(expr.as<VectorReduce>()->value);
+    } else if (expr.is<Ramp>()) {
+        return is_constant_expr(expr.as<Ramp>()->base) && is_constant_expr(expr.as<Ramp>()->stride);
+    } else if (expr.is<Build>()) {
+        for (const auto& value : expr.as<Build>()->values) {
+            if (!is_constant_expr(value)) {
+                return false;
+            }
+        }
+        return true;
+    } else if (expr.is<Access>()) {
+        // TODO: this is unnecessarily restrictive for now,
+        // should only be checking if the accessed field is a constant.
+        return is_constant_expr(expr.as<Access>()->value);
+    } else {
+        // TODO: Intrinsic, Lambda, SetOp, Call (constant folding)
+        throw std::runtime_error("is_constant_expr() called on: " + to_string(expr));
+    }
+}
+
 }  // namespace ir
 }  // namespace bonsai

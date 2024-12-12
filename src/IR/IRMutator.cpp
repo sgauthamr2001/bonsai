@@ -176,6 +176,44 @@ Expr IRMutator::visit(const Access *node) {
     }
 }
 
+Expr IRMutator::visit(const Intrinsic *node) {
+    Expr value = mutate(node->value);
+    if (value.same_as(node->value)) {
+        return node;
+    } else {
+        return Intrinsic::make(node->op, std::move(value));
+    }
+}
+
+Expr IRMutator::visit(const Lambda *node) {
+    Expr value = mutate(node->value);
+    if (value.same_as(node->value)) {
+        return node;
+    } else {
+        return Lambda::make(node->args, std::move(value));
+    }
+}
+
+Expr IRMutator::visit(const SetOp *node) {
+    Expr a = mutate(node->a);
+    Expr b = mutate(node->b);
+    if (a.same_as(node->a) && b.same_as(node->b)) {
+        return node;
+    } else {
+        return SetOp::make(node->op, std::move(a), std::move(b));
+    }
+}
+
+Expr IRMutator::visit(const Call *node) {
+    Expr func = mutate(node->func);
+    auto [args, not_changed] = visit_list(this, node->args);
+    if (func.same_as(node->func) && not_changed) {
+        return node;
+    } else {
+        return Call::make(std::move(func), std::move(args));
+    }
+}
+
 
 Stmt IRMutator::visit(const Return *node) {
     Expr value = mutate(node->value);

@@ -59,13 +59,26 @@ bool Type::is_numeric() const {
 }
 
 Type Type::to_bool() const {
-    if (this->is<Int_t>() || this->is<Float_t>()) {
+    if (this->is<Int_t>() || this->is<Float_t>() || this->is<UInt_t>()) {
         return Bool_t::make();
     } else if (this->is<Vector_t>()) {
         const Vector_t *v = this->as<Vector_t>();
         return Vector_t::make(v->etype.to_bool(), v->lanes);
     } else {
         throw std::runtime_error("Called to_bool() on bad type: " + to_string(*this));
+    }
+}
+
+Type Type::to_uint() const {
+    if (this->is<Int_t>()) {
+        return UInt_t::make(this->as<Int_t>()->bits);
+    } else if (this->is<Float_t>()) {
+        return UInt_t::make(this->as<Float_t>()->bits);
+    } else if (this->is<Vector_t>()) {
+        const Vector_t *v = this->as<Vector_t>();
+        return Vector_t::make(v->etype.to_uint(), v->lanes);
+    } else {
+        throw std::runtime_error("Called to_uint() on bad type: " + to_string(*this));
     }
 }
 

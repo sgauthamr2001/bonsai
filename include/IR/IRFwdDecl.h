@@ -26,6 +26,10 @@ struct VectorReduce;
 struct Ramp;
 struct Build;
 struct Access;
+struct Intrinsic;
+struct Lambda;
+struct SetOp;
+struct Call;
 
 // Stmts
 struct Stmt;

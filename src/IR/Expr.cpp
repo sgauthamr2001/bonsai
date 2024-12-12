@@ -35,13 +35,18 @@ const Expr IntImm::make(Type t, int64_t value) {
     // internal_assert(t.bits() >= 1 && t.bits() <= 64)
     //     << "IntImm must have between 1 and 64 bits\n";
 
-    // Normalize the value by dropping the high bits.
-    // Since left-shift of negative value is UB in C++, cast to uint64 first;
-    // it's unlikely any compilers we care about will misbehave, but UBSan will complain.
-    value = (int64_t)(((uint64_t)value) << (64 - t.bits()));
+    if (type_enforcement_enabled()) {
+        if (!t.defined()) {
+            throw std::runtime_error("IntImm::make passed undefined type for value: " + std::to_string(value));
+        }
 
-    // Then sign-extending to get them back
-    value >>= (64 - t.bits());
+        // Normalize the value by dropping the high bits.
+        // Since left-shift of negative value is UB in C++, cast to uint64 first;
+        // it's unlikely any compilers we care about will misbehave, but UBSan will complain.
+        value = (int64_t)(((uint64_t)value) << (64 - t.bits()));
+        // Then sign-extending to get them back
+        value >>= (64 - t.bits());
+    }
 
     IntImm *node = new IntImm;
     node->type = t;
@@ -71,7 +76,12 @@ const Expr FloatImm::make(Type t, double value) {
 }
 
 Expr Var::make(Type type, const std::string &name) {
-    // internal_assert(!name.empty());
+    if (name.empty()) {
+        throw std::runtime_error("Var::make called with empty name and type: " + to_string(type));
+    }
+    if (type_enforcement_enabled() && !type.defined()) {
+        throw std::runtime_error("Var::make called with undefined type for name: " + name);
+    }
     Var *node = new Var;
     node->type = type;
     node->name = name;
@@ -86,9 +96,11 @@ bool BinOp::is_numeric_op(const BinOp::OpType &op) {
         case BinOp::Or:
         case BinOp::Xor:
         case BinOp::Add:
+        case BinOp::Mod:
         case BinOp::Mul:
         case BinOp::Div:
         case BinOp::Sub: return true;
+        case BinOp::Neq:
         case BinOp::Eq:
         case BinOp::Le:
         case BinOp::Lt: return false;
@@ -101,9 +113,11 @@ bool BinOp::is_boolean_op(const BinOp::OpType &op) {
         case BinOp::Or:
         case BinOp::Xor: // see above note
         case BinOp::Add:
+        case BinOp::Mod:
         case BinOp::Mul:
         case BinOp::Div:
         case BinOp::Sub: return false;
+        case BinOp::Neq:
         case BinOp::Eq:
         case BinOp::Le:
         case BinOp::Lt: return true;
@@ -243,10 +257,15 @@ Expr Access::make(std::string field, Expr value) {
         throw std::runtime_error("Access with undefined value");
     }
 
-    // TODO: how to handle type_enforcement_enabled() (when disabled)?
     if (!type_enforcement_enabled()) {
-        throw std::runtime_error("Disable Access::make inference!");
+        // We don't know the value.type() yet.
+        assert(!value.type().defined());
+        Access *node = new Access;
+        node->field = std::move(field);
+        node->value = std::move(value);
+        return node;
     }
+
     if (const Struct_t *as_struct = value.type().as<Struct_t>()) {
         Type etype;
         for (const auto& [key, value] : as_struct->fields) {
@@ -267,6 +286,117 @@ Expr Access::make(std::string field, Expr value) {
         // TODO: also support UnorderedStruct_t
         throw std::runtime_error("Access of non-struct: " + to_string(value));
     }
+}
+
+Expr Intrinsic::make(OpType op, Expr value) {
+    if (!value.defined()) {
+        throw std::runtime_error("Intrinsic::make received undefined value");
+    }
+
+    Intrinsic *node = new Intrinsic;
+
+    // TODO:implement type enforcement for all intrinsics.
+    if (type_enforcement_enabled()) {
+        if ((op == Intrinsic::abs) && value.type().is_int()) {
+            node->type = value.type().to_uint();
+        } else {
+            node->type = value.type();
+        }
+    }
+    node->op = op;
+    node->value = std::move(value);
+    return node;
+}
+
+Expr Lambda::make(std::vector<std::string> args, Expr value) {
+    if (!value.defined()) {
+        throw std::runtime_error("Lambda::make received undefined value");
+    }
+    for (const auto &arg : args) {
+        if (arg.empty()) {
+            throw std::runtime_error("Lambda::make received empty arg name");
+        }
+    }
+    // TODO:implement type enforcement for lambdas?
+    if (type_enforcement_enabled()) {
+        throw std::runtime_error("TODO: need Function_t to implement type inference for lambdas!");
+    }
+
+    Lambda *node = new Lambda;
+    node->args = std::move(args);
+    node->value = std::move(value);
+    return node;
+}
+
+Expr SetOp::make(OpType op, Expr a, Expr b) {
+    if (!a.defined() || !b.defined()) {
+        throw std::runtime_error("SetOp::make received undefined value: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+    }
+
+    SetOp *node = new SetOp;
+
+    if (type_enforcement_enabled()) {
+        if (op == SetOp::product) {
+            if (!a.type().is<Set_t>()) {
+                throw std::runtime_error("SetOp::make received non-set lhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+            }
+            if (!b.type().is<Set_t>()) {
+                throw std::runtime_error("SetOp::make received non-set rhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+            }
+            // node->type = Set_t::make(Tuple_t::make(a.type().as<Set_t>()->etype, b.type().as<Set_t>()->etype));
+            throw std::runtime_error("TODO: need Tuple_t to implement type inference for product!");
+        } else {
+            throw std::runtime_error("TODO: need Function_t to implement type inference for SetOps!");
+            // if (!a.type().is<Function_t>()) {
+            //     throw std::runtime_error("SetOp::make received non-function lhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+            // }
+            if (!b.type().is<Set_t>()) {
+                throw std::runtime_error("SetOp::make received non-set rhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+            }
+
+            // const auto *f = a.type().as<Function_t>();
+            const auto *s = b.type().as<Set_t>();
+            const Type &t = s->etype;
+
+            if (op == SetOp::argmin) {
+                // f must produce a real value from an element of type t
+                // produces t
+            } else if (op == SetOp::filter) {
+                // f must produce a bool from an element of type t
+                // produces set of type t
+            } else if (op == SetOp::map) {
+                // f : t -> b produces set of type b
+            } else {
+                throw std::runtime_error("Unexpected op in SetOp::make(): " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+            }
+        }
+    }
+
+    node->op = op;
+    node->a = std::move(a);
+    node->b = std::move(b);
+    return node;
+}
+
+Expr Call::make(Expr func, std::vector<Expr> args) {
+    if (!func.defined()) {
+        throw std::runtime_error("Call::make received undefined func");
+    }
+    for (const auto &arg : args) {
+        if (!arg.defined()) {
+            throw std::runtime_error("Call::make received undefined arg to func: " + to_string(func));
+        }
+    }
+
+    Call *node = new Call;
+
+    if (type_enforcement_enabled()) {
+        throw std::runtime_error("TODO: need Function_t to implement type inference for Calls!");
+    }
+
+    node->func = std::move(func);
+    node->args = std::move(args);
+    return node;
 }
 
 }  // namespace ir

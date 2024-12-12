@@ -79,6 +79,8 @@ struct Type : public IRHandle<IRTypeNode> {
     // Type casts
     // Rewrites (through vectors) to boolean base.
     Type to_bool() const;
+    // Rewrites (through vectors) to uint base.
+    Type to_uint() const;
     // returns Vector_t's etype
     Type element_of() const;
 

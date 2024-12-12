@@ -20,8 +20,8 @@ std::string to_string(const Stmt &stmt);
 std::ostream &operator<<(std::ostream& os, const Stmt &stmt);
 
 std::string to_string(const BinOp::OpType &op);
-
 std::string to_string(const VectorReduce::OpType &op);
+std::string to_string(const Intrinsic::OpType &op);
 
 struct Indentation {
     int indent;
@@ -59,6 +59,10 @@ struct IRPrinter : public IRVisitor {
     void visit(const Ramp *) override;
     void visit(const Build *) override;
     void visit(const Access *) override;
+    void visit(const Intrinsic *) override;
+    void visit(const Lambda *) override;
+    void visit(const SetOp *) override;
+    void visit(const Call *) override;
     // Stmts
     void visit(const Return *) override;
     void visit(const Store *) override;

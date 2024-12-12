@@ -579,6 +579,22 @@ void CodeGen_LLVM::visit(const Ramp *node) {
     throw std::runtime_error("TODO: implement Ramp lowering " + to_string(node));
 }
 
+void CodeGen_LLVM::visit(const Intrinsic *node) {
+    throw std::runtime_error("TODO: implement Intrinsic lowering " + to_string(node));
+}
+
+void CodeGen_LLVM::visit(const Lambda *node) {
+    throw std::runtime_error("TODO: implement Lambda lowering " + to_string(node));
+}
+
+void CodeGen_LLVM::visit(const SetOp *node) {
+    throw std::runtime_error("TODO: implement SetOp lowering " + to_string(node));
+}
+
+void CodeGen_LLVM::visit(const Call *node) {
+    throw std::runtime_error("TODO: implement Call lowering " + to_string(node));
+}
+
 void CodeGen_LLVM::visit(const Build *node) {
     // This will be a StructType or a VectorType
     llvm::Type *build_type = codegen_type(node->type);

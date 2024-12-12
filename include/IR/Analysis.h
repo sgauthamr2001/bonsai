@@ -13,5 +13,7 @@ Type get_return_type(const Stmt &stmt);
 
 std::vector<const Struct_t *> gather_struct_types(const Stmt &stmt);
 
+bool is_constant_expr(const Expr &expr);
+
 }  // namespace ir
 }  // namespace bonsai

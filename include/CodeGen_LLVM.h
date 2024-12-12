@@ -63,6 +63,10 @@ protected:
     virtual void visit(const ir::Ramp *) override;
     virtual void visit(const ir::Build *) override;
     virtual void visit(const ir::Access *) override;
+    virtual void visit(const ir::Intrinsic *) override;
+    virtual void visit(const ir::Lambda *) override;
+    virtual void visit(const ir::SetOp *) override;
+    virtual void visit(const ir::Call *) override;
     // Stmts
     virtual void visit(const ir::Return *) override;
     virtual void visit(const ir::Store *) override;
