@@ -50,11 +50,39 @@ bool equals(const Type &t0, const Type &t1) {
             }
             return true;
         }
+        case IRTypeEnum::Tuple_t: {
+            const Tuple_t *tt0 = t0.as<Tuple_t>();
+            const Tuple_t *tt1 = t1.as<Tuple_t>();
+            if (tt0->etypes.size() != tt1->etypes.size()) {
+                return false;
+            }
+            const size_t n = tt0->etypes.size();
+            for (size_t i = 0; i < n; i++) {
+                if (!equals(tt0->etypes[i], tt1->etypes[i])) {
+                    return false;
+                }
+            }
+            return true;
+        }
         case IRTypeEnum::Option_t: {
             return equals(t0.as<Option_t>()->etype, t1.as<Option_t>()->etype);
         }
         case IRTypeEnum::Set_t: {
             return equals(t0.as<Set_t>()->etype, t1.as<Set_t>()->etype);
+        }
+        case IRTypeEnum::Function_t: {
+            const Function_t *f0 = t0.as<Function_t>();
+            const Function_t *f1 = t1.as<Function_t>();
+            if ((f0->arg_types.size() != f1->arg_types.size()) || !equals(f0->ret_type, f1->ret_type)) {
+                return false;
+            }
+            const size_t n = f0->arg_types.size();
+            for (size_t i = 0; i < n; i++) {
+                if (!equals(f0->arg_types[i], f1->arg_types[i])) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }

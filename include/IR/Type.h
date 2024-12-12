@@ -22,8 +22,10 @@ enum class IRTypeEnum {
     Ptr_t,
     Vector_t,
     Struct_t,
+    Tuple_t,
     Option_t,
     Set_t,
+    Function_t,
 };
 
 using IRTypeNode = IRNode<Type, IRTypeEnum>;
@@ -75,13 +77,14 @@ struct Type : public IRHandle<IRTypeNode> {
     bool is_scalar() const;
     bool is_vector() const;
     bool is_numeric() const;
+    bool is_callable() const;
 
     // Type casts
     // Rewrites (through vectors) to boolean base.
     Type to_bool() const;
     // Rewrites (through vectors) to uint base.
     Type to_uint() const;
-    // returns Vector_t's etype
+    // returns (Vector_t | Set_t)'s etype
     Type element_of() const;
 
     // TODO: implement copy/move semantics!
@@ -151,6 +154,14 @@ struct Struct_t : TypeNode<Struct_t> {
     static const IRTypeEnum _node_type = IRTypeEnum::Struct_t;
 };
 
+struct Tuple_t : TypeNode<Tuple_t> {
+    std::vector<Type> etypes;
+
+    static Type make(std::vector<Type> etypes);
+
+    static const IRTypeEnum _node_type = IRTypeEnum::Tuple_t;
+};
+
 struct Option_t : TypeNode<Option_t> {
     Type etype;
 
@@ -165,6 +176,15 @@ struct Set_t : TypeNode<Set_t> {
     static Type make(Type etype);
 
     static const IRTypeEnum _node_type = IRTypeEnum::Set_t;
+};
+
+struct Function_t : TypeNode<Function_t> {
+    Type ret_type;
+    std::vector<Type> arg_types;
+
+    static Type make(Type ret_type, std::vector<Type> arg_types);
+
+    static const IRTypeEnum _node_type = IRTypeEnum::Function_t;
 };
 
 // TODO: List_t, Tensor_t

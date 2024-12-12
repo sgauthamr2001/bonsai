@@ -58,6 +58,10 @@ bool Type::is_numeric() const {
     return this->is_int() || this->is_float();
 }
 
+bool Type::is_callable() const {
+    throw std::runtime_error("TODO: implement Type::is_callable()");
+}
+
 Type Type::to_bool() const {
     if (this->is<Int_t>() || this->is<Float_t>() || this->is<UInt_t>()) {
         return Bool_t::make();
@@ -85,6 +89,8 @@ Type Type::to_uint() const {
 Type Type::element_of() const {
     if (this->is<Vector_t>()) {
         return this->as<Vector_t>()->etype;
+    } else if (this->is<Set_t>()) {
+        return this->as<Set_t>()->etype;
     } else {
         throw std::runtime_error("Called element_of() on bad type: " + to_string(*this));
     }
@@ -140,6 +146,16 @@ Type Struct_t::make(std::string name, Struct_t::Map fields) {
     return node;
 }
 
+Type Tuple_t::make(std::vector<Type> etypes) {
+    // TODO: assert safety
+    for (const auto &type : etypes) {
+        assert(type.defined());
+    }
+    Tuple_t *node = new Tuple_t;
+    node->etypes = std::move(etypes);
+    return node;
+}
+
 Type Option_t::make(Type etype) {
     // TODO: assert safety?
     assert(etype.defined());
@@ -153,6 +169,18 @@ Type Set_t::make(Type etype) {
     assert(etype.defined());
     Set_t *node = new Set_t;
     node->etype = std::move(etype);
+    return node;
+}
+
+Type Function_t::make(Type ret_type, std::vector<Type> arg_types) {
+    // TODO: assert safety
+    assert(ret_type.defined());
+    for (const auto &type : arg_types) {
+        assert(type.defined());
+    }
+    Function_t *node = new Function_t;
+    node->ret_type = std::move(ret_type);
+    node->arg_types = std::move(arg_types);
     return node;
 }
 

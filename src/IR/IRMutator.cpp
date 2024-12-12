@@ -87,6 +87,15 @@ Type IRMutator::visit(const Struct_t *node) {
     }
 }
 
+Type IRMutator::visit(const Tuple_t *node) {
+    auto [etypes, not_changed] = visit_list(this, node->etypes);
+    if (not_changed) {
+        return node;
+    } else {
+        return Tuple_t::make(std::move(etypes));
+    }
+}
+
 Type IRMutator::visit(const Option_t *node) {
     Type etype = mutate(node->etype);
     if (etype.same_as(node->etype)) {
@@ -102,6 +111,16 @@ Type IRMutator::visit(const Set_t *node) {
         return node;
     } else {
         return Set_t::make(std::move(etype));
+    }
+}
+
+Type IRMutator::visit(const Function_t *node) {
+    Type ret_type = mutate(node->ret_type);
+    auto [arg_types, not_changed] = visit_list(this, node->arg_types);
+    if (ret_type.same_as(node->ret_type) && not_changed) {
+        return node;
+    } else {
+        return Function_t::make(std::move(ret_type), std::move(arg_types));
     }
 }
 
@@ -221,7 +240,7 @@ Expr IRMutator::visit(const Call *node) {
     if (func.same_as(node->func) && not_changed) {
         return node;
     } else {
-        return Call::make(std::move(func), std::move(args));
+        return Call::make(node->type, std::move(func), std::move(args));
     }
 }
 

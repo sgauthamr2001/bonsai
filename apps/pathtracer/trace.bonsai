@@ -7,5 +7,8 @@ import apps/pathtracer/ray;
 
 extern triangles : set[Triangle];
 
-func trace(ray : Ray) = argmin(lambda tri = distance(ray, tri), filter(lambda tri = intersects(ray, tri), triangles));
+// static type inference is enough here.
+func trace(ray : Ray) = argmin(lambda tri : Triangle = distance(ray, tri), filter(lambda tri : Triangle = intersects(ray, tri), triangles));
 
+// static type inference is not enough
+func trace2(ray : Ray) = argmin(lambda tri = distance(ray, tri), filter(lambda tri = intersects(ray, tri), triangles));

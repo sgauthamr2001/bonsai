@@ -51,8 +51,10 @@ protected:
     virtual void visit(const ir::Ptr_t *) override;
     virtual void visit(const ir::Vector_t *) override;
     virtual void visit(const ir::Struct_t *) override;
+    virtual void visit(const ir::Tuple_t *) override;
     virtual void visit(const ir::Option_t *) override;
     virtual void visit(const ir::Set_t *) override;
+    virtual void visit(const ir::Function_t *) override;
     // Expressions
     virtual void visit(const ir::IntImm *) override;
     virtual void visit(const ir::FloatImm *) override;

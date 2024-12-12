@@ -35,15 +35,51 @@ struct Parser {
 private:
     TokenStream tokens;
     ir::Program program;
+    std::list<std::map<std::string, ir::Type>> frames;
+
+    ir::Type get_type_from_frame(const std::string &name) const {
+        for (auto it = frames.rbegin(); it != frames.rend(); it++) {
+            const auto &frame = *it;
+            const auto &found = frame.find(name);
+            if (found != frame.cend()) {
+                return found->second;
+            }
+        }
+        return ir::Type();
+    }
+
+    void add_type_to_frame(const std::string &name, ir::Type type) {
+        for (auto it = frames.rbegin(); it != frames.rend(); it++) {
+            const auto &frame = *it;
+            const auto &found = frame.find(name);
+            if (found != frame.cend()) {
+                throw std::runtime_error("Found variable shadowing in name: " + name);
+            }
+        }
+        frames.back()[name] = std::move(type);
+    }
+
+    void new_frame() {
+        frames.emplace_back();
+    }
+
+    void end_frame() {
+        frames.pop_back();
+    }
 
 public:
-    Parser(TokenStream _tokens) : tokens(std::move(_tokens)) {}
+    Parser(TokenStream _tokens) : tokens(std::move(_tokens)) {
+    }
 
     ir::Program parseProgram() {
+        assert(frames.empty());
+        new_frame();
         while (!tokens.empty()) {
             parseProgramElement();
         }
-        return program;
+        end_frame();
+        assert(frames.empty());
+        return std::move(program);
     }
 
 private:
@@ -192,6 +228,7 @@ private:
         expect(Token::Type::COL);
         ir::Type type = parseType();
         expect(Token::Type::SEMICOL);
+        add_type_to_frame(name, type);
         program.externs.emplace_back(name, std::move(type));
     }
 
@@ -203,6 +240,8 @@ private:
             throw std::runtime_error("Redefinition of func: " + name + " on line " + std::to_string(id.lineBegin));
         }
         expect(Token::Type::LPAREN);
+
+        new_frame();
 
         std::vector<ir::Function::Argument> args;
 
@@ -229,6 +268,7 @@ private:
                     }
                 }
 
+                add_type_to_frame(arg_name, type);
                 args.push_back(ir::Function::Argument{arg_name, std::move(type), std::move(default_value)});
             } while (consume(Token::Type::COMMA));
         }
@@ -239,6 +279,7 @@ private:
         if (consume(Token::Type::RARROW)) {
             ret_type = parseType();
         }
+        const bool ret_type_set = ret_type.defined();
 
         // Functions can either be inlined: '=' Expr;
         // or with '{' body '}'
@@ -259,18 +300,30 @@ private:
 
         if (consume(Token::Type::ASSIGN)) {
             ir::Expr expr = parseExpr();
+            if (!ret_type_set && expr.type().defined()) {
+                ret_type = expr.type();
+            }
             expect(Token::Type::SEMICOL);
             body = ir::Return::make(expr);
         } else {
             expect(Token::Type::LSQUIGGLE);
             body = parseStmt();
+            if (!ret_type_set) {
+                ret_type = ir::get_return_type(body);
+            }
             expect(Token::Type::RSQUIGGLE);
         }
+
+        end_frame();
 
         if (program.funcs[name].body.defined()) {
             throw std::runtime_error("Woah, how did " + name + " get a function body before being parsed?");
         }
         program.funcs[name].body = std::move(body);
+        if (!ret_type_set && ret_type.defined()) {
+            // we were able to statically infer the return type
+            program.funcs[name].return_t = std::move(ret_type);
+        }
     }
 
     ir::Stmt parseStmt() {
@@ -405,9 +458,10 @@ private:
             }
 
             // Just a variable, possibly with field accesses.
-            // no idea the type, leave this for inference later.
-            // TODO: should we have tracked the type thus far?
-            ir::Expr expr = ir::Var::make(ir::Type(), name);
+            // the type might have been provided already, or
+            // might need to be inferred later.
+            ir::Type var_type = get_type_from_frame(name); // possibly undefined.
+            ir::Expr expr = ir::Var::make(var_type, name);
 
             for (const auto &field : fields) {
                 expr = ir::Access::make(field, expr);
@@ -458,7 +512,8 @@ private:
                     }
                 } else {
                     // method access!
-                    return ir::Call::make(std::move(expr), std::move(args));
+                    // TODO: type inference via interface?
+                    return ir::Call::make(ir::Type(), std::move(expr), std::move(args));
                 }
             }
 
@@ -481,7 +536,12 @@ private:
         } else if (peek().type == Token::Type::LAMBDA) {
             expect(Token::Type::LAMBDA);
             std::vector<ir::Lambda::Argument> args = parseLambdaArgs();
+            new_frame();
+            for (const auto &arg : args) {
+                add_type_to_frame(arg.name, arg.type);
+            }
             ir::Expr expr = parseExpr();
+            end_frame();
             return ir::Lambda::make(std::move(args), std::move(expr));
         } else {
             throw std::runtime_error("Error in parseBaseExpr, unknown token: " + peek().toString());

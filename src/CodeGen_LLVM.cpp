@@ -400,12 +400,22 @@ void CodeGen_LLVM::visit(const Struct_t *node) {
     type = struct_types[node->name];
 }
 
+void CodeGen_LLVM::visit(const Tuple_t *node) {
+    // TODO: struct_types should include tuples, probably? but they're unnamed...
+    // maybe use to_string() to map from node to built Struct_t
+    throw std::runtime_error("TODO: implement Tuple_t code generation: " + to_string(node));
+}
+
 void CodeGen_LLVM::visit(const Option_t *node) {
     throw std::runtime_error("TODO: implement Option_t code generation: " + to_string(node));
 }
 
 void CodeGen_LLVM::visit(const Set_t *node) {
     throw std::runtime_error("TODO: implement Set_t code generation: " + to_string(node));
+}
+
+void CodeGen_LLVM::visit(const Function_t *node) {
+    throw std::runtime_error("TODO: implement Function_t code generation: " + to_string(node));
 }
 
 void CodeGen_LLVM::visit(const IntImm *node) {

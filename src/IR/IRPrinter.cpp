@@ -76,6 +76,15 @@ void IRPrinter::print(const Type &type) {
     }
 }
 
+void IRPrinter::print_type_list(const std::vector<Type> &types) {
+    for (size_t i = 0; i < types.size(); i++) {
+        print(types[i]);
+        if (i < types.size() - 1) {
+            os << ", ";
+        }
+    }
+}
+
 void IRPrinter::print(const Expr &expr) {
     // ScopedValue<bool> old(implicit_parens, false);
     bool temp = implicit_parens;
@@ -130,6 +139,8 @@ void IRPrinter::visit(const Vector_t *node) {
 }
 
 void IRPrinter::visit(const Struct_t *node) {
+    os << node->name;
+    /*
     os << "struct " << node->name << "{ ";
     // TODO: intended verbosity?
     // TODO: lift to a print_map function?
@@ -144,6 +155,13 @@ void IRPrinter::visit(const Struct_t *node) {
         print(value);
     }
     os << " }";
+    */
+}
+
+void IRPrinter::visit(const Tuple_t *node) {
+    os << "(";
+    print_type_list(node->etypes);
+    os << ")";
 }
 
 void IRPrinter::visit(const Option_t *node) {
@@ -158,6 +176,12 @@ void IRPrinter::visit(const Set_t *node) {
     os << ">";
 }
 
+void IRPrinter::visit(const Function_t *node) {
+    os << "Fn(";
+    print_type_list(node->arg_types);
+    os << ") -> ";
+    print(node->ret_type);
+}
 
 void IRPrinter::visit(const IntImm *node) {
     os << "(";

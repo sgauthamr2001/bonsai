@@ -322,12 +322,21 @@ Expr Lambda::make(std::vector<Lambda::Argument> args, Expr value) {
             throw std::runtime_error("Lambda::make received undefined arg type: " + arg.name);
         }
     }
-    // TODO:implement type enforcement for lambdas?
-    if (type_enforcement_enabled()) {
-        throw std::runtime_error("TODO: need Function_t to implement type inference for lambdas!");
-    }
 
     Lambda *node = new Lambda;
+
+    // Only do type inference if it's enabled or both types are defined.
+    const bool infer_types = type_enforcement_enabled() || (value.type().defined() && std::all_of(args.cbegin(), args.cend(), [](const auto &arg) { return arg.type.defined(); }));
+    if (infer_types) {
+        // TODO: assert that the vars are used?
+        // or we can just optimize those out later, sometimes ppl write dumb code.
+        std::vector<Type> arg_types(args.size());
+        for (size_t i = 0; i < args.size(); i++) {
+            arg_types[i] = args[i].type;
+        }
+        node->type = Function_t::make(value.type(), std::move(arg_types));
+    }
+
     node->args = std::move(args);
     node->value = std::move(value);
     return node;
@@ -337,9 +346,28 @@ Expr GeomOp::make(OpType op, Expr a, Expr b) {
     if (!a.defined() || !b.defined()) {
         throw std::runtime_error("GeomOp::make received undefined value: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
     }
+
     GeomOp *node = new GeomOp;
-    if (type_enforcement_enabled()) {
-        throw std::runtime_error("TODO: implement type enforcement for Geometric Op: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+
+    const bool infer_types = type_enforcement_enabled() || (a.type().defined() && b.type().defined());
+    if (infer_types) {
+        // TODO: assert that these are volumes with defined geometric constructs?
+        const Struct_t *sa = a.type().as<Struct_t>();
+        const Struct_t *sb = b.type().as<Struct_t>();
+        if (!(sa && sb)) {
+            throw std::runtime_error("Expected geometric structs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+        }
+
+        Type ret_type;
+        if (op == GeomOp::distance) {
+            // TODO: distance could have any value, it's user-defined...
+            // TODO: do we need Real_t?
+            // For now, just assume f32
+            ret_type = Float_t::make(32);
+        } else {
+            ret_type = Bool_t::make();
+        }
+        node->type = Function_t::make(std::move(ret_type), {a.type(), b.type()});
     }
 
     node->op = op;
@@ -355,40 +383,44 @@ Expr SetOp::make(OpType op, Expr a, Expr b) {
 
     SetOp *node = new SetOp;
 
-    if (type_enforcement_enabled()) {
-        if (op == SetOp::product) {
+    // Only do type inference if it's enabled or both types are defined.
+    const bool infer_types = type_enforcement_enabled() || (a.type().defined() && b.type().defined());
+
+    if (infer_types) {
+        if (op == SetOp::filter) {
+            // TODO: assert that the types of a match
+            if (!a.type().is<Function_t>()) {
+                throw std::runtime_error("Expected lhs of filter to be a function, instead received: " + to_string(a) + " : " + to_string(a.type()));
+            }
+            if (!b.type().is<Set_t>()) {
+                throw std::runtime_error("Expected rhs of filter to be a set, instead received: " + to_string(b));
+            }
+            node->type = b.type();
+        } else if (op == SetOp::argmin) {
+            // TODO: assert that the types of a match
+            if (!a.type().is<Function_t>()) {
+                throw std::runtime_error("Expected lhs of argmin to be a function, instead received: " + to_string(a));
+            }
+            if (!b.type().is<Set_t>()) {
+                throw std::runtime_error("Expected rhs of argmin to be a set, instead received: " + to_string(b));
+            }
+            node->type = b.type().element_of();
+        } else if (op == SetOp::map) {
+            if (!a.type().is<Function_t>()) {
+                throw std::runtime_error("Expected lhs of map to be a function, instead received: " + to_string(a));
+            }
+            if (!b.type().is<Set_t>()) {
+                throw std::runtime_error("Expected rhs of map to be a set, instead received: " + to_string(b));
+            }
+            throw std::runtime_error("TODO: implement Function_t for map type inference.");
+        } else if (op == SetOp::product) {
             if (!a.type().is<Set_t>()) {
-                throw std::runtime_error("SetOp::make received non-set lhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+                throw std::runtime_error("Expected lhs of product to be a set, instead received: " + to_string(a));
             }
             if (!b.type().is<Set_t>()) {
-                throw std::runtime_error("SetOp::make received non-set rhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
+                throw std::runtime_error("Expected rhs of product to be a set, instead received: " + to_string(b));
             }
-            // node->type = Set_t::make(Tuple_t::make(a.type().as<Set_t>()->etype, b.type().as<Set_t>()->etype));
-            throw std::runtime_error("TODO: need Tuple_t to implement type inference for product!");
-        } else {
-            throw std::runtime_error("TODO: need Function_t to implement type inference for SetOps!");
-            // if (!a.type().is<Function_t>()) {
-            //     throw std::runtime_error("SetOp::make received non-function lhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
-            // }
-            if (!b.type().is<Set_t>()) {
-                throw std::runtime_error("SetOp::make received non-set rhs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
-            }
-
-            // const auto *f = a.type().as<Function_t>();
-            const auto *s = b.type().as<Set_t>();
-            const Type &t = s->etype;
-
-            if (op == SetOp::argmin) {
-                // f must produce a real value from an element of type t
-                // produces t
-            } else if (op == SetOp::filter) {
-                // f must produce a bool from an element of type t
-                // produces set of type t
-            } else if (op == SetOp::map) {
-                // f : t -> b produces set of type b
-            } else {
-                throw std::runtime_error("Unexpected op in SetOp::make(): " + to_string(op) + " " + to_string(a) + " " + to_string(b));
-            }
+            throw std::runtime_error("TODO: implement Tuple_t for product type inference.");
         }
     }
 
@@ -398,7 +430,7 @@ Expr SetOp::make(OpType op, Expr a, Expr b) {
     return node;
 }
 
-Expr Call::make(Expr func, std::vector<Expr> args) {
+Expr Call::make(Type return_type, Expr func, std::vector<Expr> args) {
     if (!func.defined()) {
         throw std::runtime_error("Call::make received undefined func");
     }
@@ -414,6 +446,7 @@ Expr Call::make(Expr func, std::vector<Expr> args) {
         throw std::runtime_error("TODO: need Function_t to implement type inference for Calls!");
     }
 
+    node->type = std::move(return_type);
     node->func = std::move(func);
     node->args = std::move(args);
     return node;

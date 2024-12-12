@@ -51,12 +51,21 @@ void IRVisitor::visit(const Struct_t *node) {
     }
 }
 
+void IRVisitor::visit(const Tuple_t *node) {
+    visit_list(this, node->etypes);
+}
+
 void IRVisitor::visit(const Option_t *node) {
     node->etype.accept(this);
 }
 
 void IRVisitor::visit(const Set_t *node) {
     node->etype.accept(this);
+}
+
+void IRVisitor::visit(const Function_t *node) {
+    node->ret_type.accept(this);
+    visit_list(this, node->arg_types);
 }
 
 

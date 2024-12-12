@@ -19,8 +19,10 @@ struct IRMutator {
     virtual Type visit(const Ptr_t *);
     virtual Type visit(const Vector_t *);
     virtual Type visit(const Struct_t *);
+    virtual Type visit(const Tuple_t *);
     virtual Type visit(const Option_t *);
     virtual Type visit(const Set_t *);
+    virtual Type visit(const Function_t *);
     // Exprs
     virtual Expr visit(const IntImm *);
     virtual Expr visit(const FloatImm *);

@@ -276,7 +276,7 @@ struct Call : ExprNode<Call> {
     Expr func;
     std::vector<Expr> args;
 
-    static Expr make(Expr func, std::vector<Expr> args);
+    static Expr make(Type return_type, Expr func, std::vector<Expr> args);
 
     static const IRExprEnum _node_type = IRExprEnum::Call;
 };

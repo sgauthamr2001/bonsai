@@ -14,8 +14,10 @@ struct IRVisitor {
     virtual void visit(const Ptr_t *);
     virtual void visit(const Vector_t *);
     virtual void visit(const Struct_t *);
+    virtual void visit(const Tuple_t *);
     virtual void visit(const Option_t *);
     virtual void visit(const Set_t *);
+    virtual void visit(const Function_t *);
     // Exprs
     virtual void visit(const IntImm *);
     virtual void visit(const FloatImm *);
