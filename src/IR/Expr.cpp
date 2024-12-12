@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "IR/Float16.h"
 #include "IR/IREquality.h"
 #include "IR/IRPrinter.h"
 
@@ -61,7 +62,8 @@ const Expr FloatImm::make(Type t, double value) {
     node->type = t;
     switch (t.bits()) {
     case 16:
-
+        node->value = cast_to_float16(value);
+        break;
     case 32:
         node->value = (float)value;
         break;
