@@ -77,7 +77,6 @@ struct Type : public IRHandle<IRTypeNode> {
     bool is_scalar() const;
     bool is_vector() const;
     bool is_numeric() const;
-    bool is_callable() const;
 
     // Type casts
     // Rewrites (through vectors) to boolean base.

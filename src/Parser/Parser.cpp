@@ -12,6 +12,8 @@
 #include <regex>
 #include <sstream>
 
+#include "Error.h"
+
 namespace bonsai {
 namespace parser {
 
@@ -52,9 +54,7 @@ private:
         for (auto it = frames.rbegin(); it != frames.rend(); it++) {
             const auto &frame = *it;
             const auto &found = frame.find(name);
-            if (found != frame.cend()) {
-                throw std::runtime_error("Found variable shadowing in name: " + name);
-            }
+            internal_assert(found == frame.cend()) << name << " shadows another variable (of the same name)";
         }
         frames.back()[name] = std::move(type);
     }
@@ -99,8 +99,8 @@ private:
         if (auto token = consume(type)) {
             return *token;
         } else {
-            std::string errMsg = "Expected " + Token::tokenTypeString(type) + ", instead received: " + peek().toString() + "\n";
-            throw std::runtime_error(errMsg);
+            internal_error << "Expected " << Token::tokenTypeString(type) << ", instead received: " + peek().toString();
+            return Token{};
         }
     }
 
@@ -112,7 +112,7 @@ private:
             case Token::Type::EXTERN: return parseExtern();
             case Token::Type::FUNC: return parseFunction();
             default: {
-                throw std::runtime_error("Failure in parseProgramElement: " + peek().toString());
+                internal_error << "Failure in parseProgramElement: " + peek().toString();
             }
         }
     }
@@ -139,28 +139,21 @@ private:
              imported = parse(name);
              ir::global_disable_type_enforcement(); // parsing re-eneables type enforcement.
         } catch (const std::exception& e) {
-            throw std::runtime_error("Parsing imported file (" + name + ") failed: " + e.what());
+            internal_error << "Failure to parse imported file: " << name << " with message: " << e.what();
         }
 
-        if (imported.main_body.defined()) {
-            throw std::runtime_error("Imported file: " + name + " contains main() function.");
-        }
+        // TODO: disregard like Python does?
+        internal_assert(!imported.main_body.defined()) << "Imported file: " << name << " contains main() function.";
+        // Can't import externs, those are function arguments to the generated stub.
+        internal_assert(imported.externs.empty()) << "Imported file: " << name << " contains externs.";
 
-        if (!imported.externs.empty()) {
-            throw std::runtime_error("Imported file: " + name + " contains externs.");
-        }
-
-        for (auto& [name, func] : imported.funcs) {
-            if (program.funcs.contains(name)) {
-                throw std::runtime_error("Redefinition of function: " + name + " from imported file: " + name);
-            }
+        for (auto& [fname, func] : imported.funcs) {
+            internal_assert(!program.funcs.contains(fname)) << "Redefinition of function: " << fname << " from imported file: " << name;
             program.funcs[name] = std::move(func);
         }
 
-        for (auto& [name, type] : imported.types) {
-            if (program.types.contains(name)) {
-                throw std::runtime_error("Redefinition of type: " + name + " from imported file: " + name);
-            }
+        for (auto& [tname, type] : imported.types) {
+            internal_assert(!program.types.contains(tname)) << "Redefinition of type: " << tname << " from imported file: " << name;
             program.types[name] = std::move(type);
         }        
     }
@@ -174,9 +167,7 @@ private:
         const Token id = expect(Token::Type::IDENTIFIER);
         const std::string name = std::get<std::string>(id.value);
 
-        if (program.types.contains(name)) {
-            throw std::runtime_error("Redefinition of type: " + name + " on line " + std::to_string(id.lineBegin));
-        }
+        internal_assert(!program.types.contains(name)) << "Redefinition of type: " << name << " on line " << id.lineBegin;
 
         // Support inline aliasing.
         if (consume(Token::Type::ASSIGN)) {
@@ -201,9 +192,8 @@ private:
             expect(Token::Type::COL);
             ir::Type type = parseType();
             for (const auto& field_name : names) {
-                if (fields.cend() != std::find_if(fields.cbegin(), fields.cend(), [&field_name](const auto &p) { return p.first == field_name; })) {
-                    throw std::runtime_error("Duplicate field name: " + field_name + " in element definition: " + name);
-                }
+                internal_assert(fields.cend() == std::find_if(fields.cbegin(), fields.cend(), [&field_name](const auto &p) { return p.first == field_name; }))
+                    << "Duplicate field name: " << field_name << " in element definition: " << name;
                 fields.emplace_back(field_name, type);
             }
         } while (!consume(Token::Type::RSQUIGGLE));
@@ -213,7 +203,7 @@ private:
     }
 
     void parseInterface() {
-        throw std::runtime_error("TODO: implement parseInterface");
+        internal_error << "TODO: implement parseInterface";
     }
 
     void parseExtern() {
@@ -221,9 +211,8 @@ private:
         expect(Token::Type::EXTERN);
         const Token id = expect(Token::Type::IDENTIFIER);
         const std::string name = std::get<std::string>(id.value);
-        if (program.externs.cend() != std::find_if(program.externs.cbegin(), program.externs.cend(), [&name](const auto &p) { return p.first == name; })) {
-            throw std::runtime_error("Redefinition of extern: " + name + " on line " + std::to_string(id.lineBegin));
-        }
+        internal_assert(program.externs.cend() == std::find_if(program.externs.cbegin(), program.externs.cend(), [&name](const auto &p) { return p.first == name; }))
+            << "Redefinition of extern: " << name << " on line " << id.lineBegin;
         // TODO: should we support defaults? that makes passing in args harder.
         expect(Token::Type::COL);
         ir::Type type = parseType();
@@ -236,15 +225,11 @@ private:
         expect(Token::Type::FUNC);
         const Token id = expect(Token::Type::IDENTIFIER);
         const std::string name = std::get<std::string>(id.value);
-        if (program.funcs.contains(name)) {
-            throw std::runtime_error("Redefinition of func: " + name + " on line " + std::to_string(id.lineBegin));
-        }
+        internal_assert(!program.funcs.contains(name)) << "Redefinition of func: " << name << " on line "  << id.lineBegin;
         expect(Token::Type::LPAREN);
-
+    
         new_frame();
-
         std::vector<ir::Function::Argument> args;
-
         if (peek().type != Token::Type::RPAREN) {
             // parse arg list
             do {
@@ -263,9 +248,8 @@ private:
                     // TODO: this should not perform computation!
                     // Can we easily prevent that? Enforce is_constant?
                     default_value = parseExpr();
-                    if (!ir::is_constant_expr(default_value)) {
-                        throw std::runtime_error("Function default values must be constants, received: " + ir::to_string(default_value) + " for argument " + arg_name + " of func " + name);
-                    }
+                    internal_assert(ir::is_constant_expr(default_value))
+                        << "Function default values must be constants, received: " << default_value << " for argument " << arg_name << " of func " << name;
                 }
 
                 add_type_to_frame(arg_name, type);
@@ -316,9 +300,8 @@ private:
 
         end_frame();
 
-        if (program.funcs[name].body.defined()) {
-            throw std::runtime_error("Woah, how did " + name + " get a function body before being parsed?");
-        }
+        internal_assert(!program.funcs[name].body.defined()) << "Woah, how did " << name << " get a function body before being parsed?";
+
         program.funcs[name].body = std::move(body);
         if (!ret_type_set && ret_type.defined()) {
             // we were able to statically infer the return type
@@ -327,7 +310,8 @@ private:
     }
 
     ir::Stmt parseStmt() {
-        throw std::runtime_error("TODO: implement parseStmt");
+        internal_error << "TODO: implement parseStmt";
+        return ir::Stmt();
     }
 
     // We follow C++'s operator precedence.
@@ -508,7 +492,8 @@ private:
                         return ir::GeomOp::make(ir::GeomOp::contains, std::move(args[0]), std::move(args[1]));
                     } else {
                         // Not intrinsic or set op, this should check the program's function list and produce a Call to that func
-                        throw std::runtime_error("TODO: need to implement Function as an Expr for the purpose of parsing: " + name);
+                        internal_error << "TODO: need to implement Function as an Expr for the purpose of parsing: " << name;
+                        return ir::Expr();
                     }
                 } else {
                     // method access!
@@ -517,9 +502,8 @@ private:
                 }
             }
 
-            if (consume(Token::Type::LBRACKET)) {
-                throw std::runtime_error("TODO: this is probably a vector index, which the IR does not support yet: " + peek().toString());
-            }
+            internal_assert(!consume(Token::Type::LBRACKET))
+                << "TODO: this is probably a vector index, which the IR does not support yet: " << peek().toString();
 
             return expr;
         // Parse literals.
@@ -544,7 +528,8 @@ private:
             end_frame();
             return ir::Lambda::make(std::move(args), std::move(expr));
         } else {
-            throw std::runtime_error("Error in parseBaseExpr, unknown token: " + peek().toString());
+            internal_error << "Unknown token in parseBaseExpr: " << peek().toString();
+            return ir::Expr();
         }
     }
 
@@ -581,54 +566,6 @@ private:
         return args;
     }
 
-    // // div_expr := mod_expr ('/' mod_expr)*
-    // ir::Expr parseDivExpr() {
-    //     return parseBinOp(ir::BinOp::Div, Token::Type::SLASH, [this]() { return parseModExpr(); });
-    // }
-
-    // // mod_expr := add_expr ('%' add_expr)*
-    // ir::Expr parseModExpr() {
-    //     return parseBinOp(ir::BinOp::Mod, Token::Type::MOD, [this]() { return parseAddExpr(); });
-    // }
-
-    // // add_expr := sub_expr ('+' sub_expr)*
-    // ir::Expr parseAddExpr() {
-    //     return parseBinOp(ir::BinOp::Add, Token::Type::ADD, [this]() { return parseSubExpr(); });
-    // }
-
-    // // TODO: bit shifts should be next...
-    // // sub_expr := leq_expr ('-' leq_expr)*
-    // ir::Expr parseAddExpr() {
-    //     return parseBinOp(ir::BinOp::Sub, Token::Type::SUB, [this]() { return parseLeqExpr(); });
-    // }
-
-    /*
-    // TODO: consider how this parsing effects numeric and/or/xor
-    // expr := and_expr ('||' and_expr)*
-    ir::Expr parseExpr() {
-        ir::Expr expr = parseAndExpr();
-        while (consume(Token::Type::OR)) {
-            ir::Expr b = parseAndExpr();
-            expr = ir::BinOp::make(ir::BinOp::Or, std::move(expr), std::move(b));
-        }
-        return expr;
-    }
-
-    // and_expr := xor_expr ('&&' xor_expr)*
-    ir::Expr parseAndExpr() {
-        ir::Expr expr = parseXorExpr();
-        while (consume(Token::Type::OR)) {
-            ir::Expr b = parseXorExpr();
-            expr = ir::BinOp::make(ir::BinOp::Or, std::move(expr), std::move(b));
-        }
-        return expr;
-    }
-
-    ir::Expr parseXorExpr() {
-        throw std::runtime_error("TODO: implement parseXorExpr");
-    }
-    */
-
     // type := i[N] | u[N] | f[N] | bool | vector[type, int] | option[type] | declared_type
     ir::Type parseType() {
         const Token id = expect(Token::Type::IDENTIFIER);
@@ -658,20 +595,15 @@ private:
             ir::Type etype = parseType();
             expect(Token::Type::COMMA);
             const int64_t lanes = parseIntLiteral();
-            // TODO: probably enforce some realistic upper bound....?
-            if (lanes < 0 || lanes > static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
-                throw std::runtime_error("Vector lane count is invalid: " + std::to_string(lanes));
-            }
+            // TODO: this upper bound is arbitrary. Can't imagine needing a larger one though?
+            internal_assert(lanes > 0 && lanes < 1025) << "Vector lane count is invalid: " << lanes;
             expect(Token::Type::RBRACKET);
             return ir::Vector_t::make(std::move(etype), static_cast<uint32_t>(lanes));
         } else if (name == "option") {
             expect(Token::Type::LBRACKET);
             ir::Type etype = parseType();
             expect(Token::Type::RBRACKET);
-            // TODO: assert etype is not bool, option[bool] is invalid semantically, I think...
-            if (etype.is_bool()) {
-                throw std::runtime_error("Bonsai does not support option[bool] because the semantics are confusing.");
-            }
+            internal_assert(!etype.is_bool()) << "Bonsai does not support option[bool] because the semantics are confusing.";
             return ir::Option_t::make(std::move(etype));
         } else if (name == "set") {
             expect(Token::Type::LBRACKET);
@@ -682,11 +614,8 @@ private:
         } else {
             // TODO: support tuples of types! AKA unnamed structs.
             // Must be a user-defined type, or an error.
-            if (program.types.contains(name)) {
-                return program.types[name];
-            } else {
-                throw std::runtime_error("Unknown type: " + name);
-            }
+            internal_assert(program.types.contains(name)) << "Unknown type: " << name;
+            return program.types[name];
         }
     }
 
@@ -719,7 +648,7 @@ ir::Program parse(const std::string &filename) {
     program.dump(std::cout);
 
     // TODO: type inference / enforcement.
-    throw std::runtime_error("TODO: type inference!");
+    internal_error << "TODO: type inference!";
     return program;
 }
 

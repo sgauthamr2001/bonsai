@@ -8,7 +8,7 @@
 #include <vector>
 
 // #include "Debug.h"
-// #include "Error.h"
+#include "Error.h"
 
 /** \file
  * Defines the Scope class, which is used for keeping track of names in a scope while traversing IR
@@ -129,9 +129,8 @@ public:
             if (containing_scope) {
                 return containing_scope->get(name);
             } else {
-                // internal_error << "Name not in Scope: " << name << "\n"
-                //                << *this << "\n";
-                throw std::runtime_error("(get) Name not in scope: " + name);
+                internal_error << "Name not in Scope: " << name << "\n"
+                               << *this << "\n";
             }
         }
         return iter->second.top();
@@ -143,9 +142,8 @@ public:
     T2 &ref(const std::string &name) {
         typename std::map<std::string, SmallStack<T>>::iterator iter = table.find(name);
         if (iter == table.end() || iter->second.empty()) {
-            // internal_error << "Name not in Scope: " << name << "\n"
-            //                << *this << "\n";
-            throw std::runtime_error("(ref) Name not in scope: " + name);
+            internal_error << "Name not in Scope: " << name << "\n"
+                           << *this << "\n";
         }
         return iter->second.top_ref();
     }
@@ -193,11 +191,8 @@ public:
      * same name in an outer scope) */
     void pop(const std::string &name) {
         typename std::map<std::string, SmallStack<T>>::iterator iter = table.find(name);
-        // internal_assert(iter != table.end()) << "Name not in Scope: " << name << "\n"
-        //                                      << *this << "\n";
-        if (iter == table.end()) {
-            throw std::runtime_error("(pop) Name not in scope: " + name);
-        }
+        internal_assert(iter != table.end()) << "Name not in Scope: " << name << "\n"
+                                             << *this << "\n";
         iter->second.pop();
         if (iter->second.empty()) {
             table.erase(iter);

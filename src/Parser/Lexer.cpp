@@ -4,6 +4,8 @@
 #include <fstream>
 #include <sstream>
 
+#include "Error.h"
+
 namespace bonsai {
 namespace parser {
 
@@ -21,7 +23,7 @@ private:
     static Token::Type getTokenType(const std::string);
 
     void reportError(std::string msg, uint32_t line, uint32_t col) {
-        throw std::runtime_error("Parser error: " + msg + "\n  on line " + std::to_string(line) + " and column " + std::to_string(col));
+        internal_error << "Parser error: " << msg << "\n  on line " << line << " and column " << col;
         // errors->push_back(ParseError(line, col, line, col, msg));
     }
 
@@ -278,11 +280,11 @@ TokenStream Lexer::lex(std::istream &programStream) {
                 }
                 // Whitespace
                 case '\v':
-                    throw std::runtime_error("what is \\v = \v ???\n");
+                    internal_error << "what is \\v = \v ???\n";
                 case '\f':
-                    throw std::runtime_error("what is \\f = \f ???\n");
+                    internal_error << "what is \\f = \f ???\n";
                 case '\r': // ???
-                    throw std::runtime_error("what is \\r = \r ???\n");
+                    internal_error << "what is \\r = \r ???\n";
                 case '\n':
                     programStream.get();
                     if (state == ScanState::SLTEST) {
@@ -383,9 +385,8 @@ TokenStream Lexer::lex(std::istream &programStream) {
                     } else if (newToken.type == Token::Type::INT_LITERAL) {
                         newToken.value = (int64_t)std::stoll(tokenString);
                     } else {
-                        if (newToken.type != Token::Type::FLOAT_LITERAL) {
-                            throw std::runtime_error("State error in literal parsing: " + newToken.toString());
-                        }
+                        internal_assert(newToken.type == Token::Type::FLOAT_LITERAL)
+                            << "State error in literal parsing: " + newToken.toString();
                         newToken.value = (double)std::stold(tokenString);
                     }
                     newToken.lineEnd = line;
@@ -425,9 +426,7 @@ char Lexer::handleEscapedChar(std::istream &programStream, uint32_t line, uint32
 
 TokenStream lex(const std::string &filename) {
     std::ifstream inputFile(filename);
-    if (!inputFile.is_open()) {
-        throw std::runtime_error("Error: Could not open file " + filename);
-    }
+    internal_assert(inputFile.is_open()) << "Error: Could not open file " << filename;
 
     // Lexical analysis
     TokenStream tokens = Lexer().lex(inputFile);

@@ -72,9 +72,7 @@ struct AlwaysReturns : public IRVisitor {
         for (size_t i = 0; i < node->stmts.size() - 1; i++) {
             const Stmt &stmt = node->stmts[i];
             stmt.accept(this);
-            if (returns) {
-                throw std::runtime_error("Sequence always returns in the middle: " + to_string(node));
-            }
+            internal_assert(!returns) << "Sequence always returns in the middle of computation: " << node;
         }
         node->stmts.back().accept(this);
     }
@@ -103,10 +101,8 @@ struct ReturnType : public IRVisitor {
             node->else_body.accept(this);
         }
         if (then_type.defined() && type.defined()) {
+            internal_assert(equals(then_type, type)) << "IfElse returns two separate types:" << then_type << " vs. " << type << " in\n" << node;
             // TODO: structural equality.
-            if (!equals(then_type, type)) {
-                throw std::runtime_error("IfElse returns two separate types:\n" + to_string(node));
-            }
         } else if (then_type.defined()) {
             type = then_type;
         }
@@ -119,9 +115,8 @@ struct ReturnType : public IRVisitor {
             type = Type();
             stmt.accept(this);
             if (type.defined()) {
-                if (prev_type.defined() && !equals(type, prev_type)) {
-                    throw std::runtime_error("Sequence returns two separate types:\n" + to_string(node));
-                }
+                internal_assert(!prev_type.defined() || equals(type, prev_type))
+                    << "Sequence returns two separate types:\n" << prev_type << " vs. " << type << " in\n" << node;
                 prev_type = type;
             }
         }
@@ -215,8 +210,9 @@ bool is_constant_expr(const Expr &expr) {
         // should only be checking if the accessed field is a constant.
         return is_constant_expr(expr.as<Access>()->value);
     } else {
+        internal_error << "is_constant_expr() called on: " << expr;
+        return false;
         // TODO: Intrinsic, Lambda, GeomOp, SetOp, Call (constant folding)
-        throw std::runtime_error("is_constant_expr() called on: " + to_string(expr));
     }
 }
 

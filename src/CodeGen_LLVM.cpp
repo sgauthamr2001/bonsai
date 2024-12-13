@@ -190,9 +190,7 @@ std::unique_ptr<llvm::TargetMachine> make_target_machine(const llvm::Module &mod
         llvm::TargetRegistry::printRegisteredTargetsForVersion(llvm::outs());
     }
     auto triple = llvm::Triple(targetTriple);
-    if (!llvm_target) {
-        throw std::runtime_error("Could not create LLVM target for " + triple.str() + "\n");
-    }
+    internal_assert(llvm_target) << "Could not create LLVM target for " << triple.str();
 
     llvm::TargetOptions options;
 
@@ -344,9 +342,7 @@ void CodeGen_LLVM::optimize_module() {
     mpm = pb.buildPerModuleDefaultPipeline(level, debug_pass_manager);
     mpm.run(*module, mam);
 
-    if (llvm::verifyModule(*module, &llvm::errs())) {
-        throw std::runtime_error("Transformation resulted in an invalid module\n");
-    }
+    internal_assert(!llvm::verifyModule(*module, &llvm::errs())) << "Compilation resulted in an invalid module";
 }
 
 void CodeGen_LLVM::visit(const Int_t *node) {
@@ -354,7 +350,7 @@ void CodeGen_LLVM::visit(const Int_t *node) {
 }
 
 void CodeGen_LLVM::visit(const UInt_t *node) {
-    throw std::runtime_error("TODO: implement UInt_t code generation: " + to_string(node));
+    internal_error << "TODO: implement UInt_t code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Bool_t *node) {
@@ -376,7 +372,7 @@ void CodeGen_LLVM::visit(const Float_t *node) {
             type = llvm::Type::getDoubleTy(*context);
             return;
         default:
-            throw std::runtime_error("There is no llvm type matching this floating-point bit width: " + to_string(node));
+            internal_error << "There is no llvm type matching this floating-point bit width: " << node;
     }
 }
 
@@ -388,9 +384,7 @@ void CodeGen_LLVM::visit(const Ptr_t *node) {
 
 void CodeGen_LLVM::visit(const Vector_t *node) {
     llvm::Type *etype = codegen_type(node->etype);
-    if (etype->isVoidTy()) {
-        throw std::runtime_error("Vector of void?");
-    }
+    internal_assert(!etype->isVoidTy()) << "Cannot make a vector of type void: " << node;
     // TODO: do we ever want to support scalable vectors? probably not.
     type = llvm::VectorType::get(etype, node->lanes, /* Scalable */ false);
 }
@@ -403,19 +397,19 @@ void CodeGen_LLVM::visit(const Struct_t *node) {
 void CodeGen_LLVM::visit(const Tuple_t *node) {
     // TODO: struct_types should include tuples, probably? but they're unnamed...
     // maybe use to_string() to map from node to built Struct_t
-    throw std::runtime_error("TODO: implement Tuple_t code generation: " + to_string(node));
+    internal_error << "TODO: implement Tuple_t code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Option_t *node) {
-    throw std::runtime_error("TODO: implement Option_t code generation: " + to_string(node));
+    internal_error << "TODO: implement Option_t code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Set_t *node) {
-    throw std::runtime_error("TODO: implement Set_t code generation: " + to_string(node));
+    internal_error << "TODO: implement Set_t code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Function_t *node) {
-    throw std::runtime_error("TODO: implement Function_t code generation: " + to_string(node));
+    internal_error << "TODO: implement Function_t code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const IntImm *node) {
@@ -429,9 +423,6 @@ void CodeGen_LLVM::visit(const FloatImm *node) {
 }
 
 void CodeGen_LLVM::visit(const Var *node) {
-    if (!scope.contains(node->name)) {
-        throw std::runtime_error("No var named " + node->name + " in scope");
-    }
     value = scope.get(node->name);
 }
 
@@ -471,7 +462,9 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 value = builder->CreateFCmpOEQ(a, b);
                 return;
             }
-            default: throw std::runtime_error("Unimplemented BinOp lowering: " + ir::to_string(node));
+            default:  {
+                internal_error << "Unimplemented BinOp lowering: " << node;
+            }
         }
     } else if (node->type.is_int()) {
         // TODO: do we ever want NSW?
@@ -507,10 +500,12 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 value = builder->CreateICmpEQ(a, b);
                 return;
             }
-            default: throw std::runtime_error("Unimplemented BinOp lowering: " + ir::to_string(node));
+            default:  {
+                internal_error << "Unimplemented BinOp lowering: " << node;
+            }
         }
     }
-    throw std::runtime_error("Cannot codegen BinOp:\n" + to_string(node));
+    internal_error << "Cannot codegen BinOp: " << node;
 }
 
 void CodeGen_LLVM::visit(const Broadcast *node) {
@@ -519,10 +514,7 @@ void CodeGen_LLVM::visit(const Broadcast *node) {
 }
 
 void CodeGen_LLVM::visit(const VectorReduce *node) {
-    if (!node->type.is_scalar()) {
-        throw std::runtime_error("Cannot codegen 2+ dimensional VectorReduce:\n" + to_string(node));
-    }
-
+    internal_assert(node->type.is_scalar()) << "Cannot codegen 2+ dimensional VectorReduce: " << node;
     // TODO: upgrade type for arithmetic?
 
     llvm::Value *v = codegen_expr(node->value);
@@ -566,8 +558,9 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
         // TODO: what is the difference between fmax and fmaximum?
         intrin = node->type.is_float() ? llvm::Intrinsic::vector_reduce_fmax : llvm::Intrinsic::vector_reduce_smax;
         break;
-    default:
-        throw std::runtime_error("Unsupported VectorReduce operation");
+    default: {
+        internal_error << "Unsupported VectorReduce operation" << node;
+    }
     }
 
     // TODO: perform splitting? investigate LLVM's splitting.
@@ -576,37 +569,34 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
         // std::cerr << "Calling with init = " << init << "\n";
         value = builder->CreateIntrinsic(elementType, intrin, {init, v});
     } else {
-        std::cerr << "Calling without init\n";
         value = builder->CreateIntrinsic(elementType, intrin, {v});
     }
 
-    if (!value) {
-        throw std::runtime_error("VectorReduce intrin failure: " + to_string(node));
-    }
+    internal_assert(value) << "VectorReduce intrin failure: " << node;
 }
 
 void CodeGen_LLVM::visit(const Ramp *node) {
-    throw std::runtime_error("TODO: implement Ramp lowering " + to_string(node));
+    internal_error << "TODO: implement Ramp code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Intrinsic *node) {
-    throw std::runtime_error("TODO: implement Intrinsic lowering " + to_string(node));
+    internal_error << "TODO: implement Intrinsic code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Lambda *node) {
-    throw std::runtime_error("TODO: implement Lambda lowering " + to_string(node));
+    internal_error << "TODO: implement Lambda code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const GeomOp *node) {
-    throw std::runtime_error("TODO: implement GeomOp lowering " + to_string(node));
+    internal_error << "TODO: implement GeomOp code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const SetOp *node) {
-    throw std::runtime_error("TODO: implement SetOp lowering " + to_string(node));
+    internal_error << "TODO: implement SetOp code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Call *node) {
-    throw std::runtime_error("TODO: implement Call lowering " + to_string(node));
+    internal_error << "TODO: implement Call code generation: " << node;
 }
 
 void CodeGen_LLVM::visit(const Build *node) {
@@ -630,19 +620,13 @@ void CodeGen_LLVM::visit(const Build *node) {
             value = builder->CreateInsertValue(value, values[i], i);
         }
     } else {
-        throw std::runtime_error("Unexpected llvm Type in Build lowering: " + to_string(node));
+        internal_error << "Unexpected llvm Type in Build lowering: " << node;
     }
 }
 
 void CodeGen_LLVM::visit(const Access *node) {
-    if (!node->value.type().is<Struct_t>()) {
-        throw std::runtime_error("Lowering of an Access encountered non-Struct_t value: " + to_string(node));
-    }
     llvm::Value *_struct = codegen_expr(node->value);
-    if (!_struct->getType()->isStructTy()) {
-        throw std::runtime_error("Lowering of an Access's value did not result in a struct type: " + to_string(node));
-    }
-
+    internal_assert(_struct->getType()->isStructTy()) << "Lowering of an Access's value did not result in a struct type: " << node;
     const size_t idx = find_struct_index(node->field, node->value.type().as<Struct_t>()->fields);
     value = builder->CreateExtractValue(_struct, idx);
 }
@@ -724,7 +708,6 @@ void CodeGen_LLVM::visit(const Store *node) {
                 add_tbaa_metadata(store, node->name, node->index);
             }
         }
-        // throw std::runtime_error("TODO: implement codegen for vector stores!\n");
     }
 }
 
@@ -807,9 +790,8 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
                 // that contains this ramp.
                 int64_t stride = *pstride;
                 base = *pbase;
-                if (base < 0) {
-                    throw std::runtime_error("base of ramp is negative");
-                }
+                // base = 0
+                internal_assert(base >= 0) << "base of ramp is negative";
                 width = next_power_of_two(ramp->lanes * stride);
 
                 while (base % width) {
@@ -858,9 +840,8 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
 }
 
 void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> structs) {
-    if (!struct_types.empty()) {
-        throw std::runtime_error("declare_struct_types called with non-empty struct_types!");
-    }
+    internal_assert(struct_types.empty()) << "declare_struct_types called with non-empty struct_types!";
+
     // TODO: does this handle recursive types properly?
     // First insert empty StructTypes into struct_types, to handle
     // weird ordering on types.
@@ -927,11 +908,8 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, con
 llvm::Value *CodeGen_LLVM::codegen_expr(const Expr &e) {
     value = nullptr;
     e.accept(this);
-    if (value) {
-        return value;
-    } else {
-        throw std::runtime_error("Failed to codegen expression:\n" + to_string(e));
-    }
+    internal_assert(value) << "Failed to codegen expression: " << e;
+    return value;
 }
 
 void CodeGen_LLVM::codegen_stmt(const Stmt &s) {
@@ -942,11 +920,8 @@ void CodeGen_LLVM::codegen_stmt(const Stmt &s) {
 llvm::Type *CodeGen_LLVM::codegen_type(const Type &t) {
     type = nullptr;
     t.accept(this);
-    if (type) {
-        return type;
-    } else {
-        throw std::runtime_error("Failed to codegen type:\n" + to_string(t));
-    }
+    internal_assert(type) << "Failed to codegen type: " << t;
+    return type;
 }
 
 

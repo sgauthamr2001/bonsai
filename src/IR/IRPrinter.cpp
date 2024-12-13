@@ -203,8 +203,7 @@ void IRPrinter::visit(const FloatImm *node) {
         os << node->value << "h";
         break;
     default:
-        throw std::runtime_error("Bad bit-width for float");
-        // internal_error << "Bad bit-width for float: " << op->type << "\n";
+        internal_error << "Bad bit-width for float" << node->type;
     }
 }
 

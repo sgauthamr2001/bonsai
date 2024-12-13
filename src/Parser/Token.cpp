@@ -2,6 +2,8 @@
 
 #include <sstream>
 
+#include "Error.h"
+
 namespace bonsai {
 namespace parser {
 
@@ -107,42 +109,33 @@ std::string Token::tokenTypeString(Token::Type type) {
         case Token::Type::GT: return "gt";
         case Token::Type::ERROR: return "error";
         default:
-            throw std::runtime_error("Unknown token type: " + std::to_string(static_cast<int>(type)));
+            internal_error << "Unknown token type: " << static_cast<int>(type);
+            return "";
     }
 }
 
 std::string Token::toString() const {
     switch (type) {
         case Token::Type::INT_LITERAL: {
-            if (std::holds_alternative<int64_t>(value)) {
-                return "'" + std::to_string(std::get<int64_t>(value)) + "'";
-            }
-            throw std::runtime_error("Expected INT_LITERAL to hold integer");
+            internal_assert(std::holds_alternative<int64_t>(value)) << "Expected INT_LITERAL to hold integer";
+            return "'" + std::to_string(std::get<int64_t>(value)) + "'";
         }            
         case Token::Type::UINT_LITERAL: {
-            if (std::holds_alternative<uint64_t>(value)) {
-                return "'" + std::to_string(std::get<uint64_t>(value)) + "'";
-            }
-            throw std::runtime_error("Expected UINT_LITERAL to hold unsigned integer");
+            internal_assert(std::holds_alternative<uint64_t>(value)) << "Expected UINT_LITERAL to hold unsigned integer";
+            return "'" + std::to_string(std::get<uint64_t>(value)) + "'";
         }
         case Token::Type::FLOAT_LITERAL: {
-            if (std::holds_alternative<double>(value)) {
-                return "'" + std::to_string(std::get<double>(value)) + "'";
-            }
-            throw std::runtime_error("Expected FLOAT_LITERAL to hold double");
+            internal_assert(std::holds_alternative<double>(value)) << "Expected FLOAT_LITERAL to hold double";
+            return "'" + std::to_string(std::get<double>(value)) + "'";
         }
         case Token::Type::STRING_LITERAL: {
-            if (std::holds_alternative<std::string>(value)) {
-                const std::string &str = std::get<std::string>(value);
-                return "'\"" + escape(str) + "\"'";
-            }
-            throw std::runtime_error("Expected STRING_LITERAL to hold string");
+            internal_assert(std::holds_alternative<std::string>(value)) << "Expected STRING_LITERAL to hold string";
+            const std::string &str = std::get<std::string>(value);
+            return "'\"" + escape(str) + "\"'";
         }
         case Token::Type::IDENTIFIER: {
-            if (std::holds_alternative<std::string>(value)) {
-                return std::get<std::string>(value);
-            }
-            throw std::runtime_error("Expected INDENTIFIER to hold string");
+            internal_assert(std::holds_alternative<std::string>(value)) << "Expected INDENTIFIER to hold string";
+            return std::get<std::string>(value);
         }
         default:
             return tokenTypeString(type);

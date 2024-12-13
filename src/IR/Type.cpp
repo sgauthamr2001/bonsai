@@ -14,7 +14,8 @@ uint32_t Type::bits() const {
     } else if (auto as_float = this->as<Float_t>()) {
         return as_float->bits;
     } else {
-        throw std::runtime_error("Called bits() on bad type: " + to_string(*this));
+        internal_error << "Called bits() on bad type: " << *this;
+        return 0;
     }
 }
 
@@ -23,7 +24,8 @@ uint32_t Type::lanes() const {
         // TODO: handle recursive vectors?
         return as_vec->lanes;
     } else {
-        throw std::runtime_error("Called lanes() on bad type: " + to_string(*this));
+        internal_error << "Called lanes() on bad type: " << *this;
+        return 0;
     }
 }
 
@@ -58,10 +60,6 @@ bool Type::is_numeric() const {
     return this->is_int() || this->is_float();
 }
 
-bool Type::is_callable() const {
-    throw std::runtime_error("TODO: implement Type::is_callable()");
-}
-
 Type Type::to_bool() const {
     if (this->is<Int_t>() || this->is<Float_t>() || this->is<UInt_t>()) {
         return Bool_t::make();
@@ -69,7 +67,8 @@ Type Type::to_bool() const {
         const Vector_t *v = this->as<Vector_t>();
         return Vector_t::make(v->etype.to_bool(), v->lanes);
     } else {
-        throw std::runtime_error("Called to_bool() on bad type: " + to_string(*this));
+        internal_error << "Called to_bool() on bad type: " << *this;
+        return Type();
     }
 }
 
@@ -82,7 +81,8 @@ Type Type::to_uint() const {
         const Vector_t *v = this->as<Vector_t>();
         return Vector_t::make(v->etype.to_uint(), v->lanes);
     } else {
-        throw std::runtime_error("Called to_uint() on bad type: " + to_string(*this));
+        internal_error << "Called to_uint() on bad type: " << *this;
+        return Type();
     }
 }
 
@@ -92,7 +92,8 @@ Type Type::element_of() const {
     } else if (this->is<Set_t>()) {
         return this->as<Set_t>()->etype;
     } else {
-        throw std::runtime_error("Called element_of() on bad type: " + to_string(*this));
+        internal_error << "Called element_of() on bad type: " << *this;
+        return Type();
     }
 }
 

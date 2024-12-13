@@ -20,7 +20,8 @@ const int64_t *as_const_int(const Expr &e) {
 
 bool is_const_one(const Expr &e) {
     if (!e.defined()) {
-        return false; // throw std::runtime_error?
+        internal_error << "is_const_one called on undefined value";
+        return false;
     } else if (const Broadcast *b = e.as<Broadcast>()) {
         return is_const_one(b->value);
     } else if (const IntImm *i = e.as<IntImm>()) {
@@ -33,27 +34,31 @@ bool is_const_one(const Expr &e) {
 
 Expr make_zero(const Type &t) {
     if (t.is_vector()) {
-        throw std::runtime_error("TODO: handle vector types in make_zero");
+        Expr inner = make_zero(t.element_of());
+        return Broadcast::make(t.as<Vector_t>()->lanes, inner);
     }
     if (t.is_float()) {
         return FloatImm::make(t, 0.0f);
     } else if (t.is_int()) {
         return IntImm::make(t, 0);
     } else {
-        throw std::runtime_error("TODO: handle " + to_string(t) + " in make_zero");
+        internal_error << "TODO: handle: " << t << " in make_zero";
+        return Expr();
     }
 }
 
 Expr make_one(const Type &t) {
     if (t.is_vector()) {
-        throw std::runtime_error("TODO: handle vector types in make_one");
+        Expr inner = make_one(t.element_of());
+        return Broadcast::make(t.as<Vector_t>()->lanes, inner);
     }
     if (t.is_float()) {
         return FloatImm::make(t, 1.0f);
     } else if (t.is_int()) {
         return IntImm::make(t, 1);
     } else {
-        throw std::runtime_error("TODO: handle " + to_string(t) + " in make_one");
+        internal_error << "TODO: handle: " << t << " in make_one";
+        return Expr();
     }
 }
 
@@ -71,7 +76,8 @@ size_t find_struct_index(const std::string &field, const Struct_t::Map &fields) 
             return i;
         }
     }
-    throw std::runtime_error("find_struct_index did not find field " + field);
+    internal_error << "find_struct_index did not find field " << field;
+    return 0;
 }
 
 } // namespace bonsai

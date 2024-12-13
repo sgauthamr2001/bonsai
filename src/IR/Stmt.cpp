@@ -6,21 +6,15 @@ namespace bonsai {
 namespace ir {
 
 Stmt Return::make(Expr value) {
-    if (!value.defined()) {
-        throw std::runtime_error("Undefined value in Return::make");
-    }
+    internal_assert(value.defined()) << "Undefined value in Return::make";
     Return *node = new Return;
     node->value = std::move(value);
     return node;
 }
 
 Stmt Store::make(std::string name, Expr index, Expr value) {
-    if (name.empty()) {
-        throw std::runtime_error("Empty name in Store::make");
-    }
-    if (!value.defined()) {
-        throw std::runtime_error("Undefined value in Store::make");
-    }
+    internal_assert(!name.empty()) << "Empty name in Store::make";
+    internal_assert(value.defined()) << "Undefined value in Store::make";
     Store *node = new Store;
     node->name = std::move(name);
     node->index = std::move(index);
@@ -29,15 +23,9 @@ Stmt Store::make(std::string name, Expr index, Expr value) {
 }
 
 Stmt LetStmt::make(std::string name, Expr value, Stmt body) {
-    if (name.empty()) {
-        throw std::runtime_error("Empty name in LetStmt::make");
-    }
-    if (!value.defined()) {
-        throw std::runtime_error("Undefined value in LetStmt::make");
-    }
-    if (!body.defined()) {
-        throw std::runtime_error("Undefined body in LetStmt::make");
-    }
+    internal_assert(!name.empty()) << "Empty name in LetStmt::make";
+    internal_assert(value.defined()) << "Undefined value in LetStmt::make";
+    internal_assert(body.defined()) << "Undefined body in LetStmt::make";
     LetStmt *node = new LetStmt;
     node->name = std::move(name);
     node->value = std::move(value);
@@ -46,15 +34,9 @@ Stmt LetStmt::make(std::string name, Expr value, Stmt body) {
 }
 
 Stmt IfElse::make(Expr cond, Stmt then_body, Stmt else_body) {
-    if (!cond.defined()) {
-        throw std::runtime_error("Undefined condition in IfElse::make");
-    }
-    if (!cond.type().is_bool()) {
-        throw std::runtime_error("Non-boolean condition in IfElse::make: " + to_string(cond));
-    }
-    if (!then_body.defined()) {
-        throw std::runtime_error("Undefined then_body in IfElse::make");
-    }
+    internal_assert(cond.defined()) << "Undefined condition in IfElse::make";
+    internal_assert(cond.type().defined() && cond.type().is_bool()) << "Non-boolean condition in IfElse::make: " << cond;
+    internal_assert(then_body.defined()) << "Undefined then_body in IfElse::make";
     IfElse *node = new IfElse;
     node->cond = std::move(cond);
     node->then_body = std::move(then_body);
@@ -63,13 +45,9 @@ Stmt IfElse::make(Expr cond, Stmt then_body, Stmt else_body) {
 }
 
 Stmt Sequence::make(std::vector<Stmt> stmts) {
-    if (stmts.size() == 0) {
-        throw std::runtime_error("Empty stmts in Sequence::make");
-    }
+    internal_assert(!stmts.empty()) << "Empty stmts in Sequence::make";
     for (const auto &s : stmts) {
-        if (!s.defined()) {
-            throw std::runtime_error("Undefined stmt in Sequence::make");
-        }
+        internal_assert(s.defined()) << "Undefined stmt in Sequence::make";
     }
     Sequence *node = new Sequence;
     node->stmts = std::move(stmts);
