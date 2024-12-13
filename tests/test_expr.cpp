@@ -17,6 +17,21 @@ void test_example() {
     std::cout << ap1 << std::endl;
 }
 
+
+void test_example2() {
+    // Expected to fail
+    Type f32 = Float_t::make(32);
+    try {
+        Expr _1 = IntImm::make(f32, 1);
+        std::cerr << "Failed!\n";
+    } catch (const std::runtime_error &e) {
+        std::cout << "Successfully caught: " << e.what();
+    }
+    
+}
+
+
 int main(void) {
     test_example();
+    test_example2();
 }

@@ -4,6 +4,9 @@ namespace bonsai {
 namespace ir {
 
 bool equals(const Type &t0, const Type &t1) {
+    if (!t0.defined()) {
+        return !t1.defined();
+    }
     if (t0.node_type() != t1.node_type()) {
         return false;
     }

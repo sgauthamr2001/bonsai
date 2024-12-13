@@ -10,6 +10,8 @@
 
 #include "IR/TypeEnforcement.h"
 
+#include "Error.h"
+
 namespace bonsai {
 namespace ir {
 
@@ -36,10 +38,11 @@ const Expr IntImm::make(Type t, int64_t value) {
     // internal_assert(t.bits() >= 1 && t.bits() <= 64)
     //     << "IntImm must have between 1 and 64 bits\n";
 
-    if (type_enforcement_enabled()) {
-        if (!t.defined()) {
-            throw std::runtime_error("IntImm::make passed undefined type for value: " + std::to_string(value));
-        }
+    const bool infer_types = type_enforcement_enabled() || t.defined();
+
+    if (infer_types) {
+        internal_assert(t.defined() && t.is_int() && t.is_scalar())
+            << "IntImm::make passed bad type for value: " << value << " type: " << t;
 
         // Normalize the value by dropping the high bits.
         // Since left-shift of negative value is UB in C++, cast to uint64 first;
@@ -59,31 +62,32 @@ const Expr FloatImm::make(Type t, double value) {
     // internal_assert(t.is_float() && t.is_scalar())
     //     << "FloatImm must be a scalar Float\n";
     FloatImm *node = new FloatImm;
-    node->type = t;
-    switch (t.bits()) {
-    case 16:
-        node->value = cast_to_float16(value);
-        break;
-    case 32:
-        node->value = (float)value;
-        break;
-    case 64:
-        node->value = value;
-        break;
-    default:
-        throw std::runtime_error("FloatImm must be f32 or f64");
+    const bool infer_types = type_enforcement_enabled() || t.defined();
+
+    if (infer_types) {
+        internal_assert(t.defined()) << "FloatImm::make passed undefined type for value: " << value;
+        node->type = std::move(t);
+        switch (node->type.bits()) {
+        case 16:
+            node->value = cast_to_float16(value);
+            break;
+        case 32:
+            node->value = (float)value;
+            break;
+        case 64:
+            node->value = value;
+            break;
+        default:
+            internal_error << "FloatImm must be f32 or f64, instead received: " << t;
+        }
     }
 
     return node;
 }
 
 Expr Var::make(Type type, const std::string &name) {
-    if (name.empty()) {
-        throw std::runtime_error("Var::make called with empty name and type: " + to_string(type));
-    }
-    if (type_enforcement_enabled() && !type.defined()) {
-        throw std::runtime_error("Var::make called with undefined type for name: " + name);
-    }
+    internal_assert(!name.empty()) << "Var::make called with empty name and type: " << type;
+    internal_assert(!type_enforcement_enabled() || type.defined()) << "Var::make called with undefined type for name: " << name;
     Var *node = new Var;
     node->type = type;
     node->name = name;
@@ -128,75 +132,73 @@ bool BinOp::is_boolean_op(const BinOp::OpType &op) {
 
 Expr BinOp::make(BinOp::OpType op, Expr a, Expr b) {
     // TODO: operator overloading and broadcasting!
-    if (!a.defined() || !b.defined()) {
-        throw std::runtime_error("BinOp of undefined: " + to_string(a) + " op " + to_string(b));
-    }
-    if (type_enforcement_enabled() && !equals(a.type(), b.type())) {
-        throw std::runtime_error("BinOp of mismatched types: " + to_string(a) + " op " + to_string(b));
-    }
+    internal_assert(a.defined() && b.defined()) << "BinOp of undefined: " << a << to_string(op) << b;
 
     BinOp *node = new BinOp;
-    node->op = op;
-    if (BinOp::is_numeric_op(op)) {
-        node->type = a.type();
-    } else if (BinOp::is_boolean_op(op)) {
-        node->type = a.type().to_bool();
-    } else {
-        throw std::runtime_error("Cannot infer output type: " + to_string(a) + to_string(op) + to_string(b));
+
+    const bool infer_types = type_enforcement_enabled() || (a.type().defined() && b.type().defined());
+    if (infer_types) {
+        internal_assert(equals(a.type(), b.type())) << "BinOp of mismatched types: " << a << to_string(op) << b;
+
+        if (BinOp::is_numeric_op(op)) {
+            node->type = a.type();
+        } else if (BinOp::is_boolean_op(op)) {
+            node->type = a.type().to_bool();
+        } else {
+            internal_error << "Cannot infer output type: "  << a << to_string(op) << b;
+        }
     }
 
+    node->op = op;
     node->a = std::move(a);
     node->b = std::move(b);
     return node;
 }
 
 Expr Broadcast::make(uint32_t lanes, Expr value) {
-    if (!value.defined()) {
-        throw std::runtime_error("Broadcast of undefined: " + to_string(value));
-    }
-    if (type_enforcement_enabled() && !value.type().is_scalar()) {
-        // TODO: support.
-        throw std::runtime_error("Broadcast of non-scalar: " + to_string(value));
-    }
+    internal_assert(value.defined()) << "Broadcast of undefined.";
+
     Broadcast *node = new Broadcast;
-    node->type = Vector_t::make(value.type(), lanes);
+
+    const bool infer_types = type_enforcement_enabled() || value.type().defined();
+    if (infer_types) {
+        // TODO: support?
+        internal_assert(value.type().is_scalar()) << "Broadcast of non-scalar: " << value;
+        node->type = Vector_t::make(value.type(), lanes);
+    }
+
     node->lanes = lanes;
     node->value = std::move(value);
     return node;
 }
 
 Expr VectorReduce::make(VectorReduce::OpType op, Expr value) {
-    if (!value.defined()) {
-        throw std::runtime_error("VectorReduce of undefined: " + to_string(value));
-    }
-    if (type_enforcement_enabled() && !value.type().is_vector()) {
-        // TODO: support.
-        throw std::runtime_error("VectorReduce of non-vector: " + to_string(value));
-    }
+    internal_assert(value.defined()) << "VectorReduce of undefined.";
+
     VectorReduce *node = new VectorReduce;
-    node->type = value.type().element_of();
+
+    const bool infer_types = type_enforcement_enabled() || value.type().defined();
+    if (infer_types) {
+        internal_assert(value.type().is_vector()) << "VectorReduce of non-vector: " << value;
+        node->type = value.type().element_of();
+    }
+
     node->op = op;
     node->value = std::move(value);
     return node;
 }
 
 Expr Ramp::make(Expr base, Expr stride, int lanes) {
-    // TODO: would be far easier with internal_assert
-    if (!base.defined()) {
-        throw std::runtime_error("Ramp of undefined (base)");
-    }
-    if (!stride.defined()) {
-        throw std::runtime_error("Ramp of undefined (stride)");
-    }
-    if (lanes <= 1) {
-        throw std::runtime_error("Ramp of lanes 1 >= " + std::to_string(lanes));
-    }
-    if (type_enforcement_enabled() && !equals(stride.type(), base.type())) {
-        throw std::runtime_error("Ramp of mismatched types: " + to_string(stride) + " vs " + to_string(base));
-    }
+    internal_assert(base.defined() && stride.defined() && lanes > 1) << "Bad Ramp parameters: " << base << " " << stride << " " << lanes;
 
     Ramp *node = new Ramp;
-    node->type = Vector_t::make(base.type(), lanes);
+
+    const bool infer_types = type_enforcement_enabled() || (stride.type().defined() && base.type().defined());
+    if (infer_types) {
+        internal_assert(equals(stride.type(), base.type())) << "Ramp of mismatched types: " << base << " " << stride << " " << lanes;
+        node->type = Vector_t::make(base.type(), lanes);
+    }
+
     node->base = std::move(base);
     node->stride = std::move(stride);
     node->lanes = lanes;
@@ -204,45 +206,30 @@ Expr Ramp::make(Expr base, Expr stride, int lanes) {
 }
 
 Expr Build::make(Type type, std::vector<Expr> values) {
-    if (!type.defined()) {
-        throw std::runtime_error("Build of undefined Type");
-    }
-    if (values.empty()) {
-        throw std::runtime_error("Build with no values, of type: " + to_string(type));
-    }
+    internal_assert(type.defined() && !values.empty()) << "Bad Build parameters: " << type << " with " << values.size() << " values";
     for (const auto& expr : values) {
-        if (!expr.defined()) {
-            throw std::runtime_error("Build with undefined field");
-        }
+        internal_assert(expr.defined()) << "Build with undefined field of type: " << type;
     }
 
     // TODO: how to handle type_enforcement_enabled() (when disabled)?
-    if (!type_enforcement_enabled()) {
-        throw std::runtime_error("Disable Build::make inference!");
-    }
+    internal_assert(type_enforcement_enabled()) << "TODO: figure out how to disable type inference in Build::make";
     if (type.is<Vector_t>()) {
-        if (type.as<Vector_t>()->lanes != values.size()) {
-            throw std::runtime_error("Build<Vector_t> with incorrect number of arguments, expected: " + to_string(type) + " but recieved " + std::to_string(values.size()) + " elements.");
-        }
+        internal_assert(type.as<Vector_t>()->lanes == values.size())
+            << "Build<Vector_t> with incorrect number of arguments, expected: " << type << " but received " << values.size() << " elements.";
         Type etype = type.as<Vector_t>()->etype;
         for (const auto& expr : values) {
-            if (!equals(expr.type(), etype)) {
-                throw std::runtime_error("Build<Vector_t> requires uniform element type, expected: " + to_string(etype) + " but recieved " + to_string(expr.type()));
-            }
+            internal_assert(equals(expr.type(), etype)) << "Build<Vector_t> requires uniform element type, expected: " << etype << " but received " << expr;
         }
     } else if (type.is<Struct_t>()) {
-        // Struct_t
-        if (type.as<Struct_t>()->fields.size() != values.size()) {
-            throw std::runtime_error("Build<Struct_t> with incorrect number of arguments, expected: " + to_string(type) + " but recieved " + std::to_string(values.size()) + " elements.");
-        }
+        internal_assert(type.as<Struct_t>()->fields.size() == values.size())
+            << "Build<Struct_t> with incorrect number of arguments, expected: " << type << " but received " << values.size() << " elements.";
         const auto &fields = type.as<Struct_t>()->fields;
         for (size_t i = 0; i < values.size(); i++) {
-            if (!equals(fields[i].second, values[i].type())) {
-                throw std::runtime_error("Build<Vector_t> requires matching field types, expected: " + to_string(fields[i].second) + " but recieved " + to_string(values[i].type()) + " from value " + to_string(values[i]));
-            }
+            internal_assert(equals(fields[i].second, values[i].type()))
+                << "Build<Vector_t> requires matching field types, expected: " << fields[i].second << " but received " << values[i] << " for field " << fields[i].first;
         }
     } else {
-        throw std::runtime_error("Build with non-(vector, struct) type: " + to_string(type));
+        internal_error << "Build::make with non-(vector, struct) type: " << type;
     }
 
     Build *node = new Build;
@@ -252,53 +239,41 @@ Expr Build::make(Type type, std::vector<Expr> values) {
 }
 
 Expr Access::make(std::string field, Expr value) {
-    if (field.empty()) {
-        throw std::runtime_error("Access with empty field");
-    }
-    if (!value.defined()) {
-        throw std::runtime_error("Access with undefined value");
-    }
+    internal_assert(!field.empty() && value.defined()) << "Bad Access parameters: " << field << " on " << value;
 
-    if (!type_enforcement_enabled()) {
-        // We don't know the value.type() yet.
-        assert(!value.type().defined());
-        Access *node = new Access;
-        node->field = std::move(field);
-        node->value = std::move(value);
-        return node;
-    }
+    Access *node = new Access;
 
-    if (const Struct_t *as_struct = value.type().as<Struct_t>()) {
-        Type etype;
-        for (const auto& [key, value] : as_struct->fields) {
-            if (key == field) {
-                etype = value;
-                break;
+    const bool infer_types = type_enforcement_enabled() || value.type().defined();
+    if (infer_types) {
+        if (const Struct_t *as_struct = value.type().as<Struct_t>()) {
+            Type etype;
+            for (const auto& [key, value] : as_struct->fields) {
+                if (key == field) {
+                    etype = value;
+                    break;
+                }
             }
+            internal_assert(etype.defined()) << "Access with field name not in struct: " << field << " of " << value.type();
+            node->type = std::move(etype);
+        } else {
+            // TODO: also support UnorderedStruct_t?
+            internal_error << "Access of non-struct: " << value;
         }
-        if (!etype.defined()) {
-            throw std::runtime_error("Access with field name not in struct: " + field + " of " + to_string(value.type()));
-        }
-        Access *node = new Access;
-        node->type = std::move(etype);
-        node->field = std::move(field);
-        node->value = std::move(value);
-        return node;
-    } else {
-        // TODO: also support UnorderedStruct_t
-        throw std::runtime_error("Access of non-struct: " + to_string(value));
     }
+
+    node->field = std::move(field);
+    node->value = std::move(value);
+    return node;
 }
 
 Expr Intrinsic::make(OpType op, Expr value) {
-    if (!value.defined()) {
-        throw std::runtime_error("Intrinsic::make received undefined value");
-    }
+    internal_assert(value.defined()) << "Intrinsic::make received undefined value";
 
     Intrinsic *node = new Intrinsic;
 
+    const bool infer_types = type_enforcement_enabled() || value.type().defined();
     // TODO:implement type enforcement for all intrinsics.
-    if (type_enforcement_enabled()) {
+    if (infer_types) {
         if ((op == Intrinsic::abs) && value.type().is_int()) {
             node->type = value.type().to_uint();
         } else {
@@ -311,16 +286,10 @@ Expr Intrinsic::make(OpType op, Expr value) {
 }
 
 Expr Lambda::make(std::vector<Lambda::Argument> args, Expr value) {
-    if (!value.defined()) {
-        throw std::runtime_error("Lambda::make received undefined value");
-    }
+    internal_assert(value.defined()) << "Lambda::make received undefined value";
     for (const auto &arg : args) {
-        if (arg.name.empty()) {
-            throw std::runtime_error("Lambda::make received empty arg name");
-        }
-        if (type_enforcement_enabled() && !arg.type.defined()) {
-            throw std::runtime_error("Lambda::make received undefined arg type: " + arg.name);
-        }
+        internal_assert(!arg.name.empty()) << "Lambda::make received empty arg name";
+        internal_assert(!type_enforcement_enabled() || arg.type.defined()) << "Lambda::make received undefined arg type: " << arg.name;
     }
 
     Lambda *node = new Lambda;
@@ -343,10 +312,7 @@ Expr Lambda::make(std::vector<Lambda::Argument> args, Expr value) {
 }
 
 Expr GeomOp::make(OpType op, Expr a, Expr b) {
-    if (!a.defined() || !b.defined()) {
-        throw std::runtime_error("GeomOp::make received undefined value: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
-    }
-
+    internal_assert(a.defined() && b.defined()) << "GeomOp::make received undefined value: " << to_string(op) << " " << a << " " << b;
     GeomOp *node = new GeomOp;
 
     const bool infer_types = type_enforcement_enabled() || (a.type().defined() && b.type().defined());
@@ -354,20 +320,17 @@ Expr GeomOp::make(OpType op, Expr a, Expr b) {
         // TODO: assert that these are volumes with defined geometric constructs?
         const Struct_t *sa = a.type().as<Struct_t>();
         const Struct_t *sb = b.type().as<Struct_t>();
-        if (!(sa && sb)) {
-            throw std::runtime_error("Expected geometric structs: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
-        }
+        internal_assert(sa && sb) << "GeomOp::make expected geometric structs: " << to_string(op) << " " << a << " " << b;
 
         Type ret_type;
         if (op == GeomOp::distance) {
             // TODO: distance could have any value, it's user-defined...
             // TODO: do we need Real_t?
             // For now, just assume f32
-            ret_type = Float_t::make(32);
+            node->type = Float_t::make(32);
         } else {
-            ret_type = Bool_t::make();
+            node->type = Bool_t::make();
         }
-        node->type = Function_t::make(std::move(ret_type), {a.type(), b.type()});
     }
 
     node->op = op;
@@ -377,10 +340,7 @@ Expr GeomOp::make(OpType op, Expr a, Expr b) {
 }
 
 Expr SetOp::make(OpType op, Expr a, Expr b) {
-    if (!a.defined() || !b.defined()) {
-        throw std::runtime_error("SetOp::make received undefined value: " + to_string(op) + " " + to_string(a) + " " + to_string(b));
-    }
-
+    internal_assert(a.defined() && b.defined()) << "SetOp::make received undefined value: " << to_string(op) << " " << a << " " << b;
     SetOp *node = new SetOp;
 
     // Only do type inference if it's enabled or both types are defined.
@@ -388,39 +348,34 @@ Expr SetOp::make(OpType op, Expr a, Expr b) {
 
     if (infer_types) {
         if (op == SetOp::filter) {
-            // TODO: assert that the types of a match
-            if (!a.type().is<Function_t>()) {
-                throw std::runtime_error("Expected lhs of filter to be a function, instead received: " + to_string(a) + " : " + to_string(a.type()));
-            }
-            if (!b.type().is<Set_t>()) {
-                throw std::runtime_error("Expected rhs of filter to be a set, instead received: " + to_string(b));
-            }
+            internal_assert(a.type().is<Function_t>() && a.type().as<Function_t>()->ret_type.is_bool())
+                << "Expected lhs of filter to be a boolean function, instead received: " << a << " : " << a.type();
+            internal_assert(b.type().is<Set_t>()) << "Expected rhs of filter to be a set, instead received: " << b << " : " << b.type();
+            const Function_t *f = a.type().as<Function_t>();
+            internal_assert(f->arg_types.size() == 1 && equals(f->arg_types[0], b.type().element_of()))
+                << "Expected filter function to accept element of type: " << b.type().element_of() << " instead got " << a << " : " << a.type();
             node->type = b.type();
         } else if (op == SetOp::argmin) {
-            // TODO: assert that the types of a match
-            if (!a.type().is<Function_t>()) {
-                throw std::runtime_error("Expected lhs of argmin to be a function, instead received: " + to_string(a));
-            }
-            if (!b.type().is<Set_t>()) {
-                throw std::runtime_error("Expected rhs of argmin to be a set, instead received: " + to_string(b));
-            }
+            internal_assert(a.type().is<Function_t>() && a.type().as<Function_t>()->ret_type.is_numeric())
+                << "Expected lhs of argmin to be a numeric function, instead received: " << a << " : " << a.type();
+            internal_assert(b.type().is<Set_t>()) << "Expected rhs of argmin to be a set, instead received: " << b << " : " << b.type();
+            const Function_t *f = a.type().as<Function_t>();
+            internal_assert(f->arg_types.size() == 1 && equals(f->arg_types[0], b.type().element_of()))
+                << "Expected argmin function to accept element of type: " << b.type().element_of() << " instead got " << a << " : " << a.type();
             node->type = b.type().element_of();
         } else if (op == SetOp::map) {
-            if (!a.type().is<Function_t>()) {
-                throw std::runtime_error("Expected lhs of map to be a function, instead received: " + to_string(a));
-            }
-            if (!b.type().is<Set_t>()) {
-                throw std::runtime_error("Expected rhs of map to be a set, instead received: " + to_string(b));
-            }
-            throw std::runtime_error("TODO: implement Function_t for map type inference.");
+            internal_assert(a.type().is<Function_t>()) << "Expected lhs of map to be afunction, instead received: " << a << " : " << a.type();
+            internal_assert(b.type().is<Set_t>()) << "Expected rhs of map to be a set, instead received: " << b << " : " << b.type();
+            const Function_t *f = a.type().as<Function_t>();
+            internal_assert(f->arg_types.size() == 1 && equals(f->arg_types[0], b.type().element_of()))
+                << "Expected map function to accept element of type: " << b.type().element_of() << " instead got " << a << " : " << a.type();
+            node->type = Set_t::make(f->ret_type);
         } else if (op == SetOp::product) {
-            if (!a.type().is<Set_t>()) {
-                throw std::runtime_error("Expected lhs of product to be a set, instead received: " + to_string(a));
-            }
-            if (!b.type().is<Set_t>()) {
-                throw std::runtime_error("Expected rhs of product to be a set, instead received: " + to_string(b));
-            }
-            throw std::runtime_error("TODO: implement Tuple_t for product type inference.");
+            internal_assert(a.type().is<Set_t>() && b.type().is<Set_t>())
+                << "Expected args of product to be sets, instead received: " << a << " : " << a.type() << " and " << b << " : " << b.type();
+            Type atype = a.type().element_of();
+            Type btype = b.type().element_of();
+            node->type = Tuple_t::make({std::move(atype), std::move(btype)});
         }
     }
 
@@ -431,20 +386,12 @@ Expr SetOp::make(OpType op, Expr a, Expr b) {
 }
 
 Expr Call::make(Type return_type, Expr func, std::vector<Expr> args) {
-    if (!func.defined()) {
-        throw std::runtime_error("Call::make received undefined func");
-    }
-    for (const auto &arg : args) {
-        if (!arg.defined()) {
-            throw std::runtime_error("Call::make received undefined arg to func: " + to_string(func));
-        }
-    }
+    internal_assert(func.defined()) << "Call::make received undefined func";
+    internal_assert(std::all_of(args.cbegin(), args.cend(), [](const Expr &e) { return e.defined(); })) << "Call::make received undefined arg to func: " << func;
 
     Call *node = new Call;
 
-    if (type_enforcement_enabled()) {
-        throw std::runtime_error("TODO: need Function_t to implement type inference for Calls!");
-    }
+    internal_assert(type_enforcement_enabled() && !return_type.defined()) << "TODO: need Function_t to implement type inference for Calls!";
 
     node->type = std::move(return_type);
     node->func = std::move(func);
