@@ -80,4 +80,4 @@ size_t find_struct_index(const std::string &field, const Struct_t::Map &fields) 
     return 0;
 }
 
-} // namespace bonsai
+}  // namespace bonsai

@@ -4,9 +4,10 @@
 #include "Parser/Token.h"
 
 #include "IR/Analysis.h"
+#include "IR/IREquality.h"
 #include "IR/IRPrinter.h"
-#include "IR/TypeEnforcement.h"
 #include "IR/Type.h"
+#include "IR/TypeEnforcement.h"
 
 #include <iostream>
 #include <regex>
@@ -137,7 +138,6 @@ private:
         try {
             // TODO: recursive imports break everything. Fix this somehow?
              imported = parse(name);
-             ir::global_disable_type_enforcement(); // parsing re-eneables type enforcement.
         } catch (const std::exception& e) {
             internal_error << "Failure to parse imported file: " << name << " with message: " << e.what();
         }
@@ -149,12 +149,12 @@ private:
 
         for (auto& [fname, func] : imported.funcs) {
             internal_assert(!program.funcs.contains(fname)) << "Redefinition of function: " << fname << " from imported file: " << name;
-            program.funcs[name] = std::move(func);
+            program.funcs[fname] = std::move(func);
         }
 
         for (auto& [tname, type] : imported.types) {
             internal_assert(!program.types.contains(tname)) << "Redefinition of type: " << tname << " from imported file: " << name;
-            program.types[name] = std::move(type);
+            program.types[tname] = std::move(type);
         }        
     }
 
@@ -305,7 +305,7 @@ private:
         program.funcs[name].body = std::move(body);
         if (!ret_type_set && ret_type.defined()) {
             // we were able to statically infer the return type
-            program.funcs[name].return_t = std::move(ret_type);
+            program.funcs[name].ret_type = std::move(ret_type);
         }
     }
 
@@ -423,9 +423,8 @@ private:
             {{ {ir::BinOp::Or, Token::Type::OR} }});
     }
 
-    // base_expr := '(' expr ')' | name (('.' field) | ('[' index (, index)* ']' | () )
+    // base_expr := '(' expr ')' | name (('.' field) | ('[' index (, index)* ']' | () ) | lambda args? : expr
     ir::Expr parseBaseExpr() {
-        // TODO: parse lambda
         if (consume(Token::Type::LPAREN)) {
             ir::Expr inner = parseExpr();
             expect(Token::Type::RPAREN);
@@ -491,14 +490,43 @@ private:
                         assert(args.size() == 2);
                         return ir::GeomOp::make(ir::GeomOp::contains, std::move(args[0]), std::move(args[1]));
                     } else {
-                        // Not intrinsic or set op, this should check the program's function list and produce a Call to that func
-                        internal_error << "TODO: need to implement Function as an Expr for the purpose of parsing: " << name;
+                        if (program.funcs.contains(name)) {
+                            ir::Type ftype;
+                            const ir::Function &func = program.funcs[name];
+                            // TODO: handle default params!
+                            internal_assert(args.size() == func.args.size())
+                                << "Call to: " << name << " at line " << token.lineBegin << " has incorrect number of arguments.\n"
+                                << "Expected: " << func.args.size() << " but parsed " << args.size();
+
+                            if (func.ret_type.defined()) {
+                                // Argument types are always required, but the return type could not be.
+                                std::vector<ir::Type> arg_types(func.args.size());
+                                for (size_t i = 0; i < func.args.size(); i++) {
+                                    arg_types[i] = func.args[i].type;
+                                    // TODO: we could push types down here, because we know the arg types.
+                                    // That mixes type inference with parsing though, not sure we want that.
+                                    internal_assert(!args[i].type().defined() || ir::equals(func.args[i].type, args[i].type()))
+                                        << "Argument " << i << " of call to function " << name << " on line " << token.lineBegin
+                                        << " has incorrect type. Expected " << func.args[i].type << " but parsed: " << args[i].type();
+                                }
+                                ftype = ir::Function_t::make(func.ret_type, arg_types);
+                            }
+                            // TODO: if we allowed partially-defined types, we could make: Fn(arg_types) -> (undef)
+                            // that would make type inference easier, but we'd have to change a lot of the error
+                            // handling in IR/Type.cpp
+                            // For now, leave ftype undefined in the else case
+                            ir::Expr f = ir::Var::make(ftype, name);
+                            return ir::Call::make(std::move(f), std::move(args));
+                        }
+                        // Not intrinsic or set op, not sure what this is.
+                        // TODO: could be a ctor of a type?
+                        internal_error << "Unknown function call " << name;
                         return ir::Expr();
                     }
                 } else {
                     // method access!
                     // TODO: type inference via interface?
-                    return ir::Call::make(ir::Type(), std::move(expr), std::move(args));
+                    return ir::Call::make(std::move(expr), std::move(args));
                 }
             }
 
@@ -568,6 +596,7 @@ private:
 
     // type := i[N] | u[N] | f[N] | bool | vector[type, int] | option[type] | declared_type
     ir::Type parseType() {
+        // TODO: support tuples of types! AKA unnamed structs.
         const Token id = expect(Token::Type::IDENTIFIER);
         const std::string name = std::get<std::string>(id.value);
 
@@ -612,7 +641,6 @@ private:
             // TODO: assert etype is a struct_t? or volume_t?
             return ir::Set_t::make(std::move(etype));
         } else {
-            // TODO: support tuples of types! AKA unnamed structs.
             // Must be a user-defined type, or an error.
             internal_assert(program.types.contains(name)) << "Unknown type: " << name;
             return program.types[name];
@@ -634,22 +662,7 @@ ir::Program parse(const std::string &filename) {
     TokenStream tokens = lex(filename);
     // Don't enforce types when building ASTs, might need to do some inference.
     ir::global_disable_type_enforcement();
-    ir::Program program = Parser(tokens).parseProgram();
-
-    // TODO: remove this!
-    if (program.externs.empty() && program.funcs.empty() && !program.main_body.defined()) {
-        // Temporary cop-out to get imports of only elements to work.
-        return program;
-    }
-
-    // Now do type inference and enforcement
-    ir::global_enable_type_enforcement();
-
-    program.dump(std::cout);
-
-    // TODO: type inference / enforcement.
-    internal_error << "TODO: type inference!";
-    return program;
+    return Parser(tokens).parseProgram();
 }
 
 }  // namespace parser

@@ -385,15 +385,28 @@ Expr SetOp::make(OpType op, Expr a, Expr b) {
     return node;
 }
 
-Expr Call::make(Type return_type, Expr func, std::vector<Expr> args) {
+Expr Call::make(Expr func, std::vector<Expr> args) {
     internal_assert(func.defined()) << "Call::make received undefined func";
     internal_assert(std::all_of(args.cbegin(), args.cend(), [](const Expr &e) { return e.defined(); })) << "Call::make received undefined arg to func: " << func;
 
     Call *node = new Call;
 
-    internal_assert(type_enforcement_enabled() && !return_type.defined()) << "TODO: need Function_t to implement type inference for Calls!";
+    const bool infer_types = type_enforcement_enabled() || func.type().defined();
 
-    node->type = std::move(return_type);
+    if (infer_types) {
+        internal_assert(func.type().defined()) << "Call::make needs func to have a defined type: " << func;
+        internal_assert(func.type().is<Function_t>()) << "Call::make received non-callable func: " << func;
+        const Function_t *f = func.type().as<Function_t>();
+        internal_assert(f->arg_types.size() == args.size())
+            << "Call::make received incorrect number of arguments to: " << func
+            << ", expected: " << f->arg_types.size() << " but received: " << args.size();
+        for (size_t i = 0; i < args.size(); i++) {
+            internal_assert(args[i].type().defined() && f->arg_types[i].defined() && equals(args[i].type(), f->arg_types[i]))
+                << "Call::make received bad argument: " << args[i] << " when expecting type: " << f->arg_types[i] << " at index " << i << " of call to func: " << func;
+        }
+        node->type = f->ret_type;
+    }
+
     node->func = std::move(func);
     node->args = std::move(args);
     return node;

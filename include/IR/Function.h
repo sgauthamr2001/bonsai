@@ -16,13 +16,13 @@ struct Function {
         Expr default_value;
     };
     std::vector<Argument> args;
-    Type return_t;
+    Type ret_type;
     Stmt body;
 
     Function() {}
 
-    Function(std::string _name, std::vector<Argument> _args, Type _return_t, Stmt _body)
-        : name(std::move(_name)), args(std::move(_args)), return_t(std::move(_return_t)), body(std::move(_body)) {}
+    Function(std::string _name, std::vector<Argument> _args, Type _ret_type, Stmt _body)
+        : name(std::move(_name)), args(std::move(_args)), ret_type(std::move(_ret_type)), body(std::move(_body)) {}
 };
 
 }  // namespace ir

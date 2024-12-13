@@ -31,7 +31,7 @@ void Program::dump(std::ostream& os) const {
                 os << " = " << arg.default_value;
             }
         }
-        os << ") -> " << func.return_t << " {\n" << func.body << "}\n\n";
+        os << ") -> " << func.ret_type << " {\n" << func.body << "}\n\n";
     }
     os << std::endl;
     if (main_body.defined()) {

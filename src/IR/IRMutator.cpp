@@ -240,7 +240,7 @@ Expr IRMutator::visit(const Call *node) {
     if (func.same_as(node->func) && not_changed) {
         return node;
     } else {
-        return Call::make(node->type, std::move(func), std::move(args));
+        return Call::make(std::move(func), std::move(args));
     }
 }
 

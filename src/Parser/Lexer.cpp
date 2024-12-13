@@ -430,7 +430,7 @@ TokenStream lex(const std::string &filename) {
 
     // Lexical analysis
     TokenStream tokens = Lexer().lex(inputFile);
-    std::cerr << tokens << std::endl;
+    // std::cerr << tokens << std::endl;
     return tokens;
 }
 
