@@ -54,6 +54,25 @@ Expr make_one(const Type &t) {
     return make_const(t, 1);
 }
 
+ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
+    internal_assert(t.defined() && e.defined()) << "received bad type conversion:" << e << " to " << t;
+    internal_assert(is_const(e)) << "expected constant, instead received: " << e;
+    // TODO: can we have non-scalar constants? parser doesn't support that yet, but it should!
+    // not sure how to assert that, since e shouldn't have a type right now.
+    // TODO: also support other type conversions?
+    // TODO: should we issue warnings when performing lossy conversions?
+    if (e.is<IntImm>()) {
+        return make_const(t, e.as<IntImm>()->value);
+    } else if (e.is<UIntImm>()) {
+        return make_const(t, e.as<UIntImm>()->value);
+    } else if (e.is<FloatImm>()) {
+        return make_const(t, e.as<FloatImm>()->value);
+    } else {
+        internal_error << "Unsure how to convert constant to type: " << t << " expr: " << e;
+        return ir::Expr();
+    }
+}
+
 bool is_power_of_two(int32_t x) {
     return (x & (x - 1)) == 0;
 }

@@ -151,23 +151,6 @@ bool BinOp::is_boolean_op(const BinOp::OpType &op) {
 
 namespace {
 
-Expr constant_to_type(const Type &t, const Expr &e) {
-    internal_assert(t.defined() && e.defined()) << "received bad type conversion:" << e << " to " << t;
-    internal_assert(is_const(e)) << "constant_to_type expected constant, instead received: " << e;
-    // TODO: can we have non-scalar constants? parser doesn't support that yet, but it should!
-        // not sure how to assert that, since e shouldn't have a type right now.
-    if (e.is<IntImm>()) {
-        return make_const(t, e.as<IntImm>()->value);
-    } else if (e.is<UIntImm>()) {
-        return make_const(t, e.as<UIntImm>()->value);
-    } else if (e.is<FloatImm>()) {
-        return make_const(t, e.as<FloatImm>()->value);
-    } else {
-        internal_error << "Unsure how to convert constant to type: " << t << " expr: " << e;
-        return ir::Expr();
-    }
-}
-
 void try_match_types(Expr &a, Expr &b) {
     if (a.type().defined() && b.type().defined()) {
         if (equals(a.type(), b.type())) return;
@@ -175,17 +158,17 @@ void try_match_types(Expr &a, Expr &b) {
         // TODO: is this right?
         // Cast to the larger bitwidth
         if (a.type().bits() > b.type().bits()) {
-            b = constant_to_type(a.type(), b);
+            b = constant_cast(a.type(), b);
         } else if (b.type().bits() > a.type().bits()) {
-            a = constant_to_type(b.type(), a);
+            a = constant_cast(b.type(), a);
         } else {
             internal_error << "Same bitwidth, not sure how to cast: " << a << " and " << b
                            << " are types " << a.type() << " and " << b.type();
         }
     } else if (a.type().defined() && !b.type().defined() && is_const(b)) {
-        b = constant_to_type(a.type(), b);
+        b = constant_cast(a.type(), b);
     } else if (b.type().defined() && !a.type().defined() && is_const(a)) {
-        a = constant_to_type(b.type(), a);
+        a = constant_cast(b.type(), a);
     }
     // otherwise can't (currently) do better.
 }

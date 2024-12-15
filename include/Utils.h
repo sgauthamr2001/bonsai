@@ -31,6 +31,8 @@ ir::Expr make_const(const ir::Type &t, const T &v) {
     }
 }
 
+ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e);
+
 bool is_power_of_two(int32_t x);
 int32_t next_power_of_two(int32_t x);
 
