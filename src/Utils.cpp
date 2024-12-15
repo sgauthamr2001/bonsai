@@ -73,6 +73,27 @@ ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
     }
 }
 
+ir::Expr replace(const std::string &var_name, ir::Expr repl, const ir::Expr &orig) {
+    struct Replacer : public ir::IRMutator {
+        Replacer(const std::string &_var_name, ir::Expr _repl)
+            : var_name(_var_name), repl(std::move(_repl)) {}
+        private:
+            const std::string &var_name;
+            ir::Expr repl;
+        public:
+            ir::Expr visit(const ir::Var *node) override {
+                if (node->name == var_name) {
+                    return repl;
+                } else {
+                    return node;
+                }
+            }
+    };
+
+    Replacer replacer(var_name, std::move(repl));
+    return replacer.mutate(orig);
+}
+
 bool is_power_of_two(int32_t x) {
     return (x & (x - 1)) == 0;
 }

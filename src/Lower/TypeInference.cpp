@@ -135,6 +135,37 @@ ir::Stmt replace_undef_calls(const ir::Stmt &stmt, const std::map<std::string, i
     return replacer.mutate(stmt);
 }
 
+ir::Stmt set_setop_lambda_types(const ir::Stmt &stmt) {
+    struct SetLambdaTypes : public ir::IRMutator {
+        ir::Expr visit(const ir::SetOp *node) override {
+            ir::Expr a = mutate(node->a);
+            ir::Expr b = mutate(node->b);
+            // TODO: could also do the reverse, of the func is labeled but the set type is unknown?
+            if (node->op != ir::SetOp::product && !a.type().defined()) {
+                // Perform lambda type setting
+                internal_assert(b.type().defined() && b.type().is<ir::Set_t>()) << "Cannot set lambda type with unknown argument type: " << node;
+                internal_assert(a.is<ir::Lambda>()) << "Cannot set lambda type if operand is not a lambda: " << node;
+                const ir::Lambda *f = a.as<ir::Lambda>();
+                // TODO: if this were a func object, this would give us the required return type.
+                internal_assert(f->args.size() == 1) << "Expected SetOp lambda to have one argument: " << node;
+                const std::string &var_name = f->args[0].name;
+                ir::Type var_type = b.type().element_of();
+                ir::Expr new_var = ir::Var::make(var_type, var_name);
+                ir::Expr new_lambda_expr = replace(var_name, new_var, f->value);
+                ir::Expr new_lambda = ir::Lambda::make({{var_name, std::move(var_type)}}, std::move(new_lambda_expr));
+                return ir::SetOp::make(node->op, new_lambda, std::move(b));
+            } else if (a.same_as(node->a) && b.same_as(node->b)) {
+                return node;
+            } else {
+                return ir::SetOp::make(node->op, std::move(a), std::move(b));
+            }
+        }
+    };
+
+    SetLambdaTypes setter;
+    return setter.mutate(stmt);
+}
+
 ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
     struct CoerceReturnTypes : public ir::IRMutator {
         CoerceReturnTypes(const ir::Type &_ret_type) : ret_type(_ret_type) {}
@@ -153,6 +184,8 @@ ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
             }
         }
     };
+
+    internal_assert(ret_type.defined()) << "Cannot coerce with undefined return type: " << stmt;
 
     CoerceReturnTypes coercer(ret_type);
     return coercer.mutate(stmt);
@@ -194,10 +227,13 @@ ir::Function infer_types(const ir::Function &fnotypes, const ir::Program &progra
     // First, try to use function types inferred so far to replace undefined call sites.
     ftypes.body = replace_undef_calls(fnotypes.body, func_types);
 
+    // Use known semantics of set operations to set lambda argument types.
+    ftypes.body = set_setop_lambda_types(fnotypes.body);
+
     // If we know the return type (due to annotations), try to coerce all returns to it.
     // If we don't know from annotations, try to infer from some return type, then coerce.
-    ftypes.ret_type = fnotypes.ret_type.defined() ? fnotypes.ret_type : ir::get_return_type(fnotypes.body);
-    ftypes.body = coerce_return_types(fnotypes.body, ftypes.ret_type);
+    ftypes.ret_type = fnotypes.ret_type.defined() ? fnotypes.ret_type : ir::get_return_type(ftypes.body);
+    ftypes.body = coerce_return_types(ftypes.body, ftypes.ret_type);
 
     // TODO: is there more that we can do?
 

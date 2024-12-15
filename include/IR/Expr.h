@@ -232,7 +232,6 @@ struct Intrinsic : ExprNode<Intrinsic> {
 };
 
 struct Lambda : ExprNode<Lambda> {
-    // TODO: do we need types for the args?
     struct Argument {
         std::string name;
         Type type; // optional
