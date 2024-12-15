@@ -109,22 +109,21 @@ Type Type::element_of() const {
 }
 
 Type Int_t::make(uint32_t bits) {
-    // TODO: consider caching common bit-widths, here and below.
-    // TODO: assert safety.
+    internal_assert(bits > 0 && bits <= 64) << "Unsupported bitwidth in Int_t: " << bits;
     Int_t *node = new Int_t;
     node->bits = bits;
     return node;
 }
 
 Type UInt_t::make(uint32_t bits) {
-    // TODO: assert safety.
+    internal_assert(bits > 0 && bits <= 64) << "Unsupported bitwidth in UInt_t: " << bits;
     UInt_t *node = new UInt_t;
     node->bits = bits;
     return node;
 }
 
 Type Float_t::make(uint32_t bits) {
-    // TODO: assert safety.
+    internal_assert(bits == 16 || bits == 32 || bits == 64) << "Unsupported bitwidth in Float_t: " << bits;
     Float_t *node = new Float_t;
     node->bits = bits;
     return node;
@@ -136,14 +135,14 @@ Type Bool_t::make() {
 }
 
 Type Ptr_t::make(Type etype) {
-    // TODO: assert safety?
+    internal_assert(etype.defined()) << "Ptr_t::make received undefined etype";
     Ptr_t *node = new Ptr_t;
     node->etype = std::move(etype);
     return node;
 }
 
 Type Vector_t::make(Type etype, uint32_t lanes) {
-    // TODO: assert safety?
+    internal_assert(etype.defined()) << "Vector_t::make received undefined etype";
     Vector_t *node = new Vector_t;
     node->etype = std::move(etype);
     node->lanes = lanes;
@@ -151,7 +150,8 @@ Type Vector_t::make(Type etype, uint32_t lanes) {
 }
 
 Type Struct_t::make(std::string name, Struct_t::Map fields) {
-    // TODO: assert safety?
+    internal_assert(std::all_of(fields.cbegin(), fields.cend(), [](const auto &p) { return p.second.defined(); }))
+        << "Struct_t::make recieved undefined field type";
     Struct_t *node = new Struct_t;
     node->name = std::move(name);
     node->fields = std::move(fields);
@@ -159,37 +159,31 @@ Type Struct_t::make(std::string name, Struct_t::Map fields) {
 }
 
 Type Tuple_t::make(std::vector<Type> etypes) {
-    // TODO: assert safety
-    for (const auto &type : etypes) {
-        assert(type.defined());
-    }
+    internal_assert(std::all_of(etypes.cbegin(), etypes.cend(), [](const Type &t) { return t.defined(); }))
+        << "Tuple_t::make recieved undefined type";
     Tuple_t *node = new Tuple_t;
     node->etypes = std::move(etypes);
     return node;
 }
 
 Type Option_t::make(Type etype) {
-    // TODO: assert safety?
-    assert(etype.defined());
+    internal_assert(etype.defined()) << "Option_t::make received undefined etype";
     Option_t *node = new Option_t;
     node->etype = std::move(etype);
     return node;
 }
 
 Type Set_t::make(Type etype) {
-    // TODO: assert safety?
-    assert(etype.defined());
+    internal_assert(etype.defined()) << "Set_t::make received undefined etype";
     Set_t *node = new Set_t;
     node->etype = std::move(etype);
     return node;
 }
 
 Type Function_t::make(Type ret_type, std::vector<Type> arg_types) {
-    // TODO: assert safety
-    assert(ret_type.defined());
-    for (const auto &type : arg_types) {
-        assert(type.defined());
-    }
+    internal_assert(ret_type.defined()) << "Function_t::make received undefined ret_type";
+    internal_assert(std::all_of(arg_types.cbegin(), arg_types.cend(), [](const Type &t) { return t.defined(); }))
+        << "Function_t::make received undefined arg_type";
     Function_t *node = new Function_t;
     node->ret_type = std::move(ret_type);
     node->arg_types = std::move(arg_types);

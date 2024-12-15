@@ -910,6 +910,7 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, con
 }
 
 llvm::Value *CodeGen_LLVM::codegen_expr(const Expr &e) {
+    internal_assert(e.defined());
     value = nullptr;
     e.accept(this);
     internal_assert(value) << "Failed to codegen expression: " << e;
@@ -917,11 +918,12 @@ llvm::Value *CodeGen_LLVM::codegen_expr(const Expr &e) {
 }
 
 void CodeGen_LLVM::codegen_stmt(const Stmt &s) {
-    assert(s.defined());
+    internal_assert(s.defined());
     s.accept(this);
 }
 
 llvm::Type *CodeGen_LLVM::codegen_type(const Type &t) {
+    internal_assert(t.defined());
     type = nullptr;
     t.accept(this);
     internal_assert(type) << "Failed to codegen type: " << t;

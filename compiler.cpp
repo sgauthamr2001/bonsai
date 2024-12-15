@@ -15,6 +15,8 @@ int main(int argc, char* argv[]) {
 
     // TODO: type inference
     program = bonsai::lower::infer_types(program);
+
+    program.dump(std::cout);
     bonsai::internal_error << "TODO: implement lowering after type inference";
     
     // TODO:

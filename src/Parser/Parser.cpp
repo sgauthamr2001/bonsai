@@ -73,13 +73,13 @@ public:
     }
 
     ir::Program parseProgram() {
-        assert(frames.empty());
+        internal_assert(frames.empty());
         new_frame();
         while (!tokens.empty()) {
             parseProgramElement();
         }
         end_frame();
-        assert(frames.empty());
+        internal_assert(frames.empty());
         return std::move(program);
     }
 
@@ -456,38 +456,37 @@ private:
                 // Intrinsics/set operations
                 if (fields.empty()) {
                     if (name == "abs") {
-                        // TODO: asserts should always be enabled!
-                        assert(args.size() == 1);
+                        internal_assert(args.size() == 1) << "abs takes a single argument, received: " << args.size();
                         return ir::Intrinsic::make(ir::Intrinsic::abs, std::move(args[0]));
                     } else if (name == "sqrt") {
-                        assert(args.size() == 1);
+                        internal_assert(args.size() == 1) << "sqrt takes a single argument, received: " << args.size();
                         return ir::Intrinsic::make(ir::Intrinsic::sqrt, std::move(args[0]));
                     } else if (name == "sin") {
-                        assert(args.size() == 1);
+                        internal_assert(args.size() == 1) << "sin takes a single argument, received: " << args.size();
                         return ir::Intrinsic::make(ir::Intrinsic::sin, std::move(args[0]));
                     } else if (name == "cos") {
-                        assert(args.size() == 1);
+                        internal_assert(args.size() == 1) << "cos takes a single argument, received: " << args.size();
                         return ir::Intrinsic::make(ir::Intrinsic::cos, std::move(args[0]));
                     } else if (name == "argmin") {
-                        assert(args.size() == 2);
+                        internal_assert(args.size() == 2) << "argmin takes two arguments, received: " << args.size();
                         return ir::SetOp::make(ir::SetOp::argmin, std::move(args[0]), std::move(args[1]));
                     } else if (name == "filter") {
-                        assert(args.size() == 2);
+                        internal_assert(args.size() == 2) << "filter takes two arguments, received: " << args.size();
                         return ir::SetOp::make(ir::SetOp::filter, std::move(args[0]), std::move(args[1]));
                     } else if (name == "map") {
-                        assert(args.size() == 2);
+                        internal_assert(args.size() == 2) << "map takes two arguments, received: " << args.size();
                         return ir::SetOp::make(ir::SetOp::map, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "filter") {
-                        assert(args.size() == 2);
-                        return ir::SetOp::make(ir::SetOp::filter, std::move(args[0]), std::move(args[1]));
+                    } else if (name == "product") {
+                        internal_assert(args.size() == 2) << "product takes two arguments, received: " << args.size();
+                        return ir::SetOp::make(ir::SetOp::product, std::move(args[0]), std::move(args[1]));
                     } else if (name == "distance") {
-                        assert(args.size() == 2);
+                        internal_assert(args.size() == 2) << "distance takes two arguments, received: " << args.size();
                         return ir::GeomOp::make(ir::GeomOp::distance, std::move(args[0]), std::move(args[1]));
                     } else if (name == "intersects") {
-                        assert(args.size() == 2);
+                        internal_assert(args.size() == 2) << "intersects takes two arguments, received: " << args.size();
                         return ir::GeomOp::make(ir::GeomOp::intersects, std::move(args[0]), std::move(args[1]));
                     } else if (name == "contains") {
-                        assert(args.size() == 2);
+                        internal_assert(args.size() == 2) << "contains takes two arguments, received: " << args.size();
                         return ir::GeomOp::make(ir::GeomOp::contains, std::move(args[0]), std::move(args[1]));
                     } else {
                         if (program.funcs.contains(name)) {

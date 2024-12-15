@@ -173,10 +173,11 @@ bool always_returns(const Stmt &stmt) {
 }
 
 Type get_return_type(const Stmt &stmt) {
-    assert(always_returns(stmt));
+    internal_assert(always_returns(stmt))
+        << "get_return_type does not work for stmt that does not always return:\n" << stmt;
     ReturnType getter;
     stmt.accept(&getter);
-    assert(getter.type.defined());
+    // Cannot assert that getter.type is defined, type inference might not have run yet.
     return getter.type;
 }
 
