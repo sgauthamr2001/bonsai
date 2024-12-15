@@ -1,0 +1,7 @@
+// f_rec_undef.bonsai
+
+// bonsai cannot infer the return type of this function.
+func rec(i : i32) = rec(i - 1);
+
+// it should be written as: 
+// func rec(i : i32) -> i32 = rec(i - 1);

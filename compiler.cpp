@@ -11,20 +11,19 @@ int main(int argc, char* argv[]) {
     const std::string filename = argv[1];
 
     // Parse the input file
-    bonsai::ir::Program program;
-    program = bonsai::parser::parse(filename);
-    // try {
-    //     program = bonsai::parser::parse(filename);
-    // } catch (const std::exception& e) {
-    //     std::cerr << "Parsing failed: " << e.what() << std::endl;
-    //     return 1;
-    // }
+    bonsai::ir::Program program = bonsai::parser::parse(filename);
 
-    // TODO: could print Program.
-    std::cerr << "TODO: implement full Program lowering!" << std::endl;
+    // TODO: type inference
+    program = bonsai::lower::infer_types(program);
+    bonsai::internal_error << "TODO: implement lowering after type inference";
+    
+    // TODO:
+    // Lower spatial queries
+    // Perform first round of scheduling.
+    // Lower data structures.
+    // Perform second round of scheduling.
+    // Perform final code generation
+    // TODO: AOT or JIT option?
+
     return 1;
-
-    // TODO: perform lowering passes
-    // TODO: perform code generation
-    // TODO: AOT or JIT
 }

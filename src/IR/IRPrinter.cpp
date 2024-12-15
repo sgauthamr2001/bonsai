@@ -214,7 +214,9 @@ void IRPrinter::visit(const FloatImm *node) {
 }
 
 void IRPrinter::visit(const Var *node) {
-    if (!known_type.contains(node->name)) {
+    if (!known_type.contains(node->name) &&
+        node->type.defined() &&
+        !node->type.is<Function_t>()) {
         os << "(";
         print(node->type);
         os << ")";
