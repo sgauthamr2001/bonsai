@@ -17,6 +17,7 @@ struct Expr;
 
 enum class IRExprEnum {
     IntImm,
+    UIntImm,
     FloatImm,
     Var,
     BinOp,
@@ -98,17 +99,25 @@ Expr ExprNode<T>::mutate_expr(IRMutator *m) const {
 struct IntImm : ExprNode<IntImm> {
     int64_t value;
 
-    static const Expr make(Type t, int64_t value);
+    static Expr make(Type t, int64_t value);
 
     static const IRExprEnum _node_type = IRExprEnum::IntImm;
+};
+
+struct UIntImm : ExprNode<UIntImm> {
+    uint64_t value;
+
+    static Expr make(Type t, uint64_t value);
+
+    static const IRExprEnum _node_type = IRExprEnum::UIntImm;
 };
 
 struct FloatImm : ExprNode<FloatImm> {
     double value;
 
-    static const Expr make(Type t, double value);
+    static Expr make(Type t, double value);
 
-    static const IRExprEnum _node_type = IRExprEnum::IntImm;
+    static const IRExprEnum _node_type = IRExprEnum::FloatImm;
 };
 
 struct Var : ExprNode<Var> {

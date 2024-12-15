@@ -72,6 +72,9 @@ void IRVisitor::visit(const Function_t *node) {
 void IRVisitor::visit(const IntImm *) {
 }
 
+void IRVisitor::visit(const UIntImm *) {
+}
+
 void IRVisitor::visit(const FloatImm *) {
 }
 

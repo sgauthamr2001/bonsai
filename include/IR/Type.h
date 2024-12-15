@@ -72,6 +72,7 @@ struct Type : public IRHandle<IRTypeNode> {
     }
     uint32_t lanes() const;
     bool is_int() const;
+    bool is_uint() const;
     bool is_float() const;
     bool is_bool() const;
     bool is_scalar() const;

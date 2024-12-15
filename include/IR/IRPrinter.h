@@ -54,6 +54,7 @@ struct IRPrinter : public IRVisitor {
     void visit(const Function_t *) override;
     // Exprs
     void visit(const IntImm *) override;
+    void visit(const UIntImm *) override;
     void visit(const FloatImm *) override;
     void visit(const Var *) override;
     void print(const BinOp::OpType &op);

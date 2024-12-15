@@ -26,40 +26,32 @@ bool is_const_one(const Expr &e) {
         return is_const_one(b->value);
     } else if (const IntImm *i = e.as<IntImm>()) {
         return i->value == 1;
-    // TODO: unsigned integers
+    } else if (const UIntImm *u = e.as<UIntImm>()) {
+        return u->value == 1;
+    } else if (const FloatImm *f = e.as<FloatImm>()) {
+        return f->value == 1.f;
     } else {
         return false;
     }
 }
 
-Expr make_zero(const Type &t) {
-    if (t.is_vector()) {
-        Expr inner = make_zero(t.element_of());
-        return Broadcast::make(t.as<Vector_t>()->lanes, inner);
-    }
-    if (t.is_float()) {
-        return FloatImm::make(t, 0.0f);
-    } else if (t.is_int()) {
-        return IntImm::make(t, 0);
+bool is_const(const Expr &e) {
+    if (!e.defined()) {
+        internal_error << "is_const called on undefined value";
+        return false;
+    } else if (const Broadcast *b = e.as<Broadcast>()) {
+        return is_const(b->value);
     } else {
-        internal_error << "TODO: handle: " << t << " in make_zero";
-        return Expr();
+        return e.is<IntImm>() || e.is<UIntImm>() || e.is<FloatImm>(); // TODO: bools
     }
 }
 
+Expr make_zero(const Type &t) {
+    return make_const(t, 0);
+}
+
 Expr make_one(const Type &t) {
-    if (t.is_vector()) {
-        Expr inner = make_one(t.element_of());
-        return Broadcast::make(t.as<Vector_t>()->lanes, inner);
-    }
-    if (t.is_float()) {
-        return FloatImm::make(t, 1.0f);
-    } else if (t.is_int()) {
-        return IntImm::make(t, 1);
-    } else {
-        internal_error << "TODO: handle: " << t << " in make_one";
-        return Expr();
-    }
+    return make_const(t, 1);
 }
 
 bool is_power_of_two(int32_t x) {

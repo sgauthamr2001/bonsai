@@ -20,6 +20,7 @@ struct Function_t;
 // Exprs
 struct Expr;
 struct IntImm;
+struct UIntImm;
 struct FloatImm;
 struct Var;
 struct BinOp;

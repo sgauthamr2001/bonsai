@@ -416,6 +416,10 @@ void CodeGen_LLVM::visit(const IntImm *node) {
     value = llvm::ConstantInt::getSigned(codegen_type(node->type), node->value);
 }
 
+void CodeGen_LLVM::visit(const UIntImm *node) {
+    value = llvm::ConstantInt::get(codegen_type(node->type), node->value, /* IsSigned */ false);
+}
+
 void CodeGen_LLVM::visit(const FloatImm *node) {
     // TODO: Halide does some weird stuff for f16.
     // Make sure this works on f16?

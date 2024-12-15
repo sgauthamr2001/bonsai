@@ -379,15 +379,25 @@ TokenStream Lexer::lex(std::istream &programStream) {
 
                     // handle u (unsigned) modifier.
                     if (programStream.peek() == 'u') {
+                        programStream.get();
                         newToken.type = Token::Type::UINT_LITERAL;
                         ++col;
                         newToken.value = (uint64_t)std::stoull(tokenString);
                     } else if (newToken.type == Token::Type::INT_LITERAL) {
+                        newToken.type = Token::Type::INT_LITERAL;
                         newToken.value = (int64_t)std::stoll(tokenString);
                     } else {
                         internal_assert(newToken.type == Token::Type::FLOAT_LITERAL)
-                            << "State error in literal parsing: " + newToken.toString();
+                            << "State error in literal parsing: " << tokenString;
                         newToken.value = (double)std::stold(tokenString);
+                    }
+                    if (newToken.type == Token::Type::FLOAT_LITERAL) {
+                        std::cout << tokenString << std::endl;
+                        std::cout << "parsed as:\n";
+                        std::cout << "double? " << std::holds_alternative<double>(newToken.value) << std::endl;
+                        std::cout << "int? " << std::holds_alternative<int64_t>(newToken.value) << std::endl;
+                        std::cout << "uint? " << std::holds_alternative<uint64_t>(newToken.value) << std::endl;
+                        std::cout << std::get<double>(newToken.value) << std::endl;
                     }
                     newToken.lineEnd = line;
                     newToken.colEnd = col - 1;

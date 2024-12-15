@@ -11,6 +11,8 @@ namespace ir {
 uint32_t Type::bits() const {
     if (auto as_int = this->as<Int_t>()) {
         return as_int->bits;
+    } else if (auto as_uint = this->as<UInt_t>()) {
+        return as_uint->bits;
     } else if (auto as_float = this->as<Float_t>()) {
         return as_float->bits;
     } else {
@@ -34,6 +36,12 @@ bool Type::is_int() const {
            (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_int());
 }
 
+
+bool Type::is_uint() const {
+    return this->is<UInt_t>() ||
+           (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_uint());
+}
+
 bool Type::is_float() const {
     return this->is<Float_t>() ||
            (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_float());
@@ -46,7 +54,10 @@ bool Type::is_bool() const {
 
 bool Type::is_scalar() const {
     // TODO: what counts as scalar?
-    return this->is<Int_t>() || this->is<Float_t>() || this->is<Bool_t>();
+    return this->is<Int_t>() ||
+           this->is<UInt_t>() ||
+           this->is<Float_t>() ||
+           this->is<Bool_t>();
 }
 
 bool Type::is_vector() const {

@@ -57,6 +57,7 @@ protected:
     virtual void visit(const ir::Function_t *) override;
     // Expressions
     virtual void visit(const ir::IntImm *) override;
+    virtual void visit(const ir::UIntImm *) override;
     virtual void visit(const ir::FloatImm *) override;
     virtual void visit(const ir::Var *) override;
     virtual void visit(const ir::BinOp *) override;

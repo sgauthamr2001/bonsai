@@ -190,6 +190,12 @@ void IRPrinter::visit(const IntImm *node) {
     os << node->value;
 }
 
+void IRPrinter::visit(const UIntImm *node) {
+    os << "(";
+    print(node->type);
+    os << ")";
+    os << node->value;
+}
 
 void IRPrinter::visit(const FloatImm *node) {
     switch (node->type.bits()) {

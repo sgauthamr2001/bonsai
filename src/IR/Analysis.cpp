@@ -189,7 +189,7 @@ std::vector<const Struct_t *> gather_struct_types(const Stmt &stmt) {
 bool is_constant_expr(const Expr &expr) {
     // TODO: constant fold first?
     if (expr.is<IntImm>() ||
-        // expr.is<UIntImm>() ||
+        expr.is<UIntImm>() ||
         expr.is<FloatImm>()) {
         return true;
     } else if (expr.is<Broadcast>()) {

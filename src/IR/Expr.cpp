@@ -11,6 +11,7 @@
 #include "IR/TypeEnforcement.h"
 
 #include "Error.h"
+#include "Utils.h"
 
 namespace bonsai {
 namespace ir {
@@ -31,13 +32,7 @@ Expr::Expr(int64_t x)
     : IRHandle(IntImm::make(Int_t::make(64), x)) {
 }
 
-const Expr IntImm::make(Type t, int64_t value) {
-    // TODO: assert safety.
-    // internal_assert(t.is_int() && t.is_scalar())
-    //     << "IntImm must be a scalar Int\n";
-    // internal_assert(t.bits() >= 1 && t.bits() <= 64)
-    //     << "IntImm must have between 1 and 64 bits\n";
-
+Expr IntImm::make(Type t, int64_t value) {
     const bool infer_types = type_enforcement_enabled() || t.defined();
 
     if (infer_types) {
@@ -58,30 +53,54 @@ const Expr IntImm::make(Type t, int64_t value) {
     return node;
 }
 
-const Expr FloatImm::make(Type t, double value) {
+Expr UIntImm::make(Type t, uint64_t value) {
+    const bool infer_types = type_enforcement_enabled() || t.defined();
+
+    if (infer_types) {
+        internal_assert(t.defined() && t.is_uint() && t.is_scalar())
+            << "UIntImm::make passed bad type for value: " << value << " type: " << t << "\n"
+            << t.defined() << " && " << t.is_uint() << " && " << t.is_scalar(); 
+        internal_assert(t.bits() >= 1 && t.bits() <= 64)
+            << "UIntImm must have between 1 and 64 bits\n";
+
+        // Normalize the value by dropping the high bits
+        value <<= (64 - t.bits());
+        value >>= (64 - t.bits());
+    }
+
+    UIntImm *node = new UIntImm;
+    node->type = t;
+    node->value = value;
+    return node;
+}
+
+
+Expr FloatImm::make(Type t, double value) {
     // internal_assert(t.is_float() && t.is_scalar())
     //     << "FloatImm must be a scalar Float\n";
-    FloatImm *node = new FloatImm;
+    
     const bool infer_types = type_enforcement_enabled() || t.defined();
 
     if (infer_types) {
         internal_assert(t.defined()) << "FloatImm::make passed undefined type for value: " << value;
-        node->type = std::move(t);
-        switch (node->type.bits()) {
+        switch (t.bits()) {
         case 16:
-            node->value = cast_to_float16(value);
+            value = cast_to_float16(value);
             break;
         case 32:
-            node->value = (float)value;
+            value = (float)value;
             break;
         case 64:
-            node->value = value;
+            value = value;
             break;
         default:
-            internal_error << "FloatImm must be f32 or f64, instead received: " << t;
+            internal_error << "FloatImm must be f16, f32, or f64, instead received: " << t;
         }
     }
 
+    FloatImm *node = new FloatImm;
+    node->type = t;
+    node->value = value;
     return node;
 }
 
@@ -130,11 +149,56 @@ bool BinOp::is_boolean_op(const BinOp::OpType &op) {
     }
 }
 
+namespace {
+
+Expr constant_to_type(const Type &t, const Expr &e) {
+    internal_assert(t.defined() && e.defined()) << "received bad type conversion:" << e << " to " << t;
+    internal_assert(is_const(e)) << "constant_to_type expected constant, instead received: " << e;
+    // TODO: can we have non-scalar constants? parser doesn't support that yet, but it should!
+        // not sure how to assert that, since e shouldn't have a type right now.
+    if (e.is<IntImm>()) {
+        return make_const(t, e.as<IntImm>()->value);
+    } else if (e.is<UIntImm>()) {
+        return make_const(t, e.as<UIntImm>()->value);
+    } else if (e.is<FloatImm>()) {
+        return make_const(t, e.as<FloatImm>()->value);
+    } else {
+        internal_error << "Unsure how to convert constant to type: " << t << " expr: " << e;
+        return ir::Expr();
+    }
+}
+
+void try_match_types(Expr &a, Expr &b) {
+    if (a.type().defined() && b.type().defined()) {
+        if (equals(a.type(), b.type())) return;
+        internal_assert(is_const(a) || is_const(b)) << "Implicit casting of types: " << a << " is not the same type as " << b;
+        // TODO: is this right?
+        // Cast to the larger bitwidth
+        if (a.type().bits() > b.type().bits()) {
+            b = constant_to_type(a.type(), b);
+        } else if (b.type().bits() > a.type().bits()) {
+            a = constant_to_type(b.type(), a);
+        } else {
+            internal_error << "Same bitwidth, not sure how to cast: " << a << " and " << b
+                           << " are types " << a.type() << " and " << b.type();
+        }
+    } else if (a.type().defined() && !b.type().defined() && is_const(b)) {
+        b = constant_to_type(a.type(), b);
+    } else if (b.type().defined() && !a.type().defined() && is_const(a)) {
+        a = constant_to_type(b.type(), a);
+    }
+    // otherwise can't (currently) do better.
+}
+
+}  // namespace
+
 Expr BinOp::make(BinOp::OpType op, Expr a, Expr b) {
     // TODO: operator overloading and broadcasting!
     internal_assert(a.defined() && b.defined()) << "BinOp of undefined: " << a << to_string(op) << b;
 
     BinOp *node = new BinOp;
+
+    try_match_types(a, b);
 
     const bool infer_types = type_enforcement_enabled() || (a.type().defined() && b.type().defined());
     if (infer_types) {

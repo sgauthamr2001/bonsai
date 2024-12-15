@@ -544,7 +544,17 @@ private:
             const Token token = expect(Token::Type::INT_LITERAL);
             const int64_t value = std::get<int64_t>(token.value);
             return ir::IntImm::make(ir::Type(), value);
-        // TODO: float and uint literals!
+        } else if (peek().type == Token::Type::UINT_LITERAL) {
+            // can't know concrete type yet, let type inference figure it out.
+            const Token token = expect(Token::Type::UINT_LITERAL);
+            const uint64_t value = std::get<uint64_t>(token.value);
+            return ir::UIntImm::make(ir::Type(), value);
+        } else if (peek().type == Token::Type::FLOAT_LITERAL) {
+            // can't know concrete type yet, let type inference figure it out.
+            const Token token = expect(Token::Type::FLOAT_LITERAL);
+            const double value = std::get<double>(token.value);
+            std::cout << "making FloatImm of value: " << value;
+            return ir::FloatImm::make(ir::Type(), value);
         } else if (peek().type == Token::Type::LAMBDA) {
             expect(Token::Type::LAMBDA);
             std::vector<ir::Lambda::Argument> args = parseLambdaArgs();

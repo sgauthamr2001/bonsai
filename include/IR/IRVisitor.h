@@ -20,6 +20,7 @@ struct IRVisitor {
     virtual void visit(const Function_t *);
     // Exprs
     virtual void visit(const IntImm *);
+    virtual void visit(const UIntImm *);
     virtual void visit(const FloatImm *);
     virtual void visit(const Var *);
     virtual void visit(const BinOp *);

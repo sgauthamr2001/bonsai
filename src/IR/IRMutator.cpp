@@ -129,6 +129,10 @@ Expr IRMutator::visit(const IntImm *node) {
     return node;
 }
 
+Expr IRMutator::visit(const UIntImm *node) {
+    return node;
+}
+
 Expr IRMutator::visit(const FloatImm *node) {
     return node;
 }
