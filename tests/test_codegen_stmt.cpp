@@ -24,7 +24,10 @@ void test_example2() {
     Type f32 = Float_t::make(32);
     Stmt stmt = Sequence::make({
         Store::make("_a", Expr(), Var::make(f32, "a")),
-        LetStmt::make("b", Var::make(f32, "a"), Return::make(Var::make(f32, "b"))),
+        // TODO: fix this!! bring back SSA
+        // LetStmt::make("b", Var::make(f32, "a"), Return::make(Var::make(f32, "b"))),
+        LetStmt::make("b", Var::make(f32, "a")),
+        Return::make(Var::make(f32, "b")),
     });
     std::cout << stmt << std::endl;
     CodeGen_LLVM codegen;

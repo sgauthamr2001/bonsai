@@ -22,14 +22,15 @@ Stmt Store::make(std::string name, Expr index, Expr value) {
     return node;
 }
 
-Stmt LetStmt::make(std::string name, Expr value, Stmt body) {
+// Stmt LetStmt::make(std::string name, Expr value, Stmt body) {
+Stmt LetStmt::make(std::string name, Expr value) {
     internal_assert(!name.empty()) << "Empty name in LetStmt::make";
     internal_assert(value.defined()) << "Undefined value in LetStmt::make";
-    internal_assert(body.defined()) << "Undefined body in LetStmt::make";
+    // internal_assert(body.defined()) << "Undefined body in LetStmt::make";
     LetStmt *node = new LetStmt;
     node->name = std::move(name);
     node->value = std::move(value);
-    node->body = std::move(body);
+    // node->body = std::move(body);
     return node;
 }
 

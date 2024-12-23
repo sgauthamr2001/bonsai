@@ -315,13 +315,14 @@ std::string to_string(const Intrinsic::OpType &op) {
         case Intrinsic::sqrt: return "sqrt";
         case Intrinsic::sin: return "sin";
         case Intrinsic::cos: return "cos";
+        case Intrinsic::cross: return "cross";
     }
 }
 
 void IRPrinter::visit(const Intrinsic *node) {
     // TODO: print type?
     os << to_string(node->op) << "(";
-    print_no_parens(node->value);
+    print_expr_list(node->args);
     os << ")";
 }
 
@@ -412,7 +413,8 @@ void IRPrinter::visit(const LetStmt *node) {
     os << get_indent() << "let " << node->name << " = ";
     print_no_parens(node->value);
     os << " in\n";
-    print(node->body);
+    // TODO: fix this!! bring back SSA
+    // print(node->body);
 }
 
 void IRPrinter::visit(const IfElse *node) {

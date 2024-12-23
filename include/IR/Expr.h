@@ -220,13 +220,14 @@ struct Intrinsic : ExprNode<Intrinsic> {
         sqrt,
         sin,
         cos,
+        cross,
         // TODO: more
     };
 
     OpType op;
-    Expr value;
+    std::vector<Expr> args;
 
-    static Expr make(OpType op, Expr value);
+    static Expr make(OpType op, std::vector<Expr> args);
 
     static const IRExprEnum _node_type = IRExprEnum::Intrinsic;
 };

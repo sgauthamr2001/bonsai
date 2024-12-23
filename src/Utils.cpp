@@ -41,6 +41,8 @@ bool is_const(const Expr &e) {
         return false;
     } else if (const Broadcast *b = e.as<Broadcast>()) {
         return is_const(b->value);
+    } else if (const Build *b = e.as<Build>()) {
+        return b->values.empty(); // default is constant!
     } else {
         return e.is<IntImm>() || e.is<UIntImm>() || e.is<FloatImm>(); // TODO: bools
     }
@@ -67,6 +69,8 @@ ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
         return make_const(t, e.as<UIntImm>()->value);
     } else if (e.is<FloatImm>()) {
         return make_const(t, e.as<FloatImm>()->value);
+    } else if (e.is<Build>() && e.as<Build>()->values.empty()) {
+        return Build::make(t, {});
     } else {
         internal_error << "Unsure how to convert constant to type: " << t << " expr: " << e;
         return ir::Expr();

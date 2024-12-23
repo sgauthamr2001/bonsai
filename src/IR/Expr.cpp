@@ -253,33 +253,40 @@ Expr Ramp::make(Expr base, Expr stride, int lanes) {
 }
 
 Expr Build::make(Type type, std::vector<Expr> values) {
-    internal_assert(type.defined() && !values.empty()) << "Bad Build parameters: " << type << " with " << values.size() << " values";
-    for (const auto& expr : values) {
-        internal_assert(expr.defined()) << "Build with undefined field of type: " << type;
-    }
-
-    // TODO: how to handle type_enforcement_enabled() (when disabled)?
-    internal_assert(type_enforcement_enabled()) << "TODO: figure out how to disable type inference in Build::make";
-    if (type.is<Vector_t>()) {
-        internal_assert(type.as<Vector_t>()->lanes == values.size())
-            << "Build<Vector_t> with incorrect number of arguments, expected: " << type << " but received " << values.size() << " elements.";
-        Type etype = type.as<Vector_t>()->etype;
-        for (const auto& expr : values) {
-            internal_assert(equals(expr.type(), etype)) << "Build<Vector_t> requires uniform element type, expected: " << etype << " but received " << expr;
-        }
-    } else if (type.is<Struct_t>()) {
-        internal_assert(type.as<Struct_t>()->fields.size() == values.size())
-            << "Build<Struct_t> with incorrect number of arguments, expected: " << type << " but received " << values.size() << " elements.";
-        const auto &fields = type.as<Struct_t>()->fields;
-        for (size_t i = 0; i < values.size(); i++) {
-            internal_assert(equals(fields[i].second, values[i].type()))
-                << "Build<Vector_t> requires matching field types, expected: " << fields[i].second << " but received " << values[i] << " for field " << fields[i].first;
-        }
-    } else {
-        internal_error << "Build::make with non-(vector, struct) type: " << type;
-    }
-
     Build *node = new Build;
+
+    const bool infer_types = type_enforcement_enabled() || (type.defined() && std::all_of(values.cbegin(), values.cend(), [](const auto &v) { return v.type().defined(); }));
+
+    if (infer_types) {
+        internal_assert(type.defined()) << "Build received empty type: " << type;
+        // TODO: if values.empty() or values.size() < expected_n, then assert type has defaults!
+        for (const auto& expr : values) {
+            internal_assert(expr.defined()) << "Build with undefined field of type: " << type;
+        }
+
+        if (type.is<Vector_t>()) {
+            internal_assert(values.empty() || type.as<Vector_t>()->lanes == values.size())
+                << "Build<Vector_t> with incorrect number of arguments, expected: " << type << " but received " << values.size() << " elements.";
+            Type etype = type.as<Vector_t>()->etype;
+            for (const auto& expr : values) {
+                internal_assert(equals(expr.type(), etype)) << "Build<Vector_t> requires uniform element type, expected: " << etype << " but received " << expr;
+            }
+        } else if (type.is<Struct_t>()) {
+            if (!values.empty()) {
+                internal_assert(type.as<Struct_t>()->fields.size() == values.size())
+                    << "Build<Struct_t> with incorrect number of arguments, expected: " << type << " but received " << values.size() << " elements.";
+
+                const auto &fields = type.as<Struct_t>()->fields;
+                for (size_t i = 0; i < values.size(); i++) {
+                    internal_assert(equals(fields[i].second, values[i].type()))
+                        << "Build<Vector_t> requires matching field types, expected: " << fields[i].second << " but received " << values[i] << " for field " << fields[i].first;
+                }
+            }
+        } else {
+            internal_error << "Build::make with non-(vector, struct) type: " << type;
+        }
+    }
+
     node->type = std::move(type);
     node->values = std::move(values);
     return node;
@@ -313,22 +320,33 @@ Expr Access::make(std::string field, Expr value) {
     return node;
 }
 
-Expr Intrinsic::make(OpType op, Expr value) {
-    internal_assert(value.defined()) << "Intrinsic::make received undefined value";
+Expr Intrinsic::make(OpType op, std::vector<Expr> args) {
+    internal_assert(!args.empty() && std::all_of(args.cbegin(), args.cend(), [](const auto &arg) { return arg.defined(); }))
+        << "Intrinsic received undefined argument";
 
     Intrinsic *node = new Intrinsic;
 
-    const bool infer_types = type_enforcement_enabled() || value.type().defined();
+    const bool infer_types = type_enforcement_enabled() || std::all_of(args.cbegin(), args.cend(), [](const auto &arg) { return arg.type().defined(); });
     // TODO:implement type enforcement for all intrinsics.
     if (infer_types) {
-        if ((op == Intrinsic::abs) && value.type().is_int()) {
-            node->type = value.type().to_uint();
-        } else {
-            node->type = value.type();
+        switch (op) {
+            case Intrinsic::abs: {
+                internal_assert(args.size() == 1);
+                if (args[0].type().is_int()) {
+                    node->type = args[0].type().to_uint();
+                } else {
+                    node->type = args[0].type();   
+                }
+                break;
+            }
+            default: {
+                node->type = args[0].type();
+                break;
+            }
         }
     }
     node->op = op;
-    node->value = std::move(value);
+    node->args = std::move(args);
     return node;
 }
 

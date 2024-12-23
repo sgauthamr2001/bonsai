@@ -35,10 +35,10 @@ struct GatherFreeVars : public IRVisitor {
     }
 
     void visit(const LetStmt *node) override {
-        // TODO: use Scope + ScopedBinding?
+        // TODO: fix this!! use SSA.
         seen_vars.insert(node->name);
-        node->body.accept(this);
-        seen_vars.erase(node->name);
+        // node->body.accept(this);
+        // seen_vars.erase(node->name);
     }
 };
 
@@ -54,7 +54,9 @@ struct AlwaysReturns : public IRVisitor {
     }
 
     void visit(const LetStmt *node) override {
-        node->body.accept(this);
+        // TODO: fix this!!
+        returns = false;
+        // node->body.accept(this);
     }
 
     void visit(const IfElse *node) override {
@@ -90,7 +92,8 @@ struct ReturnType : public IRVisitor {
     }
 
     void visit(const LetStmt *node) override {
-        node->body.accept(this);
+        // TODO: fix this!! bring back SSA
+        // node->body.accept(this);
     }
 
     void visit(const IfElse *node) override {

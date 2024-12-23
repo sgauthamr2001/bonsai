@@ -716,8 +716,10 @@ void CodeGen_LLVM::visit(const Store *node) {
 }
 
 void CodeGen_LLVM::visit(const LetStmt *node) {
-    ScopedBinding<llvm::Value *> bind(scope, node->name, codegen_expr(node->value));
-    codegen_stmt(node->body);
+    // TODO: fix this!! bring back ssa.
+    scope.push(node->name, codegen_expr(node->value));
+    // ScopedBinding<llvm::Value *> bind(scope, node->name, codegen_expr(node->value));
+    // codegen_stmt(node->body);
 }
 
 void CodeGen_LLVM::visit(const IfElse *node) {

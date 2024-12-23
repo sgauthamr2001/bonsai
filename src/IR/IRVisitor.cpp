@@ -108,7 +108,7 @@ void IRVisitor::visit(const Access *node) {
 }
 
 void IRVisitor::visit(const Intrinsic *node) {
-    node->value.accept(this);
+    visit_list(this, node->args);
 }
 
 void IRVisitor::visit(const Lambda *node) {
@@ -143,7 +143,8 @@ void IRVisitor::visit(const Store *node) {
 
 void IRVisitor::visit(const LetStmt *node) {
     node->value.accept(this);
-    node->body.accept(this);
+    // TODO: fix this!! bring back SSA
+    // node->body.accept(this);
 }
 
 void IRVisitor::visit(const IfElse *node) {

@@ -290,12 +290,11 @@ private:
             expect(Token::Type::SEMICOL);
             body = ir::Return::make(expr);
         } else {
-            expect(Token::Type::LSQUIGGLE);
-            body = parseStmt();
+            body = parseSequence();
+            // TODO: do type checking if they don't match?
             if (!ret_type_set) {
                 ret_type = ir::get_return_type(body);
             }
-            expect(Token::Type::RSQUIGGLE);
         }
 
         end_frame();
@@ -309,8 +308,65 @@ private:
         }
     }
 
+    ir::Stmt parseSequence() {
+        std::vector<ir::Stmt> stmts;
+        expect(Token::Type::LSQUIGGLE);
+        // brackets enclose a new frame!
+        new_frame();
+
+        while (!consume(Token::Type::RSQUIGGLE)) {
+            stmts.push_back(parseStmt());
+        }
+        // close the frame.
+        end_frame();
+        internal_assert(!stmts.empty()) << "Failed to parse a Sequence at line: " << peek().lineBegin; // TODO: this fails when the stream is empty
+        if (stmts.size() == 1) {
+            return std::move(stmts[0]);
+        } else {
+            return ir::Sequence::make(std::move(stmts));
+        }
+    }
+
+    // if expr stmt [elif expr stmt]* [else stmt]?
+    // return expr;
+    // TODO: allow labels? or inline funcs? of some kind.
+    // { stmt* }
+    // TODO: allow mut modifier!
+    // name [: type]? =  expr;
+    // name += expr; ?
+    // call? no bc no side effects...
+    // for? not while.
     ir::Stmt parseStmt() {
-        internal_error << "TODO: implement parseStmt";
+        if (peek().type == Token::Type::LSQUIGGLE) {
+            return parseSequence();
+        } else if (consume(Token::Type::IF)) {
+            ir::Expr cond = parseExpr(); // no required parens
+            ir::Stmt then_case = parseStmt();
+            internal_assert(!consume(Token::Type::ELIF)) << "TODO: implement elif parsing for line: " << peek().lineBegin;
+            if (consume(Token::Type::ELSE)) {
+                ir::Stmt else_case = parseStmt();
+                return ir::IfElse::make(std::move(cond), std::move(then_case), std::move(else_case));
+            } else {
+                return ir::IfElse::make(std::move(cond), std::move(then_case));
+            }
+        } else if (consume(Token::Type::RETURN)) {
+            ir::Expr ret = parseExpr();
+            expect(Token::Type::SEMICOL);
+            return ir::Return::make(std::move(ret));
+        } else if (peek().type == Token::Type::IDENTIFIER) {
+            // TODO: allow tuple declaration/assignment?
+            // TODO: how to do SSA in parsing?
+            auto def = parseNameDef<false, false>(true);
+            internal_assert(def.value.defined()) << "Expected expr assignment for name: " << def.name;
+            expect(Token::Type::SEMICOL);
+            if (def.type.defined() && def.value.type().defined()) {
+                internal_assert(ir::equals(def.type, def.value.type()))
+                    << "Mismatching type: " << def.name << " is labelled with type: " << def.type
+                    << " but " << def.value << " has type " << def.value.type();
+            }
+            return ir::LetStmt::make(def.name, std::move(def.value));
+        }
+        internal_error << "TODO: implement parseStmt for " << peek().toString();
         return ir::Stmt();
     }
 
@@ -457,16 +513,19 @@ private:
                 if (fields.empty()) {
                     if (name == "abs") {
                         internal_assert(args.size() == 1) << "abs takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::abs, std::move(args[0]));
+                        return ir::Intrinsic::make(ir::Intrinsic::abs, std::move(args));
                     } else if (name == "sqrt") {
                         internal_assert(args.size() == 1) << "sqrt takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::sqrt, std::move(args[0]));
+                        return ir::Intrinsic::make(ir::Intrinsic::sqrt, std::move(args));
                     } else if (name == "sin") {
                         internal_assert(args.size() == 1) << "sin takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::sin, std::move(args[0]));
+                        return ir::Intrinsic::make(ir::Intrinsic::sin, std::move(args));
                     } else if (name == "cos") {
                         internal_assert(args.size() == 1) << "cos takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::cos, std::move(args[0]));
+                        return ir::Intrinsic::make(ir::Intrinsic::cos, std::move(args));
+                    } else if (name == "cross") {
+                        internal_assert(args.size() == 2) << "cross takes two arguments, received: " << args.size();
+                        return ir::Intrinsic::make(ir::Intrinsic::cos, std::move(args));
                     } else if (name == "argmin") {
                         internal_assert(args.size() == 2) << "argmin takes two arguments, received: " << args.size();
                         return ir::SetOp::make(ir::SetOp::argmin, std::move(args[0]), std::move(args[1]));
@@ -488,6 +547,9 @@ private:
                     } else if (name == "contains") {
                         internal_assert(args.size() == 2) << "contains takes two arguments, received: " << args.size();
                         return ir::GeomOp::make(ir::GeomOp::contains, std::move(args[0]), std::move(args[1]));
+                    } else if (name == "sum") {
+                        internal_assert(args.size() == 1) << "sum takes a single argument, received: " << args.size();
+                        return ir::VectorReduce::make(ir::VectorReduce::Add, std::move(args[0]));
                     } else {
                         if (program.funcs.contains(name)) {
                             ir::Type ftype;
@@ -554,8 +616,7 @@ private:
             const double value = std::get<double>(token.value);
             std::cout << "making FloatImm of value: " << value;
             return ir::FloatImm::make(ir::Type(), value);
-        } else if (peek().type == Token::Type::LAMBDA) {
-            expect(Token::Type::LAMBDA);
+        } else if (consume(Token::Type::LAMBDA)) {
             std::vector<ir::Lambda::Argument> args = parseLambdaArgs();
             new_frame();
             for (const auto &arg : args) {
@@ -564,8 +625,20 @@ private:
             ir::Expr expr = parseExpr();
             end_frame();
             return ir::Lambda::make(std::move(args), std::move(expr));
+        } else if (consume(Token::Type::LSQUIGGLE)) {
+            // Could be a build or an empty
+            // TODO: is there an easy way to always know the type?
+            if (consume(Token::Type::RSQUIGGLE)) {
+                // Empty!
+                return ir::Build::make(ir::Type(), {});
+            } else {
+                std::vector<ir::Expr> args = parseExprListUntil(Token::Type::RSQUIGGLE);
+                // TODO: can we know the type?
+                return ir::Build::make(ir::Type(), std::move(args));
+            }
+            // TODO: should also support e.g. Type{} notation.
         } else {
-            internal_error << "Unknown token in parseBaseExpr: " << peek().toString();
+            internal_error << "Unknown token in parseBaseExpr: " << peek().toString() << " at line: " << peek().lineBegin;
             return ir::Expr();
         }
     }
@@ -592,15 +665,42 @@ private:
         // but maybe we need that for rng?
         std::vector<ir::Lambda::Argument> args;
         do {
-            const Token token = expect(Token::Type::IDENTIFIER);
-            const std::string name = std::get<std::string>(token.value);
-            ir::Type t;
-            if (consume(Token::Type::COL)) {
-                t = parseType();
-            }
-            args.push_back({name, std::move(t)});
+            auto def = parseNameDef<false, true>(false);
+            internal_assert(!def.value.defined()) << "Lambdas cannot have default function values! " << def.name << " assigned default: " << def.value;
+            args.push_back({std::move(def.name), std::move(def.type)});
         } while (!consume(Token::Type::ASSIGN));
         return args;
+    }
+
+    struct NameDef {
+        std::string name;
+        ir::Type type;    // optional
+        ir::Expr value;   // optional
+    };
+
+    // TODO: allow `mut` flag!
+    template<bool T_REQUIRED, bool E_CONST>
+    NameDef parseNameDef(const bool expr_allowed) {
+        NameDef def;
+
+        const Token token = expect(Token::Type::IDENTIFIER);
+        def.name = std::get<std::string>(token.value);
+
+        if constexpr (T_REQUIRED) {
+            expect(Token::Type::COL);
+            def.type = parseType();
+        } else if (consume(Token::Type::COL)) {
+            def.type = parseType();
+        }
+
+        if (expr_allowed && consume(Token::Type::ASSIGN)) {
+            def.value = parseExpr();
+            if constexpr (E_CONST) {
+                internal_assert(ir::is_constant_expr(def.value))
+                    << "Expected constant value for name: " << def.name << " but instead received: " << def.value;
+            }
+        }
+        return def;
     }
 
     // type := i[N] | u[N] | f[N] | bool | vector[type, int] | option[type] | declared_type

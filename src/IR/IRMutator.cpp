@@ -200,11 +200,11 @@ Expr IRMutator::visit(const Access *node) {
 }
 
 Expr IRMutator::visit(const Intrinsic *node) {
-    Expr value = mutate(node->value);
-    if (value.same_as(node->value)) {
+    auto [args, not_changed] = visit_list(this, node->args);
+    if (not_changed) {
         return node;
     } else {
-        return Intrinsic::make(node->op, std::move(value));
+        return Intrinsic::make(node->op, std::move(args));
     }
 }
 
@@ -270,11 +270,14 @@ Stmt IRMutator::visit(const Store *node) {
 
 Stmt IRMutator::visit(const LetStmt *node) {
     Expr value = mutate(node->value);
-    Stmt body = mutate(node->body);
-    if (value.same_as(node->value) && body.same_as(node->body)) {
+    // Stmt body = mutate(node->body);
+    if (value.same_as(node->value)
+        // && body.same_as(node->body)
+        ) {
         return node;
     } else {
-        return LetStmt::make(node->name, std::move(value), std::move(body));
+        // return LetStmt::make(node->name, std::move(value), std::move(body));
+        return LetStmt::make(node->name, std::move(value));
     }
 }
 
