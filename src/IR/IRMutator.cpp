@@ -169,6 +169,16 @@ Expr IRMutator::visit(const VectorReduce *node) {
     }
 }
 
+Expr IRMutator::visit(const VectorShuffle *node) {
+    Expr value = mutate(node->value);
+    auto [idxs, not_changed] = visit_list(this, node->idxs);
+    if (value.same_as(node->value) && not_changed) {
+        return node;
+    } else {
+        return VectorShuffle::make(std::move(value), std::move(idxs));
+    }
+}
+
 Expr IRMutator::visit(const Ramp *node) {
     Expr base = mutate(node->base);
     Expr stride = mutate(node->stride);

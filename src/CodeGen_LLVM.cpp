@@ -579,6 +579,10 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
     internal_assert(value) << "VectorReduce intrin failure: " << node;
 }
 
+void CodeGen_LLVM::visit(const VectorShuffle *node) {
+    internal_error << "TODO: implement VectorShuffle code generation: " << node;
+}
+
 void CodeGen_LLVM::visit(const Ramp *node) {
     internal_error << "TODO: implement Ramp code generation: " << node;
 }

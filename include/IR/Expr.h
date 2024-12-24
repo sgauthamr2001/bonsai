@@ -26,6 +26,7 @@ enum class IRExprEnum {
     // Vector ops
     Broadcast,
     VectorReduce,
+    VectorShuffle,
     Ramp,
     // Struct ops.
     Build,
@@ -169,6 +170,8 @@ struct Broadcast : ExprNode<Broadcast> {
 struct VectorReduce : ExprNode<VectorReduce> {
     enum OpType {
         Add,
+        Idxmin, // argmin
+        Idxmax, // argmax
         Mul,
         Min,
         Max,
@@ -181,6 +184,15 @@ struct VectorReduce : ExprNode<VectorReduce> {
     static Expr make(OpType op, Expr value);
 
     static const IRExprEnum _node_type = IRExprEnum::VectorReduce;
+};
+
+struct VectorShuffle : ExprNode<VectorShuffle> {
+    Expr value;
+    std::vector<Expr> idxs;
+
+    static Expr make(Expr value, std::vector<Expr> idxs);
+
+    static const IRExprEnum _node_type = IRExprEnum::VectorShuffle;
 };
 
 struct Ramp : ExprNode<Ramp> {

@@ -200,6 +200,8 @@ bool is_constant_expr(const Expr &expr) {
         return is_constant_expr(expr.as<Broadcast>()->value);
     } else if (expr.is<VectorReduce>()) {
         return is_constant_expr(expr.as<VectorReduce>()->value);
+    // } else if (expr.is<VectorShuffle>()) {
+    //     return is_constant_expr(expr.as<VectorShuffle>()->value) && std::all_of(expr.as<VectorShuffle>()->idxs.cbegin(), expr.as<VectorShuffle>()->idxs.cend(), [](const auto &e) { return is_constant_expr(e); });
     } else if (expr.is<Ramp>()) {
         return is_constant_expr(expr.as<Ramp>()->base) && is_constant_expr(expr.as<Ramp>()->stride);
     } else if (expr.is<Build>()) {

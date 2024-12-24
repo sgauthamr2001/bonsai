@@ -94,6 +94,12 @@ void IRVisitor::visit(const VectorReduce *node) {
     node->value.accept(this);
 }
 
+
+void IRVisitor::visit(const VectorShuffle *node) {
+    node->value.accept(this);
+    visit_list(this, node->idxs);
+}
+
 void IRVisitor::visit(const Ramp *node) {
     node->base.accept(this);
     node->stride.accept(this);

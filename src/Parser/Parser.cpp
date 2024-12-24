@@ -237,6 +237,7 @@ private:
                 const Token arg_id = expect(Token::Type::IDENTIFIER);
                 const std::string arg_name = std::get<std::string>(arg_id.value);
                 expect(Token::Type::COL);
+                // TODO: handle `mut`! Use ParseNameDef?
                 ir::Type type = parseType();
 
                 ir::Expr default_value;
@@ -359,11 +360,20 @@ private:
             auto def = parseNameDef<false, false>(true);
             internal_assert(def.value.defined()) << "Expected expr assignment for name: " << def.name;
             expect(Token::Type::SEMICOL);
+            // TODO: do type-forcing here!
             if (def.type.defined() && def.value.type().defined()) {
                 internal_assert(ir::equals(def.type, def.value.type()))
                     << "Mismatching type: " << def.name << " is labelled with type: " << def.type
                     << " but " << def.value << " has type " << def.value.type();
             }
+            // TODO: what to do if type is currently undefined?
+            if (def.type.defined()) {
+                add_type_to_frame(def.name, def.type);
+            } else {
+                add_type_to_frame(def.name, def.value.type());
+            }
+
+            // TODO: allow mut! add mut to state somewhere.
             return ir::LetStmt::make(def.name, std::move(def.value));
         }
         internal_error << "TODO: implement parseStmt for " << peek().toString();
@@ -550,6 +560,16 @@ private:
                     } else if (name == "sum") {
                         internal_assert(args.size() == 1) << "sum takes a single argument, received: " << args.size();
                         return ir::VectorReduce::make(ir::VectorReduce::Add, std::move(args[0]));
+                    } else if (name == "idxmin") {
+                        internal_assert(args.size() == 1) << "idxmin takes a single argument, received: " << args.size();
+                        return ir::VectorReduce::make(ir::VectorReduce::Idxmin, std::move(args[0]));
+                    } else if (name == "idxmax") {
+                        internal_assert(args.size() == 1) << "idxmax takes a single argument, received: " << args.size();
+                        return ir::VectorReduce::make(ir::VectorReduce::Idxmax, std::move(args[0]));
+                    } else if (name == "permute") {
+                        internal_assert(args.size() == 2) << "permute takes two arguments, received: " << args.size();
+                        internal_assert(args[1].is<ir::Build>()) << "permute expects the second argument to be a list of indexes, instead received: " << args[1];
+                        return ir::VectorShuffle::make(std::move(args[0]), args[1].as<ir::Build>()->values);
                     } else {
                         if (program.funcs.contains(name)) {
                             ir::Type ftype;
@@ -667,6 +687,7 @@ private:
         do {
             auto def = parseNameDef<false, true>(false);
             internal_assert(!def.value.defined()) << "Lambdas cannot have default function values! " << def.name << " assigned default: " << def.value;
+            internal_assert(!def.mut) << "TODO: support mutable arguments in lambdas. Argument: " << def.name << " marked as mutable.";
             args.push_back({std::move(def.name), std::move(def.type)});
         } while (!consume(Token::Type::ASSIGN));
         return args;
@@ -676,6 +697,7 @@ private:
         std::string name;
         ir::Type type;    // optional
         ir::Expr value;   // optional
+        bool mut = false;
     };
 
     // TODO: allow `mut` flag!
@@ -688,9 +710,21 @@ private:
 
         if constexpr (T_REQUIRED) {
             expect(Token::Type::COL);
+            if (consume(Token::Type::MUT)) {
+                def.mut = true;
+            }
             def.type = parseType();
         } else if (consume(Token::Type::COL)) {
-            def.type = parseType();
+            if (consume(Token::Type::MUT)) {
+                def.mut = true;
+                // might have no type label, just mut
+                if (peek().type != Token::Type::ASSIGN) {
+                    def.type = parseType();
+                }
+            } else {
+                // no mut label, must be type.
+                def.type = parseType();
+            }
         }
 
         if (expr_allowed && consume(Token::Type::ASSIGN)) {

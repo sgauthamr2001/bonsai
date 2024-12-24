@@ -1,6 +1,7 @@
 #include "IR/Expr.h"
 
 #include <iostream>
+#include <numeric>
 #include <stdexcept>
 #include <utility>
 
@@ -227,11 +228,37 @@ Expr VectorReduce::make(VectorReduce::OpType op, Expr value) {
     const bool infer_types = type_enforcement_enabled() || value.type().defined();
     if (infer_types) {
         internal_assert(value.type().is_vector()) << "VectorReduce of non-vector: " << value;
-        node->type = value.type().element_of();
+        if (op == VectorReduce::Idxmin || op == VectorReduce::Idxmax) {
+            internal_assert(value.type().element_of().is_scalar()) << "TODO: type for argmin/argmax of nested vector?: " << value;
+            node->type = UInt_t::make(32);
+            // TODO: what if it's not uint32?
+        } else {
+            node->type = value.type().element_of();
+        }
     }
 
     node->op = op;
     node->value = std::move(value);
+    return node;
+}
+
+Expr VectorShuffle::make(Expr value, std::vector<Expr> idxs) {
+    internal_assert(value.defined()) << "VectorShuffle of undefined.";
+    internal_assert(std::all_of(idxs.cbegin(), idxs.cend(), [](const auto &e) { return e.defined(); }))
+        << "VectorShuffle with undefined idxs";
+
+    VectorShuffle *node = new VectorShuffle;
+
+    const bool infer_types = type_enforcement_enabled() || value.type().defined();
+    if (infer_types) {
+        internal_assert(value.type().is_vector()) << "VectorShuffle of non-vector: " << value;
+        internal_assert(std::all_of(idxs.cbegin(), idxs.cend(), [](const auto &e) { return e.type().defined() && (e.type().is_int() || e.type().is_uint()); }))
+            << "Vector Shuffle with undefined index types, of value: " << value << " on " << std::accumulate(std::next(idxs.begin()), idxs.end(), to_string(idxs[0]) + " : " + to_string(idxs[0].type()), [](const std::string &a, const Expr &b) { return a + ", " + to_string(b) + " : " + to_string(b.type()); });
+        node->type = Vector_t::make(value.type().element_of(), idxs.size());
+    }
+
+    node->value = std::move(value);
+    node->idxs = std::move(idxs);
     return node;
 }
 

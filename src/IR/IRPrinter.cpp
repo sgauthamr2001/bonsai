@@ -273,6 +273,8 @@ void IRPrinter::visit(const Broadcast *node) {
 std::string to_string(const VectorReduce::OpType &op) {
     switch (op) {
         case VectorReduce::Add: return "+";
+        case VectorReduce::Idxmin: return "argmin";
+        case VectorReduce::Idxmax: return "argmax";
         case VectorReduce::Mul: return "*";
         case VectorReduce::Min: return "min";
         case VectorReduce::Max: return "max";
@@ -284,6 +286,15 @@ void IRPrinter::visit(const VectorReduce *node) {
     os << "reduce<" << to_string(node->op) << ">(";
     print_no_parens(node->value);
     os << ")";
+}
+
+void IRPrinter::visit(const VectorShuffle *node) {
+    // TODO: print type?
+    os << "shuffle(";
+    print_no_parens(node->value);
+    os << ", {";
+    print_expr_list(node->idxs);
+    os << "})";
 }
 
 void IRPrinter::visit(const Ramp *node) {
