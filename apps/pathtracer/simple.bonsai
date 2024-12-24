@@ -14,7 +14,7 @@ extern sampleLights : bool;
 extern sampleBSDF : bool;
 extern maxDepth : u32;
 
-func trace(ray : Ray) = compute_intersection(argmin(lambda tri : distance(ray, tri), filter(lambda tri: intersects(ray, tri), triangles)));
+func trace(ray : Ray) = compute_intersection(argmin(lambda tri = distance(ray, tri), filter(lambda tri = intersects(ray, tri), triangles)));
 
 func Li(ray : Ray, lambda : mut SampledWavelengths, sampler : Sampler, depth : u32 = 0, beta : SampledSpectrum = 0, specularBounce : bool = true) -> SampledSpectrum {
     L : SampledSpectrum = 0;
