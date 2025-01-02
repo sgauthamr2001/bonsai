@@ -24,6 +24,7 @@ struct IRVisitor {
     virtual void visit(const FloatImm *);
     virtual void visit(const Var *);
     virtual void visit(const BinOp *);
+    virtual void visit(const UnOp *);
     virtual void visit(const Broadcast *);
     virtual void visit(const VectorReduce *);
     virtual void visit(const VectorShuffle *);

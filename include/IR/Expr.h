@@ -21,6 +21,7 @@ enum class IRExprEnum {
     FloatImm,
     Var,
     BinOp,
+    UnOp,
     Add,
     Mul,
     // Vector ops
@@ -144,7 +145,6 @@ struct BinOp : ExprNode<BinOp> {
         Sub,
         Xor,
         // TODO: Min/Max?
-        // TODO: UnaryOp for Neg/Not?
     };
 
     OpType op;
@@ -156,6 +156,20 @@ struct BinOp : ExprNode<BinOp> {
 
     static bool is_numeric_op(const OpType &op);
     static bool is_boolean_op(const OpType &op);
+};
+
+struct UnOp : ExprNode<UnOp> {
+    enum OpType {
+        Neg,
+        Not
+    };
+
+    OpType op;
+    Expr a;
+
+    static Expr make(OpType op, Expr a);
+
+    static const IRExprEnum _node_type = IRExprEnum::UnOp;
 };
 
 struct Broadcast : ExprNode<Broadcast> {

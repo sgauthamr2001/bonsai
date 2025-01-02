@@ -86,6 +86,11 @@ void IRVisitor::visit(const BinOp *node) {
     node->b.accept(this);
 }
 
+void IRVisitor::visit(const UnOp *node) {
+    node->a.accept(this);
+}
+
+
 void IRVisitor::visit(const Broadcast *node) {
     node->value.accept(this);
 }

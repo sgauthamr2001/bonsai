@@ -264,6 +264,21 @@ void IRPrinter::visit(const BinOp *node) {
     close();
 }
 
+std::string to_string(const UnOp::OpType &op) {
+    switch (op) {
+        case UnOp::Neg: return "-";
+        case UnOp::Not: return "!";
+    }
+}
+
+void IRPrinter::visit(const UnOp *node) {
+    os << to_string(node->op);
+    open();
+    print_no_parens(node->a);
+    close();
+}
+
+
 void IRPrinter::visit(const Broadcast *node) {
     os << "x" << node->lanes << "(";
     print_no_parens(node->value);

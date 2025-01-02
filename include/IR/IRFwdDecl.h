@@ -24,6 +24,7 @@ struct UIntImm;
 struct FloatImm;
 struct Var;
 struct BinOp;
+struct UnOp;
 struct Broadcast;
 struct VectorReduce;
 struct VectorShuffle;

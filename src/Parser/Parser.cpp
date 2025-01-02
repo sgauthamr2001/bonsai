@@ -38,26 +38,50 @@ struct Parser {
 private:
     TokenStream tokens;
     ir::Program program;
-    std::list<std::map<std::string, ir::Type>> frames;
+    std::list<std::map<std::string, std::pair<ir::Type, bool>>> frames;
 
     ir::Type get_type_from_frame(const std::string &name) const {
         for (auto it = frames.rbegin(); it != frames.rend(); it++) {
             const auto &frame = *it;
             const auto &found = frame.find(name);
             if (found != frame.cend()) {
-                return found->second;
+                return found->second.first;
             }
         }
+        // internal_error << "Cannot check type of unknown var: " << name;
         return ir::Type();
     }
 
-    void add_type_to_frame(const std::string &name, ir::Type type) {
+    bool name_in_scope(const std::string &name) const {
+        for (auto it = frames.rbegin(); it != frames.rend(); it++) {
+            const auto &frame = *it;
+            const auto &found = frame.find(name);
+            if (found != frame.cend()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool is_mutable(const std::string &name) const {
+        for (auto it = frames.rbegin(); it != frames.rend(); it++) {
+            const auto &frame = *it;
+            const auto &found = frame.find(name);
+            if (found != frame.cend()) {
+                return found->second.second;
+            }
+        }
+        internal_error << "Cannot check mutability of unknown var: " << name;
+        return false;
+    }
+
+    void add_type_to_frame(const std::string &name, ir::Type type, bool mut) {
         for (auto it = frames.rbegin(); it != frames.rend(); it++) {
             const auto &frame = *it;
             const auto &found = frame.find(name);
             internal_assert(found == frame.cend()) << name << " shadows another variable (of the same name)";
         }
-        frames.back()[name] = std::move(type);
+        frames.back()[name] = {std::move(type), mut};
     }
 
     void new_frame() {
@@ -70,6 +94,8 @@ private:
 
 public:
     Parser(TokenStream _tokens) : tokens(std::move(_tokens)) {
+        // Add Intrinsic types!
+
     }
 
     ir::Program parseProgram() {
@@ -217,7 +243,7 @@ private:
         expect(Token::Type::COL);
         ir::Type type = parseType();
         expect(Token::Type::SEMICOL);
-        add_type_to_frame(name, type);
+        add_type_to_frame(name, type, /* mutable */ false);
         program.externs.emplace_back(name, std::move(type));
     }
 
@@ -253,7 +279,7 @@ private:
                         << "Function default values must be constants, received: " << default_value << " for argument " << arg_name << " of func " << name;
                 }
 
-                add_type_to_frame(arg_name, type);
+                add_type_to_frame(arg_name, type, /* mutable */ false); // TODO: handle mutable args in functions.
                 args.push_back(ir::Function::Argument{arg_name, std::move(type), std::move(default_value)});
             } while (consume(Token::Type::COMMA));
         }
@@ -358,7 +384,7 @@ private:
             // TODO: allow tuple declaration/assignment?
             // TODO: how to do SSA in parsing?
             auto def = parseNameDef<false, false>(true);
-            internal_assert(def.value.defined()) << "Expected expr assignment for name: " << def.name;
+            internal_assert(def.value.defined()) << "Expected expr assignment for name: " << def.name << " at line: " << peek().lineBegin;
             expect(Token::Type::SEMICOL);
             // TODO: do type-forcing here!
             if (def.type.defined() && def.value.type().defined()) {
@@ -366,11 +392,19 @@ private:
                     << "Mismatching type: " << def.name << " is labelled with type: " << def.type
                     << " but " << def.value << " has type " << def.value.type();
             }
+
+            if (name_in_scope(def.name)) {
+                internal_assert(is_mutable(def.name)) << "Variable: " << def.name << "cannot be reassigned, it is not mutable.";
+                const ir::Type type = get_type_from_frame(def.name);
+                // if (type.defined() && !def.type.defined())
+                internal_error << "TODO: handle mutable re-assignments: " << def.name;
+            }
+
             // TODO: what to do if type is currently undefined?
             if (def.type.defined()) {
-                add_type_to_frame(def.name, def.type);
+                add_type_to_frame(def.name, def.type, def.mut);
             } else {
-                add_type_to_frame(def.name, def.value.type());
+                add_type_to_frame(def.name, def.value.type(), def.mut);
             }
 
             // TODO: allow mut! add mut to state somewhere.
@@ -495,6 +529,13 @@ private:
             ir::Expr inner = parseExpr();
             expect(Token::Type::RPAREN);
             return inner;
+        // TODO: do these have the correct precedence?
+        } else if (consume(Token::Type::MINUS)) {
+            ir::Expr inner = parseExpr();
+            return ir::UnOp::make(ir::UnOp::Neg, std::move(inner));
+        } else if (consume(Token::Type::NOT)) {
+            ir::Expr inner = parseExpr();
+            return ir::UnOp::make(ir::UnOp::Not, std::move(inner));
         } else if (peek().type == Token::Type::IDENTIFIER) {
             const Token token = expect(Token::Type::IDENTIFIER);
             const std::string name = std::get<std::string>(token.value);
@@ -640,7 +681,7 @@ private:
             std::vector<ir::Lambda::Argument> args = parseLambdaArgs();
             new_frame();
             for (const auto &arg : args) {
-                add_type_to_frame(arg.name, arg.type);
+                add_type_to_frame(arg.name, arg.type, /* mutable */ false);
             }
             ir::Expr expr = parseExpr();
             end_frame();

@@ -29,6 +29,7 @@ struct IRMutator {
     virtual Expr visit(const FloatImm *);
     virtual Expr visit(const Var *);
     virtual Expr visit(const BinOp *);
+    virtual Expr visit(const UnOp *);
     virtual Expr visit(const Broadcast *);
     virtual Expr visit(const VectorReduce *);
     virtual Expr visit(const VectorShuffle *);

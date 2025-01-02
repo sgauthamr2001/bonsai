@@ -512,6 +512,13 @@ void CodeGen_LLVM::visit(const BinOp *node) {
     internal_error << "Cannot codegen BinOp: " << node;
 }
 
+void CodeGen_LLVM::visit(const UnOp *node) {
+    // TODO: upgrade type for arithmetic?
+    llvm::Value *a = codegen_expr(node->a);
+
+    internal_error << "Cannot codegen UnOp: " << node;
+}
+
 void CodeGen_LLVM::visit(const Broadcast *node) {
     llvm::Value *v = codegen_expr(node->value);
     value = builder->CreateVectorSplat(node->lanes, v);

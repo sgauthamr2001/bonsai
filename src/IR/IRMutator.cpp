@@ -151,6 +151,15 @@ Expr IRMutator::visit(const BinOp *node) {
     }
 }
 
+Expr IRMutator::visit(const UnOp *node) {
+    Expr a = mutate(node->a);
+    if (a.same_as(node->a)) {
+        return node;
+    } else {
+        return UnOp::make(node->op, std::move(a));
+    }
+}
+
 Expr IRMutator::visit(const Broadcast *node) {
     Expr value = mutate(node->value);
     if (value.same_as(node->value)) {

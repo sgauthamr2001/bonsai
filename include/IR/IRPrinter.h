@@ -20,6 +20,7 @@ std::string to_string(const Stmt &stmt);
 std::ostream &operator<<(std::ostream& os, const Stmt &stmt);
 
 std::string to_string(const BinOp::OpType &op);
+std::string to_string(const UnOp::OpType &op);
 std::string to_string(const VectorReduce::OpType &op);
 std::string to_string(const Intrinsic::OpType &op);
 std::string to_string(const GeomOp::OpType &op);
@@ -59,6 +60,8 @@ struct IRPrinter : public IRVisitor {
     void visit(const Var *) override;
     void print(const BinOp::OpType &op);
     void visit(const BinOp *) override;
+    void print(const UnOp::OpType &op);
+    void visit(const UnOp *) override;
     void visit(const Broadcast *) override;
     void print(const VectorReduce::OpType &op);
     void visit(const VectorReduce *) override;

@@ -203,6 +203,29 @@ Expr BinOp::make(BinOp::OpType op, Expr a, Expr b) {
     return node;
 }
 
+Expr UnOp::make(UnOp::OpType op, Expr a) {
+    internal_assert(a.defined()) << "UnOp of undefined: " << to_string(op) << a;
+
+    UnOp *node = new UnOp;
+
+    const bool infer_types = type_enforcement_enabled() || a.type().defined();
+    if (infer_types) {
+        if (op == UnOp::Not) {
+            // not on only integers and boolean? what does not of float mean
+            internal_assert(a.type().is_int() || a.type().is_bool() || a.type().is_uint()) << "Cannot not non-([u]int | bool): " << to_string(op) << a;
+            node->type = a.type();
+        } else {
+            // Must be signed int or float?
+            internal_assert(a.type().is_float() || a.type().is_int()) << "Cannot negate non-(int | float): " << to_string(op) << a;
+            node->type = a.type();
+        }
+    }
+
+    node->op = op;
+    node->a = std::move(a);
+    return node;
+}
+
 Expr Broadcast::make(uint32_t lanes, Expr value) {
     internal_assert(value.defined()) << "Broadcast of undefined.";
 
@@ -336,9 +359,15 @@ Expr Access::make(std::string field, Expr value) {
             }
             internal_assert(etype.defined()) << "Access with field name not in struct: " << field << " of " << value.type();
             node->type = std::move(etype);
+        } else if (const Vector_t *as_vec = value.type().as<Vector_t>()) {
+            internal_assert((field == "x" && as_vec->lanes > 0) ||
+                            (field == "y" && as_vec->lanes > 1) ||
+                            (field == "z" && as_vec->lanes > 2) ||
+                            (field == "w" && as_vec->lanes > 3)) << "Vector access of bad field: " << field << " of value: " << value;
+            node->type = as_vec->etype;
         } else {
             // TODO: also support UnorderedStruct_t?
-            internal_error << "Access of non-struct: " << value;
+            internal_error << "Access of non-struct: " << value << " with field: " << field;
         }
     }
 
