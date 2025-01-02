@@ -155,7 +155,7 @@ namespace {
 void try_match_types(Expr &a, Expr &b) {
     if (a.type().defined() && b.type().defined()) {
         if (equals(a.type(), b.type())) return;
-        internal_assert(is_const(a) || is_const(b)) << "Implicit casting of types: " << a << " is not the same type as " << b;
+        internal_assert(is_const(a) || is_const(b)) << "Implicit casting of types: " << a << " is not the same type as " << b << ": " << a.type() << " versus " << b.type();
         // TODO: is this right?
         // Cast to the larger bitwidth
         if (a.type().bits() > b.type().bits()) {

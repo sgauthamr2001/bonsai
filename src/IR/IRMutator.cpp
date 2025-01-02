@@ -296,7 +296,7 @@ Stmt IRMutator::visit(const LetStmt *node) {
         return node;
     } else {
         // return LetStmt::make(node->name, std::move(value), std::move(body));
-        return LetStmt::make(node->name, std::move(value));
+        return LetStmt::make(node->name, std::move(value), node->mutating);
     }
 }
 

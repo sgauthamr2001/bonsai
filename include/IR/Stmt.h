@@ -90,11 +90,12 @@ struct Store: StmtNode<Store> {
 struct LetStmt : StmtNode<LetStmt> {
     std::string name;
     Expr value;
+    bool mutating;
     // TODO: this is now just an Assign, because parsing into SSA is hard.
     // Stmt body;
 
     // static Stmt make(std::string name, Expr value, Stmt body);
-    static Stmt make(std::string name, Expr value);
+    static Stmt make(std::string name, Expr value, bool mutating);
 
     static const IRStmtEnum _node_type = IRStmtEnum::LetStmt;
 };

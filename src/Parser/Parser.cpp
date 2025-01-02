@@ -84,6 +84,19 @@ private:
         frames.back()[name] = {std::move(type), mut};
     }
 
+    void modify_type_in_frame(const std::string &name, ir::Type type) {
+        for (auto it = frames.rbegin(); it != frames.rend(); it++) {
+            auto &frame = *it;
+            auto found = frame.find(name);
+            if (found != frame.end()) {
+                internal_assert(!found->second.first.defined()) << "Attempt to modify defined type for name: " << name;
+                found->second.first = std::move(type);
+                return;
+            }
+        }
+        internal_error << "Cannot modify_type of unknown var: " << name << " to type " << type;
+    }
+
     void new_frame() {
         frames.emplace_back();
     }
@@ -126,7 +139,7 @@ private:
         if (auto token = consume(type)) {
             return *token;
         } else {
-            internal_error << "Expected " << Token::tokenTypeString(type) << ", instead received: " + peek().toString();
+            internal_error << "Expected " << Token::tokenTypeString(type) << ", instead received: " + peek().toString() << " at line: " << peek().lineBegin;
             return Token{};
         }
     }
@@ -393,22 +406,36 @@ private:
                     << " but " << def.value << " has type " << def.value.type();
             }
 
+            bool mutating = false;
+
             if (name_in_scope(def.name)) {
                 internal_assert(is_mutable(def.name)) << "Variable: " << def.name << "cannot be reassigned, it is not mutable.";
                 const ir::Type type = get_type_from_frame(def.name);
-                // if (type.defined() && !def.type.defined())
-                internal_error << "TODO: handle mutable re-assignments: " << def.name;
-            }
-
-            // TODO: what to do if type is currently undefined?
-            if (def.type.defined()) {
-                add_type_to_frame(def.name, def.type, def.mut);
+                if (type.defined() && def.type.defined()) {
+                    internal_assert(ir::equals(type, def.type)) << "Mutable reassignment of " << def.name << " cannot change type from " << type << " to " << def.type;
+                }
+                // TODO: if def.type is not defined but type is, push it for type inference.
+                //       Same with the reverse scenario.
+                if (!type.defined() && def.type.defined()) {
+                    modify_type_in_frame(def.name, def.type);
+                } else if (!type.defined() && def.value.type().defined()) {
+                    modify_type_in_frame(def.name, def.value.type());
+                }
+                // TODO: should this be a different IR construct?
+                // probably, to make analysis easier...
+                // internal_error << "TODO: handle mutable re-assignments: " << def.name;
+                mutating = true;
             } else {
-                add_type_to_frame(def.name, def.value.type(), def.mut);
+                // TODO: what to do if type is currently undefined?
+                if (def.type.defined()) {
+                    add_type_to_frame(def.name, def.type, def.mut);
+                } else {
+                    add_type_to_frame(def.name, def.value.type(), def.mut);
+                }
             }
 
             // TODO: allow mut! add mut to state somewhere.
-            return ir::LetStmt::make(def.name, std::move(def.value));
+            return ir::LetStmt::make(def.name, std::move(def.value), mutating);
         }
         internal_error << "TODO: implement parseStmt for " << peek().toString();
         return ir::Stmt();
@@ -483,7 +510,7 @@ private:
                {ir::BinOp::Sub, Token::Type::MINUS}, }});
     }
 
-    // rel_expr := eq_expr (('<-' | '<') eq_expr)*
+    // rel_expr := eq_expr (('<=' | '<') eq_expr)*
     ir::Expr parseRels() {
         return parseBinOpWithPrecedence<4>(
             [this]() { return parseEqs(); },

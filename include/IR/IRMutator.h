@@ -44,7 +44,6 @@ struct IRMutator {
     // Stmts
     virtual Stmt visit(const Return *);
     virtual Stmt visit(const Store *);
-
     virtual Stmt visit(const LetStmt *);
     virtual Stmt visit(const IfElse *);
     virtual Stmt visit(const Sequence *);

@@ -26,7 +26,7 @@ void test_example2() {
         Store::make("_a", Expr(), Var::make(f32, "a")),
         // TODO: fix this!! bring back SSA
         // LetStmt::make("b", Var::make(f32, "a"), Return::make(Var::make(f32, "b"))),
-        LetStmt::make("b", Var::make(f32, "a")),
+        LetStmt::make("b", Var::make(f32, "a"), false),
         Return::make(Var::make(f32, "b")),
     });
     std::cout << stmt << std::endl;
