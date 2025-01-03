@@ -48,7 +48,7 @@ private:
                 return found->second.first;
             }
         }
-        // internal_error << "Cannot check type of unknown var: " << name;
+        internal_error << "Cannot check type of unknown var: " << name;
         return ir::Type();
     }
 
@@ -434,7 +434,7 @@ private:
                 }
             }
 
-            // TODO: allow mut! add mut to state somewhere.
+            // std::cout << "assigning " << def.value << " to " << def.name << std::endl;
             return ir::LetStmt::make(def.name, std::move(def.value), mutating);
         }
         internal_error << "TODO: implement parseStmt for " << peek().toString();
@@ -460,7 +460,7 @@ private:
     // TODO: parse member access first somehow...?
     // expr := muldivmod_expr
     ir::Expr parseExpr() {
-        return parseMulDivMod();
+        return parseOr();
     }
 
     struct BinOperator {
@@ -496,7 +496,7 @@ private:
     // muldivmod_expr := addsub_expr (('*' | '/' | '%') addsub_expr)*
     ir::Expr parseMulDivMod() {
         return parseBinOpWithPrecedence<3>(
-            [this]() { return parseAddSub(); },
+            [this]() { return parseBaseExpr(); },
             {{ {ir::BinOp::Mul, Token::Type::STAR},
                {ir::BinOp::Div, Token::Type::SLASH},
                {ir::BinOp::Mod, Token::Type::MOD}, }});
@@ -505,7 +505,7 @@ private:
     // addsub_expr := rel_expr (('+' | '-') rel_expr)*
     ir::Expr parseAddSub() {
         return parseBinOpWithPrecedence<2>(
-            [this]() { return parseRels(); },
+            [this]() { return parseMulDivMod(); },
             {{ {ir::BinOp::Add, Token::Type::PLUS},
                {ir::BinOp::Sub, Token::Type::MINUS}, }});
     }
@@ -513,7 +513,7 @@ private:
     // rel_expr := eq_expr (('<=' | '<') eq_expr)*
     ir::Expr parseRels() {
         return parseBinOpWithPrecedence<4>(
-            [this]() { return parseEqs(); },
+            [this]() { return parseAddSub(); },
             {{ {ir::BinOp::Lt, Token::Type::LT},
                {ir::BinOp::Le, Token::Type::LEQ},
                {ir::BinOp::Lt, Token::Type::GT, /* flip */ true},
@@ -523,7 +523,7 @@ private:
     // eq_expr := and_expr (('==' | '!=') and_expr)*
     ir::Expr parseEqs() {
         return parseBinOpWithPrecedence<2>(
-            [this]() { return parseAnd(); },
+            [this]() { return parseRels(); },
             {{ {ir::BinOp::Eq, Token::Type::EQ},
                {ir::BinOp::Neq, Token::Type::NEQ}, }});
     }
@@ -531,14 +531,14 @@ private:
     // and_expr := xor_expr ('^' xor_expr)*
     ir::Expr parseAnd() {
         return parseBinOpWithPrecedence<1>(
-            [this]() { return parseXor(); },
+            [this]() { return parseEqs(); },
             {{ {ir::BinOp::And, Token::Type::AND} }});
     }
 
     // xor_expr := or_expr ('^' or_expr)*
     ir::Expr parseXor() {
         return parseBinOpWithPrecedence<1>(
-            [this]() { return parseOr(); },
+            [this]() { return parseAnd(); },
             {{ {ir::BinOp::Xor, Token::Type::XOR} }});
     }
 
@@ -546,7 +546,7 @@ private:
     ir::Expr parseOr() {
         return parseBinOpWithPrecedence<1>(
             // TODO: logical and!
-            [this]() { return parseBaseExpr(); },
+            [this]() { return parseXor(); },
             {{ {ir::BinOp::Or, Token::Type::OR} }});
     }
 
@@ -564,125 +564,7 @@ private:
             ir::Expr inner = parseExpr();
             return ir::UnOp::make(ir::UnOp::Not, std::move(inner));
         } else if (peek().type == Token::Type::IDENTIFIER) {
-            const Token token = expect(Token::Type::IDENTIFIER);
-            const std::string name = std::get<std::string>(token.value);
-            std::vector<std::string> fields; // possibly nested
-            while (consume(Token::Type::PERIOD)) {
-                // Member access.
-                const Token field_token = expect(Token::Type::IDENTIFIER);
-                const std::string field_name = std::get<std::string>(field_token.value);
-                fields.push_back(field_name);
-            }
-
-            // Just a variable, possibly with field accesses.
-            // the type might have been provided already, or
-            // might need to be inferred later.
-            ir::Type var_type = get_type_from_frame(name); // possibly undefined.
-            ir::Expr expr = ir::Var::make(var_type, name);
-
-            for (const auto &field : fields) {
-                expr = ir::Access::make(field, expr);
-            }
-
-            if (consume(Token::Type::LPAREN)) {
-                std::vector<ir::Expr> args = parseExprListUntil(Token::Type::RPAREN);
-
-                // Intrinsics/set operations
-                if (fields.empty()) {
-                    if (name == "abs") {
-                        internal_assert(args.size() == 1) << "abs takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::abs, std::move(args));
-                    } else if (name == "sqrt") {
-                        internal_assert(args.size() == 1) << "sqrt takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::sqrt, std::move(args));
-                    } else if (name == "sin") {
-                        internal_assert(args.size() == 1) << "sin takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::sin, std::move(args));
-                    } else if (name == "cos") {
-                        internal_assert(args.size() == 1) << "cos takes a single argument, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::cos, std::move(args));
-                    } else if (name == "cross") {
-                        internal_assert(args.size() == 2) << "cross takes two arguments, received: " << args.size();
-                        return ir::Intrinsic::make(ir::Intrinsic::cos, std::move(args));
-                    } else if (name == "argmin") {
-                        internal_assert(args.size() == 2) << "argmin takes two arguments, received: " << args.size();
-                        return ir::SetOp::make(ir::SetOp::argmin, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "filter") {
-                        internal_assert(args.size() == 2) << "filter takes two arguments, received: " << args.size();
-                        return ir::SetOp::make(ir::SetOp::filter, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "map") {
-                        internal_assert(args.size() == 2) << "map takes two arguments, received: " << args.size();
-                        return ir::SetOp::make(ir::SetOp::map, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "product") {
-                        internal_assert(args.size() == 2) << "product takes two arguments, received: " << args.size();
-                        return ir::SetOp::make(ir::SetOp::product, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "distance") {
-                        internal_assert(args.size() == 2) << "distance takes two arguments, received: " << args.size();
-                        return ir::GeomOp::make(ir::GeomOp::distance, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "intersects") {
-                        internal_assert(args.size() == 2) << "intersects takes two arguments, received: " << args.size();
-                        return ir::GeomOp::make(ir::GeomOp::intersects, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "contains") {
-                        internal_assert(args.size() == 2) << "contains takes two arguments, received: " << args.size();
-                        return ir::GeomOp::make(ir::GeomOp::contains, std::move(args[0]), std::move(args[1]));
-                    } else if (name == "sum") {
-                        internal_assert(args.size() == 1) << "sum takes a single argument, received: " << args.size();
-                        return ir::VectorReduce::make(ir::VectorReduce::Add, std::move(args[0]));
-                    } else if (name == "idxmin") {
-                        internal_assert(args.size() == 1) << "idxmin takes a single argument, received: " << args.size();
-                        return ir::VectorReduce::make(ir::VectorReduce::Idxmin, std::move(args[0]));
-                    } else if (name == "idxmax") {
-                        internal_assert(args.size() == 1) << "idxmax takes a single argument, received: " << args.size();
-                        return ir::VectorReduce::make(ir::VectorReduce::Idxmax, std::move(args[0]));
-                    } else if (name == "permute") {
-                        internal_assert(args.size() == 2) << "permute takes two arguments, received: " << args.size();
-                        internal_assert(args[1].is<ir::Build>()) << "permute expects the second argument to be a list of indexes, instead received: " << args[1];
-                        return ir::VectorShuffle::make(std::move(args[0]), args[1].as<ir::Build>()->values);
-                    } else {
-                        if (program.funcs.contains(name)) {
-                            ir::Type ftype;
-                            const ir::Function &func = program.funcs[name];
-                            // TODO: handle default params!
-                            internal_assert(args.size() == func.args.size())
-                                << "Call to: " << name << " at line " << token.lineBegin << " has incorrect number of arguments.\n"
-                                << "Expected: " << func.args.size() << " but parsed " << args.size();
-
-                            if (func.ret_type.defined()) {
-                                // Argument types are always required, but the return type could not be.
-                                std::vector<ir::Type> arg_types(func.args.size());
-                                for (size_t i = 0; i < func.args.size(); i++) {
-                                    arg_types[i] = func.args[i].type;
-                                    // TODO: we could push types down here, because we know the arg types.
-                                    // That mixes type inference with parsing though, not sure we want that.
-                                    internal_assert(!args[i].type().defined() || ir::equals(func.args[i].type, args[i].type()))
-                                        << "Argument " << i << " of call to function " << name << " on line " << token.lineBegin
-                                        << " has incorrect type. Expected " << func.args[i].type << " but parsed: " << args[i].type();
-                                }
-                                ftype = ir::Function_t::make(func.ret_type, arg_types);
-                            }
-                            // TODO: if we allowed partially-defined types, we could make: Fn(arg_types) -> (undef)
-                            // that would make type inference easier, but we'd have to change a lot of the error
-                            // handling in IR/Type.cpp
-                            // For now, leave ftype undefined in the else case
-                            ir::Expr f = ir::Var::make(ftype, name);
-                            return ir::Call::make(std::move(f), std::move(args));
-                        }
-                        // Not intrinsic or set op, not sure what this is.
-                        // TODO: could be a ctor of a type?
-                        internal_error << "Unknown function call " << name;
-                        return ir::Expr();
-                    }
-                } else {
-                    // method access!
-                    // TODO: type inference via interface?
-                    return ir::Call::make(std::move(expr), std::move(args));
-                }
-            }
-
-            internal_assert(!consume(Token::Type::LBRACKET))
-                << "TODO: this is probably a vector index, which the IR does not support yet: " << peek().toString();
-
-            return expr;
+            return parseIdentifier();
         // Parse literals.
         // } else if (consume(Token::Type::TRUE)) {
             // return BoolImm::make(true);
@@ -729,6 +611,158 @@ private:
             internal_error << "Unknown token in parseBaseExpr: " << peek().toString() << " at line: " << peek().lineBegin;
             return ir::Expr();
         }
+    }
+
+    ir::Expr parseIdentifier() {
+        const Token token = expect(Token::Type::IDENTIFIER);
+        const std::string name = std::get<std::string>(token.value);
+        std::vector<std::string> fields; // possibly nested
+        while (consume(Token::Type::PERIOD)) {
+            // Member access.
+            const Token field_token = expect(Token::Type::IDENTIFIER);
+            const std::string field_name = std::get<std::string>(field_token.value);
+            fields.push_back(field_name);
+        }
+
+        // Only use if not an intrinsic!
+        auto makeExpr = [&]() {
+            // Just a variable, possibly with field accesses.
+            // the type might have been provided already, or
+            // might need to be inferred later.
+            ir::Type var_type = get_type_from_frame(name); // possibly undefined.
+            ir::Expr expr = ir::Var::make(var_type, name);
+
+            for (const auto &field : fields) {
+                expr = ir::Access::make(field, expr);
+            }
+            return expr;
+        };
+
+        if (consume(Token::Type::LPAREN)) {
+            std::vector<ir::Expr> args = parseExprListUntil(Token::Type::RPAREN);
+
+            // Intrinsics/set operations
+            if (fields.empty()) {
+                if (name == "abs") {
+                    internal_assert(args.size() == 1) << "abs takes a single argument, received: " << args.size();
+                    return ir::Intrinsic::make(ir::Intrinsic::abs, std::move(args));
+                } else if (name == "sqrt") {
+                    internal_assert(args.size() == 1) << "sqrt takes a single argument, received: " << args.size();
+                    return ir::Intrinsic::make(ir::Intrinsic::sqrt, std::move(args));
+                } else if (name == "sin") {
+                    internal_assert(args.size() == 1) << "sin takes a single argument, received: " << args.size();
+                    return ir::Intrinsic::make(ir::Intrinsic::sin, std::move(args));
+                } else if (name == "cos") {
+                    internal_assert(args.size() == 1) << "cos takes a single argument, received: " << args.size();
+                    return ir::Intrinsic::make(ir::Intrinsic::cos, std::move(args));
+                } else if (name == "cross") {
+                    internal_assert(args.size() == 2) << "cross takes two arguments, received: " << args.size();
+                    return ir::Intrinsic::make(ir::Intrinsic::cross, std::move(args));
+                } else if (name == "argmin") {
+                    internal_assert(args.size() == 2) << "argmin takes two arguments, received: " << args.size();
+                    return ir::SetOp::make(ir::SetOp::argmin, std::move(args[0]), std::move(args[1]));
+                } else if (name == "filter") {
+                    internal_assert(args.size() == 2) << "filter takes two arguments, received: " << args.size();
+                    return ir::SetOp::make(ir::SetOp::filter, std::move(args[0]), std::move(args[1]));
+                } else if (name == "map") {
+                    internal_assert(args.size() == 2) << "map takes two arguments, received: " << args.size();
+                    return ir::SetOp::make(ir::SetOp::map, std::move(args[0]), std::move(args[1]));
+                } else if (name == "product") {
+                    internal_assert(args.size() == 2) << "product takes two arguments, received: " << args.size();
+                    return ir::SetOp::make(ir::SetOp::product, std::move(args[0]), std::move(args[1]));
+                } else if (name == "distance") {
+                    internal_assert(args.size() == 2) << "distance takes two arguments, received: " << args.size();
+                    return ir::GeomOp::make(ir::GeomOp::distance, std::move(args[0]), std::move(args[1]));
+                } else if (name == "intersects") {
+                    internal_assert(args.size() == 2) << "intersects takes two arguments, received: " << args.size();
+                    return ir::GeomOp::make(ir::GeomOp::intersects, std::move(args[0]), std::move(args[1]));
+                } else if (name == "contains") {
+                    internal_assert(args.size() == 2) << "contains takes two arguments, received: " << args.size();
+                    return ir::GeomOp::make(ir::GeomOp::contains, std::move(args[0]), std::move(args[1]));
+                } else if (name == "sum") {
+                    internal_assert(args.size() == 1) << "sum takes a single argument, received: " << args.size();
+                    return ir::VectorReduce::make(ir::VectorReduce::Add, std::move(args[0]));
+                } else if (name == "idxmin") {
+                    internal_assert(args.size() == 1) << "idxmin takes a single argument, received: " << args.size();
+                    return ir::VectorReduce::make(ir::VectorReduce::Idxmin, std::move(args[0]));
+                } else if (name == "idxmax") {
+                    internal_assert(args.size() == 1) << "idxmax takes a single argument, received: " << args.size();
+                    return ir::VectorReduce::make(ir::VectorReduce::Idxmax, std::move(args[0]));
+                } else if (name == "max") {
+                    if (args.size() == 1) {
+                        // Vector reduce
+                        return ir::VectorReduce::make(ir::VectorReduce::Max, std::move(args[0]));
+                    } else {
+                        internal_assert(args.size() == 2) << "max() currently only supports binary and unary, instead received: " << args.size() << " arguments at line " << token.lineBegin;
+                        return ir::Intrinsic::make(ir::Intrinsic::max, std::move(args));
+                    }
+                } else if (name == "min") {
+                    if (args.size() == 1) {
+                        // Vector reduce
+                        return ir::VectorReduce::make(ir::VectorReduce::Min, std::move(args[0]));
+                    } else {
+                        internal_assert(args.size() == 2) << "min() currently only supports binary and unary, instead received: " << args.size() << " arguments at line " << token.lineBegin;
+                        return ir::Intrinsic::make(ir::Intrinsic::min, std::move(args));
+                    }
+                } else if (name == "permute") {
+                    internal_assert(args.size() == 2) << "permute takes two arguments, received: " << args.size();
+                    internal_assert(args[1].is<ir::Build>()) << "permute expects the second argument to be a list of indexes, instead received: " << args[1];
+                    return ir::VectorShuffle::make(std::move(args[0]), args[1].as<ir::Build>()->values);
+                } else {
+                    if (program.funcs.contains(name)) {
+                        ir::Type ftype;
+                        const ir::Function &func = program.funcs[name];
+                        // TODO: handle default params!
+                        internal_assert(args.size() == func.args.size())
+                            << "Call to: " << name << " at line " << token.lineBegin << " has incorrect number of arguments.\n"
+                            << "Expected: " << func.args.size() << " but parsed " << args.size();
+
+                        if (func.ret_type.defined()) {
+                            // Argument types are always required, but the return type could not be.
+                            std::vector<ir::Type> arg_types(func.args.size());
+                            for (size_t i = 0; i < func.args.size(); i++) {
+                                arg_types[i] = func.args[i].type;
+                                // TODO: we could push types down here, because we know the arg types.
+                                // That mixes type inference with parsing though, not sure we want that.
+                                internal_assert(!args[i].type().defined() || ir::equals(func.args[i].type, args[i].type()))
+                                    << "Argument " << i << " of call to function " << name << " on line " << token.lineBegin
+                                    << " has incorrect type. Expected " << func.args[i].type << " but parsed: " << args[i].type();
+                            }
+                            ftype = ir::Function_t::make(func.ret_type, arg_types);
+                        }
+                        // TODO: if we allowed partially-defined types, we could make: Fn(arg_types) -> (undef)
+                        // that would make type inference easier, but we'd have to change a lot of the error
+                        // handling in IR/Type.cpp
+                        // For now, leave ftype undefined in the else case
+                        ir::Expr f = ir::Var::make(ftype, name);
+                        return ir::Call::make(std::move(f), std::move(args));
+                    }
+                    // Not intrinsic or set op, not sure what this is.
+                    // TODO: could be a ctor of a type?
+                    internal_error << "Unknown function call " << name;
+                    return ir::Expr();
+                }
+            } else {
+                // method access!
+                // TODO: type inference via interface?
+                ir::Expr expr = makeExpr();
+                return ir::Call::make(std::move(expr), std::move(args));
+            }
+        }
+
+        if (consume(Token::Type::LSQUIGGLE)) {
+            internal_assert(fields.empty()) << "Cannot build a struct that is a field access: " << name;
+            internal_assert(program.types.contains(name)) << "Unknown type in constructor: " << name;
+            ir::Type type = program.types.at(name);
+            internal_assert(type.defined());
+            auto args = parseExprListUntil(Token::Type::RSQUIGGLE);
+            return ir::Build::make(std::move(type), std::move(args));
+        }
+
+        internal_assert(!consume(Token::Type::LBRACKET))
+            << "TODO: this is probably a vector index, which the IR does not support yet: " << peek().toString();
+
+        return makeExpr();
     }
 
     std::vector<ir::Expr> parseExprListUntil(const Token::Type &token) {

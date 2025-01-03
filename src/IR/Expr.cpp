@@ -522,8 +522,13 @@ Expr Call::make(Expr func, std::vector<Expr> args) {
             << "Call::make received incorrect number of arguments to: " << func
             << ", expected: " << f->arg_types.size() << " but received: " << args.size();
         for (size_t i = 0; i < args.size(); i++) {
-            internal_assert(args[i].type().defined() && f->arg_types[i].defined() && equals(args[i].type(), f->arg_types[i]))
-                << "Call::make received bad argument: " << args[i] << " when expecting type: " << f->arg_types[i] << " at index " << i << " of call to func: " << func;
+            internal_assert(f->arg_types[i].defined());
+            if (!args[i].type().defined()) {
+                internal_assert(is_const(args[i])) << "Undefined type in function call for non-constant expression: " << args[i];
+                args[i] = constant_cast(f->arg_types[i], args[i]);
+            } else {
+                internal_assert(equals(args[i].type(), f->arg_types[i])) << "Call::make received bad argument: " << args[i] << " when expecting type: " << f->arg_types[i] << " at index " << i << " of call to func: " << func;
+            }
         }
         node->type = f->ret_type;
     }

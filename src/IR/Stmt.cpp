@@ -37,7 +37,7 @@ Stmt LetStmt::make(std::string name, Expr value, bool mutating) {
 
 Stmt IfElse::make(Expr cond, Stmt then_body, Stmt else_body) {
     internal_assert(cond.defined()) << "Undefined condition in IfElse::make";
-    internal_assert(cond.type().defined() && cond.type().is_bool()) << "Non-boolean condition in IfElse::make: " << cond;
+    internal_assert(cond.type().defined() && cond.type().is_bool()) << "Non-boolean condition in IfElse::make: " << cond << " of type " << cond.type();
     internal_assert(then_body.defined()) << "Undefined then_body in IfElse::make";
     IfElse *node = new IfElse;
     node->cond = std::move(cond);

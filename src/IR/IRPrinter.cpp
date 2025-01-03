@@ -338,10 +338,12 @@ void IRPrinter::visit(const Access *node) {
 std::string to_string(const Intrinsic::OpType &op) {
     switch (op) {
         case Intrinsic::abs: return "abs";
-        case Intrinsic::sqrt: return "sqrt";
-        case Intrinsic::sin: return "sin";
         case Intrinsic::cos: return "cos";
         case Intrinsic::cross: return "cross";
+        case Intrinsic::max: return "max";
+        case Intrinsic::min: return "min";
+        case Intrinsic::sin: return "sin";
+        case Intrinsic::sqrt: return "sqrt";
     }
 }
 

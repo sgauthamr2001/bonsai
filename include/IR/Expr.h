@@ -144,7 +144,6 @@ struct BinOp : ExprNode<BinOp> {
         Or,
         Sub,
         Xor,
-        // TODO: Min/Max?
     };
 
     OpType op;
@@ -243,10 +242,12 @@ struct Intrinsic : ExprNode<Intrinsic> {
     // https://llvm.org/docs/LangRef.html#standard-c-c-library-intrinsics
     enum OpType {
         abs,
-        sqrt,
-        sin,
         cos,
         cross,
+        max,
+        min,
+        sin,
+        sqrt,
         // TODO: more
     };
 
