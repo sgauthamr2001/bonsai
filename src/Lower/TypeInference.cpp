@@ -212,6 +212,25 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
                 return IRMutator::mutate(stmt);
             }
         }
+
+        ir::Stmt visit(const ir::LetStmt *node) override {
+            undef_types = undef_types || !node->value.type().defined();
+            if (undef_types) {
+                return node;
+            } else {
+                return IRMutator::visit(node);
+            }
+        }
+
+        ir::Stmt visit(const ir::Accumulate *node) override {
+            undef_types = undef_types || !node->value.type().defined();
+            undef_types = undef_types || !node->loc.type.defined();
+            if (undef_types) {
+                return node;
+            } else {
+                return IRMutator::visit(node);
+            }
+        }
     };
 
     FindUndefTypes finder;
