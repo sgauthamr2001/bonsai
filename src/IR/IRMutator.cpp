@@ -322,5 +322,18 @@ Stmt IRMutator::visit(const Sequence *node) {
     }
 }
 
+Stmt IRMutator::visit(const Accumulate *node) {
+    Expr value = mutate(node->value);
+    // Stmt body = mutate(node->body);
+    if (value.same_as(node->value)
+        // && body.same_as(node->body)
+        ) {
+        return node;
+    } else {
+        // return Accumulate::make(node->loc, node->op, std::move(value), std::move(body));
+        return Accumulate::make(node->loc, node->op, std::move(value));
+    }
+}
+
 }  // namespace ir
 }  // namespace bonsai

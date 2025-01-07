@@ -349,26 +349,7 @@ Expr Access::make(std::string field, Expr value) {
 
     const bool infer_types = type_enforcement_enabled() || value.type().defined();
     if (infer_types) {
-        if (const Struct_t *as_struct = value.type().as<Struct_t>()) {
-            Type etype;
-            for (const auto& [key, value] : as_struct->fields) {
-                if (key == field) {
-                    etype = value;
-                    break;
-                }
-            }
-            internal_assert(etype.defined()) << "Access with field name not in struct: " << field << " of " << value.type();
-            node->type = std::move(etype);
-        } else if (const Vector_t *as_vec = value.type().as<Vector_t>()) {
-            internal_assert((field == "x" && as_vec->lanes > 0) ||
-                            (field == "y" && as_vec->lanes > 1) ||
-                            (field == "z" && as_vec->lanes > 2) ||
-                            (field == "w" && as_vec->lanes > 3)) << "Vector access of bad field: " << field << " of value: " << value;
-            node->type = as_vec->etype;
-        } else {
-            // TODO: also support UnorderedStruct_t?
-            internal_error << "Access of non-struct: " << value << " with field: " << field;
-        }
+        node->type = get_field_type(value.type(), field);
     }
 
     node->field = std::move(field);

@@ -6,6 +6,8 @@
 #include "Expr.h"
 #include "IRVisitor.h"
 #include "Scope.h"
+#include "Stmt.h"
+#include "WriteLoc.h"
 
 namespace bonsai {
 namespace ir {
@@ -40,6 +42,7 @@ struct IRPrinter : public IRVisitor {
     void print_no_parens(const Expr &expr);
     void print_expr_list(const std::vector<Expr> &exprs);
     void print(const Stmt &stmt);
+    void print(const WriteLoc &loc);
 
     // Types
     void visit(const Int_t *) override;
@@ -80,6 +83,7 @@ struct IRPrinter : public IRVisitor {
     void visit(const LetStmt *) override;
     void visit(const IfElse *) override;
     void visit(const Sequence *) override;
+    void visit(const Accumulate *) override;
 protected:
     /** The stream on which we're outputting */
     std::ostream &os;

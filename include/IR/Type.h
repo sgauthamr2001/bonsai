@@ -190,6 +190,9 @@ struct Function_t : TypeNode<Function_t> {
 // TODO: List_t, Tensor_t
 
 
+// Useful helper function
+Type get_field_type(const Type &struct_type, const std::string &field);
+
 }  // namespace ir
 
 template<>

@@ -56,5 +56,17 @@ Stmt Sequence::make(std::vector<Stmt> stmts) {
     return node;
 }
 
+Stmt Accumulate::make(WriteLoc loc, OpType op, Expr value) {
+    internal_assert(loc.defined()) << "Undefined write location in Accumulate::make";
+    internal_assert(value.defined()) << "Undefined value in Accumulate::make";
+    Accumulate *node = new Accumulate;
+    node->loc = std::move(loc);
+    node->op = op;
+    node->value = std::move(value);
+    // node->body = std::move(body);
+    return node;
+}
+
+
 }  // namespace ir
 }  // namespace bonsai

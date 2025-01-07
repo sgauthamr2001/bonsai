@@ -190,5 +190,29 @@ Type Function_t::make(Type ret_type, std::vector<Type> arg_types) {
     return node;
 }
 
+Type get_field_type(const Type &struct_type, const std::string &field) {
+    if (const Struct_t *as_struct = struct_type.as<Struct_t>()) {
+        Type etype;
+        for (const auto& [key, value] : as_struct->fields) {
+            if (key == field) {
+                return value;
+            }
+        }
+        internal_error << "Failed to find field: " << field << " in struct type: " << struct_type;
+        return ir::Type();
+    } else if (const Vector_t *as_vec = struct_type.as<Vector_t>()) {
+        internal_assert((field == "x" && as_vec->lanes > 0) ||
+                        (field == "y" && as_vec->lanes > 1) ||
+                        (field == "z" && as_vec->lanes > 2) ||
+                        (field == "w" && as_vec->lanes > 3)) << "Vector access of bad field: " << field << " of type: " << struct_type;
+        return as_vec->etype;
+    } else {
+        internal_error << "Failed to find field: " << field << " in non-(struct | vec) type: " << struct_type;
+        return ir::Type();
+    }
+}
+
+
+
 }  // namespace ir
 }  // namespace bonsai

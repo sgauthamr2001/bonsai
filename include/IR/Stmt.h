@@ -2,13 +2,13 @@
 
 #include <vector>
 
+#include "Expr.h"
 #include "IntrusivePtr.h"
 #include "IRHandle.h"
 #include "IRNode.h"
 #include "IRVisitor.h"
 #include "IRMutator.h"
-
-#include "Expr.h"
+#include "WriteLoc.h"
 
 namespace bonsai {
 namespace ir {
@@ -21,6 +21,7 @@ enum class IRStmtEnum {
     LetStmt,
     IfElse,
     Sequence,
+    Accumulate,
 };
 
 using IRStmtNode = IRNode<Stmt, IRStmtEnum>;
@@ -116,6 +117,21 @@ struct Sequence : StmtNode<Sequence> {
     static Stmt make(std::vector<Stmt> stmts);
 
     static const IRStmtEnum _node_type = IRStmtEnum::Sequence;
+};
+
+struct Accumulate : StmtNode<Accumulate> {
+    enum OpType {
+        Add,
+        Mul,
+        // TODO: add more.
+    };
+    WriteLoc loc;
+    OpType op;
+    Expr value;
+
+    static Stmt make(WriteLoc loc, OpType op, Expr value);
+
+    static const IRStmtEnum _node_type = IRStmtEnum::Accumulate;
 };
 
 }  // namespace ir

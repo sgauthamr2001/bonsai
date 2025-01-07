@@ -111,6 +111,19 @@ void IRPrinter::print(const Stmt &stmt) {
     stmt->accept(this);
 }
 
+void IRPrinter::print(const WriteLoc &loc) {
+    os << loc.base;
+    for (const auto &value : loc.accesses) {
+        if (std::holds_alternative<std::string>(value)) {
+            os << "." << std::get<std::string>(value);
+        } else {
+            os << "[";
+            print_no_parens(std::get<Expr>(value));
+            os << "]";
+        }
+    }
+}
+
 void IRPrinter::visit(const Int_t *node) {
     os << "i" << node->bits;
 }
@@ -437,7 +450,7 @@ void IRPrinter::visit(const Store *node) {
 }
 
 void IRPrinter::visit(const LetStmt *node) {
-    ScopedBinding<> bind(known_type, node->name);
+    // ScopedBinding<> bind(known_type, node->name);
     os << get_indent() << "let " << node->name << " = ";
     print_no_parens(node->value);
     os << " in\n";
@@ -478,6 +491,28 @@ void IRPrinter::visit(const Sequence *node) {
     for (const auto &stmt : node->stmts) {
         stmt.accept(this);
     }
+}
+
+void IRPrinter::visit(const Accumulate *node) {
+    os << get_indent();
+    print(node->loc);
+    switch (node->op) {
+        case Accumulate::OpType::Add: {
+            os << " += ";
+            break;
+        }
+        case Accumulate::OpType::Mul: {
+            os << " *= ";
+            break;
+        }
+        default: {
+            internal_error << "TODO: implement printing for all Accumulate op types!";
+        }
+    }
+    print_no_parens(node->value);
+    os << "\n";
+    // TODO: fix this!! bring back SSA
+    // print(node->body);
 }
 
 }  // namespace ir

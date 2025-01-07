@@ -784,7 +784,13 @@ void CodeGen_LLVM::visit(const IfElse *node) {
     }
 }
 
-// IRVisitor::visit(Sequence) does as it should.
+void CodeGen_LLVM::visit(const Sequence *node) {
+    internal_error << "TODO: implement codegen for Sequence!";
+}
+
+void CodeGen_LLVM::visit(const Accumulate *node) {
+    internal_error << "TODO: implement codegen for Accumulate!";
+}
 
 void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const Expr &index) {
 

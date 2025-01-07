@@ -78,8 +78,8 @@ protected:
     virtual void visit(const ir::Store *) override;
     virtual void visit(const ir::LetStmt *) override;
     virtual void visit(const ir::IfElse *) override;
-    // default behavior is good enough
-    // virtual void visit(const Sequence *) override;
+    virtual void visit(const ir::Sequence *) override;
+    virtual void visit(const ir::Accumulate *) override;
 
 
     // Local state for codegen() impls.

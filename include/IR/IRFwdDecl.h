@@ -44,6 +44,7 @@ struct Store;
 struct LetStmt;
 struct IfElse;
 struct Sequence;
+struct Accumulate;
 
 }  // namespace ir
 }  // namespace bonsai

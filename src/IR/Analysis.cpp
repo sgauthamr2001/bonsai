@@ -78,6 +78,12 @@ struct AlwaysReturns : public IRVisitor {
         }
         node->stmts.back().accept(this);
     }
+
+    void visit(const Accumulate *node) override {
+        // TODO: fix this!!
+        returns = false;
+        // node->body.accept(this);
+    }
 };
 
 struct ReturnType : public IRVisitor {

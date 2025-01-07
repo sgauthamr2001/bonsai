@@ -255,6 +255,8 @@ ir::Program infer_types(const ir::Program &program) {
     std::vector<std::string> topo_order = func_topological_order(program);
     std::map<std::string, ir::Type> func_types;
 
+    // TODO: set all assignment types.
+
     for (const auto &f : topo_order) {
         new_program.funcs[f] = infer_types(program.funcs.at(f), new_program, func_types);
         {

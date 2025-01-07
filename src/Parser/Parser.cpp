@@ -48,7 +48,7 @@ private:
                 return found->second.first;
             }
         }
-        internal_error << "Cannot check type of unknown var: " << name;
+        internal_error << "Cannot check type of unknown var: " << name << " required at line: " << peek().lineBegin;
         return ir::Type();
     }
 
@@ -396,49 +396,85 @@ private:
         } else if (peek().type == Token::Type::IDENTIFIER) {
             // TODO: allow tuple declaration/assignment?
             // TODO: how to do SSA in parsing?
-            auto def = parseNameDef<false, false>(true);
-            internal_assert(def.value.defined()) << "Expected expr assignment for name: " << def.name << " at line: " << peek().lineBegin;
-            expect(Token::Type::SEMICOL);
-            // TODO: do type-forcing here!
-            if (def.type.defined() && def.value.type().defined()) {
-                internal_assert(ir::equals(def.type, def.value.type()))
-                    << "Mismatching type: " << def.name << " is labelled with type: " << def.type
-                    << " but " << def.value << " has type " << def.value.type();
-            }
-
-            bool mutating = false;
-
-            if (name_in_scope(def.name)) {
-                internal_assert(is_mutable(def.name)) << "Variable: " << def.name << "cannot be reassigned, it is not mutable.";
-                const ir::Type type = get_type_from_frame(def.name);
-                if (type.defined() && def.type.defined()) {
-                    internal_assert(ir::equals(type, def.type)) << "Mutable reassignment of " << def.name << " cannot change type from " << type << " to " << def.type;
-                }
-                // TODO: if def.type is not defined but type is, push it for type inference.
-                //       Same with the reverse scenario.
-                if (!type.defined() && def.type.defined()) {
-                    modify_type_in_frame(def.name, def.type);
-                } else if (!type.defined() && def.value.type().defined()) {
-                    modify_type_in_frame(def.name, def.value.type());
-                }
-                // TODO: should this be a different IR construct?
-                // probably, to make analysis easier...
-                // internal_error << "TODO: handle mutable re-assignments: " << def.name;
-                mutating = true;
-            } else {
-                // TODO: what to do if type is currently undefined?
-                if (def.type.defined()) {
-                    add_type_to_frame(def.name, def.type, def.mut);
-                } else {
-                    add_type_to_frame(def.name, def.value.type(), def.mut);
+            ir::WriteLoc loc = parseWriteLoc();
+            if (loc.accesses.empty()) {
+                if ((peek().type == Token::Type::COL) ||
+                    (peek().type == Token::Type::ASSIGN)) {
+                    // Just a regular variable write.
+                    return parseNameDecl(loc.base);
                 }
             }
 
-            // std::cout << "assigning " << def.value << " to " << def.name << std::endl;
-            return ir::LetStmt::make(def.name, std::move(def.value), mutating);
+            return parseAccumulate(std::move(loc));
         }
         internal_error << "TODO: implement parseStmt for " << peek().toString();
         return ir::Stmt();
+    }
+
+    ir::Stmt parseNameDecl(const std::string &name) {
+        ir::Type type;
+        bool _mutable = false;
+        if (consume(Token::Type::COL)) {
+            if (consume(Token::Type::MUT)) {
+                _mutable = true;
+                if (peek().type == Token::Type::IDENTIFIER) {
+                    type = parseType();
+                } // otherwise just a `mut` label.
+                // TODO: should we ever allow "just" a mut label?
+            } else {
+                type = parseType();
+            }
+        }
+
+        expect(Token::Type::ASSIGN);
+        ir::Expr value = parseExpr();
+        expect(Token::Type::SEMICOL);
+        // TODO: do type-forcing here!
+        auto check_type = [&]() {
+            if (type.defined() && value.type().defined()) {
+                internal_assert(ir::equals(type, value.type()))
+                    << "Mismatching type: " << name << " is labelled with type: " << type
+                    << " but " << value << " has type " << value.type();
+            }
+        };
+        check_type();
+
+        bool mutating = false;
+
+        if (name_in_scope(name)) {
+            internal_assert(is_mutable(name)) << "Variable: " << name << " cannot be reassigned, it is not mutable.";
+            internal_assert(!type.defined()) << "Mutable write to " << name << " cannot provide type label: " << type;
+            type = get_type_from_frame(name);
+            check_type();
+            if (!type.defined() && value.type().defined()) {
+                modify_type_in_frame(name, value.type());
+            }
+            mutating = true;
+        } else {
+            if (type.defined()) {
+                add_type_to_frame(name, type, _mutable);
+            } else {
+                add_type_to_frame(name, value.type(), _mutable);
+            }
+        }
+
+        return ir::LetStmt::make(name, std::move(value), mutating);
+    }
+
+    ir::Stmt parseAccumulate(ir::WriteLoc loc) {
+        ir::Accumulate::OpType op;
+        // Try to parse an accumulate
+        if (consume(Token::Type::PLUS)) {
+            op = ir::Accumulate::OpType::Add;
+        } else if (consume(Token::Type::STAR)) {
+            op = ir::Accumulate::OpType::Mul;
+        } else {
+            internal_error << "Unknown token when parsing Accumulate at line: " << peek().lineBegin;
+        }
+        expect(Token::Type::ASSIGN);
+        ir::Expr value = parseExpr();
+        expect(Token::Type::SEMICOL);
+        return ir::Accumulate::make(std::move(loc), op, std::move(value));
     }
 
     // We follow C++'s operator precedence.
@@ -629,7 +665,7 @@ private:
             // Just a variable, possibly with field accesses.
             // the type might have been provided already, or
             // might need to be inferred later.
-            ir::Type var_type = get_type_from_frame(name); // possibly undefined.
+            ir::Type var_type = get_type_from_frame(name); // never undefined.
             ir::Expr expr = ir::Var::make(var_type, name);
 
             for (const auto &field : fields) {
@@ -837,6 +873,31 @@ private:
             }
         }
         return def;
+    }
+
+    ir::WriteLoc parseWriteLoc() {
+        const Token token = expect(Token::Type::IDENTIFIER);
+        const std::string base = std::get<std::string>(token.value);
+        ir::Type base_type;
+        if (name_in_scope(base)) {
+            base_type = get_type_from_frame(base);
+        }
+
+        ir::WriteLoc loc(base, base_type);
+
+        while((peek().type == Token::Type::PERIOD) ||
+              (peek().type == Token::Type::LBRACKET)) {
+            if (consume(Token::Type::PERIOD)) {
+                const Token field = expect(Token::Type::IDENTIFIER);
+                const std::string field_name = std::get<std::string>(field.value);
+                loc.add_struct_access(field_name);
+            } else {
+                expect(Token::Type::LBRACKET);
+                ir::Expr index = parseExpr();
+                loc.add_index_access(std::move(index));
+            }
+        }
+        return loc;
     }
 
     // type := i[N] | u[N] | f[N] | bool | vector[type, int] | option[type] | declared_type

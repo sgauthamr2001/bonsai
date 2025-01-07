@@ -170,5 +170,11 @@ void IRVisitor::visit(const Sequence *node) {
     visit_list(this, node->stmts);
 }
 
+void IRVisitor::visit(const Accumulate *node) {
+    node->value.accept(this);
+    // TODO: fix this!! bring back SSA
+    // node->body.accept(this);
+}
+
 }  // namespace ir
 }  // namespace bonsai
