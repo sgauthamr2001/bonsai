@@ -1,4 +1,4 @@
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 
 #include <vector>
 #include <sstream>
@@ -18,7 +18,7 @@ std::string to_string(const Expr &expr) {
 
 std::ostream &operator<<(std::ostream& os, const Expr &expr) {
     if (expr.defined()) {
-        IRPrinter printer(os);
+        Printer printer(os);
         printer.print(expr);
     } else {
         os << "(undef-expr)";
@@ -34,7 +34,7 @@ std::string to_string(const Type &type) {
 
 std::ostream &operator<<(std::ostream& os, const Type &type) {
     if (type.defined()) {
-        IRPrinter printer(os);
+        Printer printer(os);
         printer.print(type);
     } else {
         os << "(undef-type)";
@@ -50,7 +50,7 @@ std::string to_string(const Stmt &stmt) {
 
 std::ostream &operator<<(std::ostream& os, const Stmt &stmt) {
     if (stmt.defined()) {
-        IRPrinter printer(os);
+        Printer printer(os);
         printer.print(stmt);
     } else {
         os << "(undef-stmt)";
@@ -67,7 +67,7 @@ std::ostream &operator<<(std::ostream &stream, const Indentation &indentation) {
 
 std::ostream &operator<<(std::ostream& os, const WriteLoc &loc) {
     if (loc.defined()) {
-        IRPrinter printer(os);
+        Printer printer(os);
         printer.print(loc);
     } else {
         os << "(undef-loc)";
@@ -76,7 +76,7 @@ std::ostream &operator<<(std::ostream& os, const WriteLoc &loc) {
 }
 
 
-void IRPrinter::print(const Type &type) {
+void Printer::print(const Type &type) {
     if (type.defined()) {
         type->accept(this);
     } else {
@@ -86,7 +86,7 @@ void IRPrinter::print(const Type &type) {
     }
 }
 
-void IRPrinter::print_type_list(const std::vector<Type> &types) {
+void Printer::print_type_list(const std::vector<Type> &types) {
     for (size_t i = 0; i < types.size(); i++) {
         print(types[i]);
         if (i < types.size() - 1) {
@@ -95,7 +95,7 @@ void IRPrinter::print_type_list(const std::vector<Type> &types) {
     }
 }
 
-void IRPrinter::print(const Expr &expr) {
+void Printer::print(const Expr &expr) {
     // ScopedValue<bool> old(implicit_parens, false);
     bool temp = implicit_parens;
     implicit_parens = false;
@@ -103,12 +103,12 @@ void IRPrinter::print(const Expr &expr) {
     implicit_parens = temp;
 }
 
-void IRPrinter::print_no_parens(const Expr &expr) {
+void Printer::print_no_parens(const Expr &expr) {
     ScopedValue<bool> old(implicit_parens, true);
     expr.accept(this);
 }
 
-void IRPrinter::print_expr_list(const std::vector<Expr> &exprs) {
+void Printer::print_expr_list(const std::vector<Expr> &exprs) {
     for (size_t i = 0; i < exprs.size(); i++) {
         print_no_parens(exprs[i]);
         if (i < exprs.size() - 1) {
@@ -117,11 +117,11 @@ void IRPrinter::print_expr_list(const std::vector<Expr> &exprs) {
     }
 }
 
-void IRPrinter::print(const Stmt &stmt) {
+void Printer::print(const Stmt &stmt) {
     stmt->accept(this);
 }
 
-void IRPrinter::print(const WriteLoc &loc) {
+void Printer::print(const WriteLoc &loc) {
     os << loc.base;
     for (const auto &value : loc.accesses) {
         if (std::holds_alternative<std::string>(value)) {
@@ -134,34 +134,34 @@ void IRPrinter::print(const WriteLoc &loc) {
     }
 }
 
-void IRPrinter::visit(const Int_t *node) {
+void Printer::visit(const Int_t *node) {
     os << "i" << node->bits;
 }
 
-void IRPrinter::visit(const UInt_t *node) {
+void Printer::visit(const UInt_t *node) {
     os << "u" << node->bits;
 }
 
-void IRPrinter::visit(const Float_t *node) {
+void Printer::visit(const Float_t *node) {
     os << "f" << node->bits;
 }
 
-void IRPrinter::visit(const Bool_t *node) {
+void Printer::visit(const Bool_t *node) {
     os << "bool";
 }
 
-void IRPrinter::visit(const Ptr_t *node) {
+void Printer::visit(const Ptr_t *node) {
     os << "(";
     print(node->etype);
     os << "*)";
 }
 
-void IRPrinter::visit(const Vector_t *node) {
+void Printer::visit(const Vector_t *node) {
     print(node->etype);
     os << "x" << node->lanes;
 }
 
-void IRPrinter::visit(const Struct_t *node) {
+void Printer::visit(const Struct_t *node) {
     os << node->name;
     /*
     os << "struct " << node->name << "{ ";
@@ -181,46 +181,46 @@ void IRPrinter::visit(const Struct_t *node) {
     */
 }
 
-void IRPrinter::visit(const Tuple_t *node) {
+void Printer::visit(const Tuple_t *node) {
     os << "(";
     print_type_list(node->etypes);
     os << ")";
 }
 
-void IRPrinter::visit(const Option_t *node) {
+void Printer::visit(const Option_t *node) {
     os << "option<";
     print(node->etype);
     os << ">";
 }
 
-void IRPrinter::visit(const Set_t *node) {
+void Printer::visit(const Set_t *node) {
     os << "set<";
     print(node->etype);
     os << ">";
 }
 
-void IRPrinter::visit(const Function_t *node) {
+void Printer::visit(const Function_t *node) {
     os << "Fn(";
     print_type_list(node->arg_types);
     os << ") -> ";
     print(node->ret_type);
 }
 
-void IRPrinter::visit(const IntImm *node) {
+void Printer::visit(const IntImm *node) {
     os << "(";
     print(node->type);
     os << ")";
     os << node->value;
 }
 
-void IRPrinter::visit(const UIntImm *node) {
+void Printer::visit(const UIntImm *node) {
     os << "(";
     print(node->type);
     os << ")";
     os << node->value;
 }
 
-void IRPrinter::visit(const FloatImm *node) {
+void Printer::visit(const FloatImm *node) {
     switch (node->type.bits()) {
     case 64:
         os << node->value;
@@ -236,7 +236,7 @@ void IRPrinter::visit(const FloatImm *node) {
     }
 }
 
-void IRPrinter::visit(const Var *node) {
+void Printer::visit(const Var *node) {
     if (!known_type.contains(node->name) &&
         node->type.defined() &&
         !node->type.is<Function_t>()) {
@@ -247,13 +247,13 @@ void IRPrinter::visit(const Var *node) {
     os << node->name;
 }
 
-void IRPrinter::open() {
+void Printer::open() {
     if (!implicit_parens) {
         os << "(";
     }
 }
 
-void IRPrinter::close() {
+void Printer::close() {
     if (!implicit_parens) {
         os << ")";
     }
@@ -276,7 +276,7 @@ std::string to_string(const BinOp::OpType &op) {
     }
 }
 
-void IRPrinter::visit(const BinOp *node) {
+void Printer::visit(const BinOp *node) {
     open();
     print(node->a);
     os << " ";
@@ -294,7 +294,7 @@ std::string to_string(const UnOp::OpType &op) {
     }
 }
 
-void IRPrinter::visit(const UnOp *node) {
+void Printer::visit(const UnOp *node) {
     os << to_string(node->op);
     open();
     print_no_parens(node->a);
@@ -302,7 +302,7 @@ void IRPrinter::visit(const UnOp *node) {
 }
 
 
-void IRPrinter::visit(const Broadcast *node) {
+void Printer::visit(const Broadcast *node) {
     os << "x" << node->lanes << "(";
     print_no_parens(node->value);
     os << ")";
@@ -319,14 +319,14 @@ std::string to_string(const VectorReduce::OpType &op) {
     }
 }
 
-void IRPrinter::visit(const VectorReduce *node) {
+void Printer::visit(const VectorReduce *node) {
     // TODO: print type?
     os << "reduce<" << to_string(node->op) << ">(";
     print_no_parens(node->value);
     os << ")";
 }
 
-void IRPrinter::visit(const VectorShuffle *node) {
+void Printer::visit(const VectorShuffle *node) {
     // TODO: print type?
     os << "shuffle(";
     print_no_parens(node->value);
@@ -335,7 +335,7 @@ void IRPrinter::visit(const VectorShuffle *node) {
     os << "})";
 }
 
-void IRPrinter::visit(const Ramp *node) {
+void Printer::visit(const Ramp *node) {
     // TODO: print type?
     os << "ramp(";
     print_no_parens(node->base);
@@ -344,7 +344,7 @@ void IRPrinter::visit(const Ramp *node) {
     os << ", " << node->lanes << ")";
 }
 
-void IRPrinter::visit(const Build *node) {
+void Printer::visit(const Build *node) {
     os << "build<";
     print(node->type);
     os << ">(";
@@ -352,7 +352,7 @@ void IRPrinter::visit(const Build *node) {
     os << ")";
 }
 
-void IRPrinter::visit(const Access *node) {
+void Printer::visit(const Access *node) {
     // TODO: parens?
     print(node->value);
     os << "." << node->field;
@@ -370,7 +370,7 @@ std::string to_string(const Intrinsic::OpType &op) {
     }
 }
 
-void IRPrinter::visit(const Intrinsic *node) {
+void Printer::visit(const Intrinsic *node) {
     // TODO: print type?
     os << to_string(node->op) << "(";
     print_expr_list(node->args);
@@ -378,7 +378,7 @@ void IRPrinter::visit(const Intrinsic *node) {
 }
 
 // TODO: work on syntax?
-void IRPrinter::visit(const Lambda *node) {
+void Printer::visit(const Lambda *node) {
     os << "|";
     const size_t n = node->args.size();
     // TODO: might need Lambdas to store arg types as well...
@@ -405,7 +405,7 @@ std::string to_string(const GeomOp::OpType &op) {
     }
 }
 
-void IRPrinter::visit(const GeomOp *node) {
+void Printer::visit(const GeomOp *node) {
     // TODO: print type?
     os << to_string(node->op) << "(";
     print_no_parens(node->a);
@@ -423,7 +423,7 @@ std::string to_string(const SetOp::OpType &op) {
     }
 }
 
-void IRPrinter::visit(const SetOp *node) {
+void Printer::visit(const SetOp *node) {
     // TODO: print type?
     os << to_string(node->op) << "(";
     print_no_parens(node->a);
@@ -432,7 +432,7 @@ void IRPrinter::visit(const SetOp *node) {
     os << ")";
 }
 
-void IRPrinter::visit(const Call *node) {
+void Printer::visit(const Call *node) {
     // TODO: print type?
     print_no_parens(node->func);
     os << "(";
@@ -441,14 +441,14 @@ void IRPrinter::visit(const Call *node) {
 }
 
 
-void IRPrinter::visit(const Return *node) {
+void Printer::visit(const Return *node) {
     os << get_indent();
     os << "return ";
     print_no_parens(node->value);
     os << "\n";
 }
 
-void IRPrinter::visit(const Store *node) {
+void Printer::visit(const Store *node) {
     os << get_indent();
     os << node->name << "[";
     if (node->index.defined()) {
@@ -459,7 +459,7 @@ void IRPrinter::visit(const Store *node) {
     os << "\n";
 }
 
-void IRPrinter::visit(const LetStmt *node) {
+void Printer::visit(const LetStmt *node) {
     // ScopedBinding<> bind(known_type, node->name);
     os << get_indent() << "let " << node->loc << " = ";
     print_no_parens(node->value);
@@ -468,7 +468,7 @@ void IRPrinter::visit(const LetStmt *node) {
     // print(node->body);
 }
 
-void IRPrinter::visit(const IfElse *node) {
+void Printer::visit(const IfElse *node) {
     os << get_indent();
     while (true) {
         os << "if (";
@@ -497,13 +497,13 @@ void IRPrinter::visit(const IfElse *node) {
     os << get_indent() << "}\n";
 }
 
-void IRPrinter::visit(const Sequence *node) {
+void Printer::visit(const Sequence *node) {
     for (const auto &stmt : node->stmts) {
         stmt.accept(this);
     }
 }
 
-void IRPrinter::visit(const Assign *node) {
+void Printer::visit(const Assign *node) {
     os << get_indent();
     print(node->loc);
     os << " = ";
@@ -513,7 +513,7 @@ void IRPrinter::visit(const Assign *node) {
     // print(node->body);
 }
 
-void IRPrinter::visit(const Accumulate *node) {
+void Printer::visit(const Accumulate *node) {
     os << get_indent();
     print(node->loc);
     switch (node->op) {

@@ -34,7 +34,7 @@
 
 #include "IR/Analysis.h"
 #include "IR/Expr.h"
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 #include "IR/Stmt.h"
 #include "IR/Type.h"
 #include "Utils.h"

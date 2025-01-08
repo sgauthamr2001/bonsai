@@ -4,7 +4,7 @@
 #include <string>
 
 #include "Expr.h"
-#include "IRVisitor.h"
+#include "Visitor.h"
 #include "Scope.h"
 #include "Stmt.h"
 #include "WriteLoc.h"
@@ -35,8 +35,8 @@ struct Indentation {
 };
 std::ostream &operator<<(std::ostream &os, const Indentation &);
 
-struct IRPrinter : public IRVisitor {
-    explicit IRPrinter(std::ostream &_os) : os(_os) {}
+struct Printer : public Visitor {
+    explicit Printer(std::ostream &_os) : os(_os) {}
 
     void print(const Type &type);
     void print_type_list(const std::vector<Type> &types);

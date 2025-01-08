@@ -2,7 +2,7 @@
 #include "IR/Stmt.h"
 #include "IR/Type.h"
 #include "IR/TypeEnforcement.h"
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 #include "CodeGen_LLVM.h"
 
 #include <iostream>

@@ -1,5 +1,5 @@
 #include "IR/Program.h"
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 
 #include <stdexcept>
 

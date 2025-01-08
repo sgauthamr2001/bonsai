@@ -4,8 +4,8 @@
 #include "Parser/Token.h"
 
 #include "IR/Analysis.h"
-#include "IR/IREquality.h"
-#include "IR/IRPrinter.h"
+#include "IR/Equality.h"
+#include "IR/Printer.h"
 #include "IR/Type.h"
 #include "IR/TypeEnforcement.h"
 

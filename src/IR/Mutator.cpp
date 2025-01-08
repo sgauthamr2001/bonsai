@@ -1,4 +1,4 @@
-#include "IR/IRMutator.h"
+#include "IR/Mutator.h"
 
 #include "IR/Expr.h"
 #include "IR/Stmt.h"
@@ -10,7 +10,7 @@ namespace ir {
 namespace {
 
 template<typename T>
-std::pair<std::vector<T>, bool> visit_list(IRMutator *v, const std::vector<T> &l) {
+std::pair<std::vector<T>, bool> visit_list(Mutator *v, const std::vector<T> &l) {
     bool not_changed = true;
     const size_t n = l.size();
     std::vector<T> _l(n);
@@ -21,7 +21,7 @@ std::pair<std::vector<T>, bool> visit_list(IRMutator *v, const std::vector<T> &l
     return {std::move(_l), not_changed};
 }
 
-std::pair<WriteLoc, bool> mutate_writeloc(IRMutator *v, const WriteLoc &loc) {
+std::pair<WriteLoc, bool> mutate_writeloc(Mutator *v, const WriteLoc &loc) {
     WriteLoc new_loc(loc.base, loc.base_type);
     bool not_changed = true;
     for (const auto &value : loc.accesses) {
@@ -37,35 +37,35 @@ std::pair<WriteLoc, bool> mutate_writeloc(IRMutator *v, const WriteLoc &loc) {
 }
 }  // namespace
 
-Type IRMutator::mutate(const Type &type) {
+Type Mutator::mutate(const Type &type) {
     return type.defined() ? type.get()->mutate_type(this) : Type();
 }
 
-Expr IRMutator::mutate(const Expr &expr) {
+Expr Mutator::mutate(const Expr &expr) {
     return expr.defined() ? expr.get()->mutate_expr(this) : Expr();
 }
 
-Stmt IRMutator::mutate(const Stmt &stmt) {
+Stmt Mutator::mutate(const Stmt &stmt) {
     return stmt.defined() ? stmt.get()->mutate_stmt(this) : Stmt();
 }
 
-Type IRMutator::visit(const Int_t *node) {
+Type Mutator::visit(const Int_t *node) {
     return node;
 }
 
-Type IRMutator::visit(const UInt_t *node) {
+Type Mutator::visit(const UInt_t *node) {
     return node;
 }
 
-Type IRMutator::visit(const Float_t *node) {
+Type Mutator::visit(const Float_t *node) {
     return node;
 }
 
-Type IRMutator::visit(const Bool_t *node) {
+Type Mutator::visit(const Bool_t *node) {
     return node;
 }
 
-Type IRMutator::visit(const Ptr_t *node) {
+Type Mutator::visit(const Ptr_t *node) {
     Type etype = mutate(node->etype);
     if (etype.same_as(node->etype)) {
         return node;
@@ -74,7 +74,7 @@ Type IRMutator::visit(const Ptr_t *node) {
     }
 }
 
-Type IRMutator::visit(const Vector_t *node) {
+Type Mutator::visit(const Vector_t *node) {
     Type etype = mutate(node->etype);
     if (etype.same_as(node->etype)) {
         return node;
@@ -83,7 +83,7 @@ Type IRMutator::visit(const Vector_t *node) {
     }
 }
 
-Type IRMutator::visit(const Struct_t *node) {
+Type Mutator::visit(const Struct_t *node) {
     Struct_t::Map fields = node->fields; // copy
     bool changed = false;
     // TODO: lift into helper func?
@@ -102,7 +102,7 @@ Type IRMutator::visit(const Struct_t *node) {
     }
 }
 
-Type IRMutator::visit(const Tuple_t *node) {
+Type Mutator::visit(const Tuple_t *node) {
     auto [etypes, not_changed] = visit_list(this, node->etypes);
     if (not_changed) {
         return node;
@@ -111,7 +111,7 @@ Type IRMutator::visit(const Tuple_t *node) {
     }
 }
 
-Type IRMutator::visit(const Option_t *node) {
+Type Mutator::visit(const Option_t *node) {
     Type etype = mutate(node->etype);
     if (etype.same_as(node->etype)) {
         return node;
@@ -120,7 +120,7 @@ Type IRMutator::visit(const Option_t *node) {
     }
 }
 
-Type IRMutator::visit(const Set_t *node) {
+Type Mutator::visit(const Set_t *node) {
     Type etype = mutate(node->etype);
     if (etype.same_as(node->etype)) {
         return node;
@@ -129,7 +129,7 @@ Type IRMutator::visit(const Set_t *node) {
     }
 }
 
-Type IRMutator::visit(const Function_t *node) {
+Type Mutator::visit(const Function_t *node) {
     Type ret_type = mutate(node->ret_type);
     auto [arg_types, not_changed] = visit_list(this, node->arg_types);
     if (ret_type.same_as(node->ret_type) && not_changed) {
@@ -140,23 +140,23 @@ Type IRMutator::visit(const Function_t *node) {
 }
 
 
-Expr IRMutator::visit(const IntImm *node) {
+Expr Mutator::visit(const IntImm *node) {
     return node;
 }
 
-Expr IRMutator::visit(const UIntImm *node) {
+Expr Mutator::visit(const UIntImm *node) {
     return node;
 }
 
-Expr IRMutator::visit(const FloatImm *node) {
+Expr Mutator::visit(const FloatImm *node) {
     return node;
 }
 
-Expr IRMutator::visit(const Var *node) {
+Expr Mutator::visit(const Var *node) {
     return node;
 }
 
-Expr IRMutator::visit(const BinOp *node) {
+Expr Mutator::visit(const BinOp *node) {
     Expr a = mutate(node->a);
     Expr b = mutate(node->b);
     if (a.same_as(node->a) && b.same_as(node->b)) {
@@ -166,7 +166,7 @@ Expr IRMutator::visit(const BinOp *node) {
     }
 }
 
-Expr IRMutator::visit(const UnOp *node) {
+Expr Mutator::visit(const UnOp *node) {
     Expr a = mutate(node->a);
     if (a.same_as(node->a)) {
         return node;
@@ -175,7 +175,7 @@ Expr IRMutator::visit(const UnOp *node) {
     }
 }
 
-Expr IRMutator::visit(const Broadcast *node) {
+Expr Mutator::visit(const Broadcast *node) {
     Expr value = mutate(node->value);
     if (value.same_as(node->value)) {
         return node;
@@ -184,7 +184,7 @@ Expr IRMutator::visit(const Broadcast *node) {
     }
 }
 
-Expr IRMutator::visit(const VectorReduce *node) {
+Expr Mutator::visit(const VectorReduce *node) {
     Expr value = mutate(node->value);
     if (value.same_as(node->value)) {
         return node;
@@ -193,7 +193,7 @@ Expr IRMutator::visit(const VectorReduce *node) {
     }
 }
 
-Expr IRMutator::visit(const VectorShuffle *node) {
+Expr Mutator::visit(const VectorShuffle *node) {
     Expr value = mutate(node->value);
     auto [idxs, not_changed] = visit_list(this, node->idxs);
     if (value.same_as(node->value) && not_changed) {
@@ -203,7 +203,7 @@ Expr IRMutator::visit(const VectorShuffle *node) {
     }
 }
 
-Expr IRMutator::visit(const Ramp *node) {
+Expr Mutator::visit(const Ramp *node) {
     Expr base = mutate(node->base);
     Expr stride = mutate(node->stride);
     if (base.same_as(node->base) &&
@@ -213,7 +213,7 @@ Expr IRMutator::visit(const Ramp *node) {
     return Ramp::make(std::move(base), std::move(stride), node->lanes);
 }
 
-Expr IRMutator::visit(const Build *node) {
+Expr Mutator::visit(const Build *node) {
     auto [values, not_changed] = visit_list(this, node->values);
     if (not_changed) {
         return node;
@@ -224,7 +224,7 @@ Expr IRMutator::visit(const Build *node) {
     }
 }
 
-Expr IRMutator::visit(const Access *node) {
+Expr Mutator::visit(const Access *node) {
     Expr value = mutate(node->value);
     if (value.same_as(node->value)) {
         return node;
@@ -233,7 +233,7 @@ Expr IRMutator::visit(const Access *node) {
     }
 }
 
-Expr IRMutator::visit(const Intrinsic *node) {
+Expr Mutator::visit(const Intrinsic *node) {
     auto [args, not_changed] = visit_list(this, node->args);
     if (not_changed) {
         return node;
@@ -242,7 +242,7 @@ Expr IRMutator::visit(const Intrinsic *node) {
     }
 }
 
-Expr IRMutator::visit(const Lambda *node) {
+Expr Mutator::visit(const Lambda *node) {
     Expr value = mutate(node->value);
     if (value.same_as(node->value)) {
         return node;
@@ -251,7 +251,7 @@ Expr IRMutator::visit(const Lambda *node) {
     }
 }
 
-Expr IRMutator::visit(const GeomOp *node) {
+Expr Mutator::visit(const GeomOp *node) {
     Expr a = mutate(node->a);
     Expr b = mutate(node->b);
     if (a.same_as(node->a) && b.same_as(node->b)) {
@@ -262,7 +262,7 @@ Expr IRMutator::visit(const GeomOp *node) {
 }
 
 
-Expr IRMutator::visit(const SetOp *node) {
+Expr Mutator::visit(const SetOp *node) {
     Expr a = mutate(node->a);
     Expr b = mutate(node->b);
     if (a.same_as(node->a) && b.same_as(node->b)) {
@@ -272,7 +272,7 @@ Expr IRMutator::visit(const SetOp *node) {
     }
 }
 
-Expr IRMutator::visit(const Call *node) {
+Expr Mutator::visit(const Call *node) {
     Expr func = mutate(node->func);
     auto [args, not_changed] = visit_list(this, node->args);
     if (func.same_as(node->func) && not_changed) {
@@ -283,7 +283,7 @@ Expr IRMutator::visit(const Call *node) {
 }
 
 
-Stmt IRMutator::visit(const Return *node) {
+Stmt Mutator::visit(const Return *node) {
     Expr value = mutate(node->value);
     if (value.same_as(node->value)) {
         return node;
@@ -292,7 +292,7 @@ Stmt IRMutator::visit(const Return *node) {
     }
 }
 
-Stmt IRMutator::visit(const Store *node) {
+Stmt Mutator::visit(const Store *node) {
     Expr index = mutate(node->index);
     Expr value = mutate(node->value);
     if (index.same_as(node->index) && value.same_as(node->value)) {
@@ -302,7 +302,7 @@ Stmt IRMutator::visit(const Store *node) {
     }
 }
 
-Stmt IRMutator::visit(const LetStmt *node) {
+Stmt Mutator::visit(const LetStmt *node) {
     auto [loc, not_changed] = mutate_writeloc(this, node->loc);
     Expr value = mutate(node->value);
     // Stmt body = mutate(node->body);
@@ -316,7 +316,7 @@ Stmt IRMutator::visit(const LetStmt *node) {
     }
 }
 
-Stmt IRMutator::visit(const IfElse *node) {
+Stmt Mutator::visit(const IfElse *node) {
     Expr cond = mutate(node->cond);
     Stmt then_body = mutate(node->then_body);
     Stmt else_body = mutate(node->else_body);
@@ -329,7 +329,7 @@ Stmt IRMutator::visit(const IfElse *node) {
     }
 }
 
-Stmt IRMutator::visit(const Sequence *node) {
+Stmt Mutator::visit(const Sequence *node) {
     auto [stmts, not_changed] = visit_list(this, node->stmts);
     if (not_changed) {
         return node;
@@ -338,7 +338,7 @@ Stmt IRMutator::visit(const Sequence *node) {
     }
 }
 
-Stmt IRMutator::visit(const Assign *node) {
+Stmt Mutator::visit(const Assign *node) {
     auto [loc, not_changed] = mutate_writeloc(this, node->loc);
     Expr value = mutate(node->value);
     // Stmt body = mutate(node->body);
@@ -352,7 +352,7 @@ Stmt IRMutator::visit(const Assign *node) {
     }
 }
 
-Stmt IRMutator::visit(const Accumulate *node) {
+Stmt Mutator::visit(const Accumulate *node) {
     auto [loc, not_changed] = mutate_writeloc(this, node->loc);
     Expr value = mutate(node->value);
     // Stmt body = mutate(node->body);

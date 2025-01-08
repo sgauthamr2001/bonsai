@@ -5,7 +5,7 @@
 namespace bonsai {
 namespace ir {
 
-struct IRMutator {
+struct Mutator {
     virtual Type mutate(const Type &type);
     virtual Expr mutate(const Expr &expr);
     virtual Stmt mutate(const Stmt &stmt);

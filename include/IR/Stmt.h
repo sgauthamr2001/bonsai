@@ -6,8 +6,8 @@
 #include "IntrusivePtr.h"
 #include "IRHandle.h"
 #include "IRNode.h"
-#include "IRVisitor.h"
-#include "IRMutator.h"
+#include "Visitor.h"
+#include "Mutator.h"
 #include "WriteLoc.h"
 
 namespace bonsai {
@@ -32,16 +32,16 @@ struct BaseStmtNode : public IRStmtNode {
     BaseStmtNode(IRStmtEnum t)
         : IRStmtNode(t) {
     }
-    virtual Stmt mutate_stmt(IRMutator *m) const = 0;
+    virtual Stmt mutate_stmt(Mutator *m) const = 0;
 };
 
 
 template<typename T>
 struct StmtNode : public BaseStmtNode {
-    void accept(IRVisitor *v) const override {
+    void accept(Visitor *v) const override {
         return v->visit((const T*)this);
     }
-    Stmt mutate_stmt(IRMutator *m) const override;
+    Stmt mutate_stmt(Mutator *m) const override;
     StmtNode() : BaseStmtNode(T::_node_type) {}
     ~StmtNode() override = default;
 };
@@ -66,7 +66,7 @@ struct Stmt : public IRHandle<IRStmtNode> {
 };
 
 template<typename T>
-Stmt StmtNode<T>::mutate_stmt(IRMutator *m) const {
+Stmt StmtNode<T>::mutate_stmt(Mutator *m) const {
     return m->visit((const T*)this);
 }
 

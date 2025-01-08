@@ -7,7 +7,7 @@ namespace ir {
 
 template<typename IR, typename _TypeEnum>
 struct IRNode {
-    virtual void accept(IRVisitor *v) const = 0;
+    virtual void accept(Visitor *v) const = 0;
     IRNode(_TypeEnum t)
         : node_type(t) {
     }

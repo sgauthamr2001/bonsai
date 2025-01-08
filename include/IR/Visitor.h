@@ -5,7 +5,7 @@
 namespace bonsai {
 namespace ir {
 
-struct IRVisitor {
+struct Visitor {
     // Types
     virtual void visit(const Int_t *);
     virtual void visit(const UInt_t *);

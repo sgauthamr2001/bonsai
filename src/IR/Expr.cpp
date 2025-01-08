@@ -6,8 +6,8 @@
 #include <utility>
 
 #include "IR/Float16.h"
-#include "IR/IREquality.h"
-#include "IR/IRPrinter.h"
+#include "IR/Equality.h"
+#include "IR/Printer.h"
 
 #include "IR/TypeEnforcement.h"
 

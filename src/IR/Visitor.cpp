@@ -1,4 +1,4 @@
-#include "IR/IRVisitor.h"
+#include "IR/Visitor.h"
 
 #include "IR/Expr.h"
 #include "IR/Stmt.h"
@@ -10,20 +10,20 @@ namespace ir {
 namespace {
 
 template<typename T>
-void visit_list(IRVisitor *v, const std::vector<T> nodes) {
+void visit_list(Visitor *v, const std::vector<T> nodes) {
     for (const auto& node : nodes) {
         node.accept(v);
     }
 }
 
 // template<typename T>
-// void visit_map(IRVisitor *v, const std::map<std::string, T> fields) {
+// void visit_map(Visitor *v, const std::map<std::string, T> fields) {
 //     for (const auto& [key, value] : fields) {
 //         value.accept(v);
 //     }
 // }
 
-void visit_writeloc(IRVisitor *v, const WriteLoc &loc) {
+void visit_writeloc(Visitor *v, const WriteLoc &loc) {
     for (const auto &value : loc.accesses) {
         if (std::holds_alternative<Expr>(value)) {
             std::get<Expr>(value).accept(v);
@@ -32,140 +32,140 @@ void visit_writeloc(IRVisitor *v, const WriteLoc &loc) {
 }
 }
 
-void IRVisitor::visit(const Int_t *) {
+void Visitor::visit(const Int_t *) {
 }
 
-void IRVisitor::visit(const UInt_t *) {
+void Visitor::visit(const UInt_t *) {
 }
 
-void IRVisitor::visit(const Float_t *) {
+void Visitor::visit(const Float_t *) {
 }
 
-void IRVisitor::visit(const Bool_t *) {
+void Visitor::visit(const Bool_t *) {
 }
 
-void IRVisitor::visit(const Ptr_t *node) {
+void Visitor::visit(const Ptr_t *node) {
     node->etype.accept(this);
 }
 
-void IRVisitor::visit(const Vector_t *node) {
+void Visitor::visit(const Vector_t *node) {
     node->etype.accept(this);
 }
 
-void IRVisitor::visit(const Struct_t *node) {
+void Visitor::visit(const Struct_t *node) {
     for (const auto& [_, value] : node->fields) {
         value.accept(this);
     }
 }
 
-void IRVisitor::visit(const Tuple_t *node) {
+void Visitor::visit(const Tuple_t *node) {
     visit_list(this, node->etypes);
 }
 
-void IRVisitor::visit(const Option_t *node) {
+void Visitor::visit(const Option_t *node) {
     node->etype.accept(this);
 }
 
-void IRVisitor::visit(const Set_t *node) {
+void Visitor::visit(const Set_t *node) {
     node->etype.accept(this);
 }
 
-void IRVisitor::visit(const Function_t *node) {
+void Visitor::visit(const Function_t *node) {
     node->ret_type.accept(this);
     visit_list(this, node->arg_types);
 }
 
 
-void IRVisitor::visit(const IntImm *) {
+void Visitor::visit(const IntImm *) {
 }
 
-void IRVisitor::visit(const UIntImm *) {
+void Visitor::visit(const UIntImm *) {
 }
 
-void IRVisitor::visit(const FloatImm *) {
+void Visitor::visit(const FloatImm *) {
 }
 
-void IRVisitor::visit(const Var *) {
+void Visitor::visit(const Var *) {
 }
 
-void IRVisitor::visit(const BinOp *node) {
+void Visitor::visit(const BinOp *node) {
     node->a.accept(this);
     node->b.accept(this);
 }
 
-void IRVisitor::visit(const UnOp *node) {
+void Visitor::visit(const UnOp *node) {
     node->a.accept(this);
 }
 
 
-void IRVisitor::visit(const Broadcast *node) {
+void Visitor::visit(const Broadcast *node) {
     node->value.accept(this);
 }
 
-void IRVisitor::visit(const VectorReduce *node) {
+void Visitor::visit(const VectorReduce *node) {
     node->value.accept(this);
 }
 
 
-void IRVisitor::visit(const VectorShuffle *node) {
+void Visitor::visit(const VectorShuffle *node) {
     node->value.accept(this);
     visit_list(this, node->idxs);
 }
 
-void IRVisitor::visit(const Ramp *node) {
+void Visitor::visit(const Ramp *node) {
     node->base.accept(this);
     node->stride.accept(this);
 }
 
-void IRVisitor::visit(const Build *node) {
+void Visitor::visit(const Build *node) {
     visit_list(this, node->values);
 }
 
-void IRVisitor::visit(const Access *node) {
+void Visitor::visit(const Access *node) {
     node->value.accept(this);
 }
 
-void IRVisitor::visit(const Intrinsic *node) {
+void Visitor::visit(const Intrinsic *node) {
     visit_list(this, node->args);
 }
 
-void IRVisitor::visit(const Lambda *node) {
+void Visitor::visit(const Lambda *node) {
     node->value.accept(this);
 }
 
-void IRVisitor::visit(const GeomOp *node) {
+void Visitor::visit(const GeomOp *node) {
     node->a.accept(this);
     node->b.accept(this);
 }
 
-void IRVisitor::visit(const SetOp *node) {
+void Visitor::visit(const SetOp *node) {
     node->a.accept(this);
     node->b.accept(this);
 }
 
-void IRVisitor::visit(const Call *node) {
+void Visitor::visit(const Call *node) {
     node->func.accept(this);
     visit_list(this, node->args);
 }
 
-void IRVisitor::visit(const Return *node) {
+void Visitor::visit(const Return *node) {
     node->value.accept(this);
 }
 
-void IRVisitor::visit(const Store *node) {
+void Visitor::visit(const Store *node) {
     if (node->index.defined()) {
         node->index.accept(this);
     }
     node->value.accept(this);
 }
 
-void IRVisitor::visit(const LetStmt *node) {
+void Visitor::visit(const LetStmt *node) {
     node->value.accept(this);
     // TODO: fix this!! bring back SSA
     // node->body.accept(this);
 }
 
-void IRVisitor::visit(const IfElse *node) {
+void Visitor::visit(const IfElse *node) {
     node->cond.accept(this);
     node->then_body.accept(this);
     if (node->else_body.defined()) {
@@ -173,18 +173,18 @@ void IRVisitor::visit(const IfElse *node) {
     }
 }
 
-void IRVisitor::visit(const Sequence *node) {
+void Visitor::visit(const Sequence *node) {
     visit_list(this, node->stmts);
 }
 
-void IRVisitor::visit(const Assign *node) {
+void Visitor::visit(const Assign *node) {
     visit_writeloc(this, node->loc);
     node->value.accept(this);
     // TODO: fix this!! bring back SSA
     // node->body.accept(this);
 }
 
-void IRVisitor::visit(const Accumulate *node) {
+void Visitor::visit(const Accumulate *node) {
     visit_writeloc(this, node->loc);
     node->value.accept(this);
     // TODO: fix this!! bring back SSA

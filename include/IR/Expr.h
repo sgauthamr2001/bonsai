@@ -5,8 +5,8 @@
 #include "IntrusivePtr.h"
 #include "IRHandle.h"
 #include "IRNode.h"
-#include "IRVisitor.h"
-#include "IRMutator.h"
+#include "Visitor.h"
+#include "Mutator.h"
 
 #include "Type.h"
 
@@ -49,17 +49,17 @@ struct BaseExprNode : public IRExprNode {
     BaseExprNode(IRExprEnum t)
         : IRExprNode(t) {
     }
-    virtual Expr mutate_expr(IRMutator *m) const = 0;
+    virtual Expr mutate_expr(Mutator *m) const = 0;
     Type type;
 };
 
 
 template<typename T>
 struct ExprNode : public BaseExprNode {
-    void accept(IRVisitor *v) const override {
+    void accept(Visitor *v) const override {
         return v->visit((const T*)this);
     }
-    Expr mutate_expr(IRMutator *m) const override;
+    Expr mutate_expr(Mutator *m) const override;
     ExprNode() : BaseExprNode(T::_node_type) {}
     ~ExprNode() override = default;
 };
@@ -94,7 +94,7 @@ struct Expr : public IRHandle<IRExprNode> {
 };
 
 template<typename T>
-Expr ExprNode<T>::mutate_expr(IRMutator *m) const {
+Expr ExprNode<T>::mutate_expr(Mutator *m) const {
     return m->visit((const T*)this);
 }
 

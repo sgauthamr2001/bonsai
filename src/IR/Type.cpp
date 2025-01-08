@@ -3,7 +3,7 @@
 #include <utility>
 #include <stdexcept>
 
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 
 namespace bonsai {
 namespace ir {

@@ -3,8 +3,8 @@
 #include "IntrusivePtr.h"
 #include "IRHandle.h"
 #include "IRNode.h"
-#include "IRVisitor.h"
-#include "IRMutator.h"
+#include "Visitor.h"
+#include "Mutator.h"
 
 #include <map>
 #include <string>
@@ -35,16 +35,16 @@ struct BaseTypeNode : public IRTypeNode {
     BaseTypeNode(IRTypeEnum t)
         : IRTypeNode(t) {
     }
-    virtual Type mutate_type(IRMutator *m) const = 0;
+    virtual Type mutate_type(Mutator *m) const = 0;
 };
 
 
 template<typename T>
 struct TypeNode : public BaseTypeNode {
-    void accept(IRVisitor *v) const override {
+    void accept(Visitor *v) const override {
         return v->visit((const T*)this);
     }
-    Type mutate_type(IRMutator *m) const override;
+    Type mutate_type(Mutator *m) const override;
     TypeNode() : BaseTypeNode(T::_node_type) {}
     ~TypeNode() override = default;
 };
@@ -91,7 +91,7 @@ struct Type : public IRHandle<IRTypeNode> {
 };
 
 template<typename T>
-Type TypeNode<T>::mutate_type(IRMutator *m) const {
+Type TypeNode<T>::mutate_type(Mutator *m) const {
     return m->visit((const T*)this);
 }
 

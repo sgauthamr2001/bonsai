@@ -2,8 +2,8 @@
 
 #include "IR/Analysis.h"
 #include "IR/TypeEnforcement.h"
-#include "IR/IRPrinter.h"
-#include "IR/IRVisitor.h"
+#include "IR/Printer.h"
+#include "IR/Visitor.h"
 
 #include "Error.h"
 #include "Scope.h"
@@ -18,7 +18,7 @@ namespace lower {
 
 namespace {
 
-struct UndefCallGraphBuilder : public ir::IRVisitor {
+struct UndefCallGraphBuilder : public ir::Visitor {
     // TODO: this does NOT work for interfaces!
     std::set<std::string> undef_calls;
     bool in_call = false;
@@ -43,7 +43,7 @@ struct UndefCallGraphBuilder : public ir::IRVisitor {
 
     void visit(const ir::Access *node) override {
         internal_assert(!in_call) << "TODO: support call graph through interface" << node;
-        IRVisitor::visit(node);
+        Visitor::visit(node);
     }
 
     void visit(const ir::Var *node) override {
@@ -109,7 +109,7 @@ std::vector<std::string> func_topological_order(const ir::Program &program) {
 }
 
 ir::Stmt replace_undef_calls(const ir::Stmt &stmt, const std::map<std::string, ir::Type> &func_types) {
-    struct ReplaceUndefCalls : public ir::IRMutator {
+    struct ReplaceUndefCalls : public ir::Mutator {
         ReplaceUndefCalls(const std::map<std::string, ir::Type> &_func_types) : func_types(_func_types) {}
     private:
         const std::map<std::string, ir::Type> &func_types;
@@ -136,7 +136,7 @@ ir::Stmt replace_undef_calls(const ir::Stmt &stmt, const std::map<std::string, i
 }
 
 ir::Stmt set_setop_lambda_types(const ir::Stmt &stmt) {
-    struct SetLambdaTypes : public ir::IRMutator {
+    struct SetLambdaTypes : public ir::Mutator {
         ir::Expr visit(const ir::SetOp *node) override {
             ir::Expr a = mutate(node->a);
             ir::Expr b = mutate(node->b);
@@ -167,7 +167,7 @@ ir::Stmt set_setop_lambda_types(const ir::Stmt &stmt) {
 }
 
 ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
-    struct CoerceReturnTypes : public ir::IRMutator {
+    struct CoerceReturnTypes : public ir::Mutator {
         CoerceReturnTypes(const ir::Type &_ret_type) : ret_type(_ret_type) {}
     private:
         const ir::Type &ret_type;
@@ -180,7 +180,7 @@ ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
                     << "Cannot coerce value: " << node->value << " into return type: " << ret_type;
                 return ir::Return::make(constant_cast(ret_type, node->value));
             } else {
-                return ir::IRMutator::visit(node);
+                return ir::Mutator::visit(node);
             }
         }
     };
@@ -192,8 +192,8 @@ ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
 }
 
 bool has_undef_expr_types(const ir::Stmt &stmt) {
-    // We use IRMutator to override mutate() instead of all Expr methods in IRVisitor
-    struct FindUndefTypes : public ir::IRMutator {
+    // We use Mutator to override mutate() instead of all Expr methods in Visitor
+    struct FindUndefTypes : public ir::Mutator {
         bool undef_types = false;
         ir::Expr mutate(const ir::Expr &expr) override {
             undef_types = undef_types || !expr.type().defined();
@@ -204,7 +204,7 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
             if (undef_types) {
                 return expr;
             } else {
-                return IRMutator::mutate(expr);
+                return Mutator::mutate(expr);
             }
         }
 
@@ -212,7 +212,7 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
             if (undef_types) {
                 return stmt;
             } else {
-                return IRMutator::mutate(stmt);
+                return Mutator::mutate(stmt);
             }
         }
 
@@ -221,7 +221,7 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
             if (undef_types) {
                 return node;
             } else {
-                return IRMutator::visit(node);
+                return Mutator::visit(node);
             }
         }
 
@@ -240,7 +240,7 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
                 }
                 return node;
             } else {
-                return IRMutator::visit(node);
+                return Mutator::visit(node);
             }
         }
 
@@ -259,7 +259,7 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
                 }
                 return node;
             } else {
-                return IRMutator::visit(node);
+                return Mutator::visit(node);
             }
         }
     };

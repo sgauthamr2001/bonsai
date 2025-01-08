@@ -1,8 +1,8 @@
 #include "IR/Analysis.h"
 
-#include "IR/IREquality.h"
-#include "IR/IRPrinter.h"
-#include "IR/IRVisitor.h"
+#include "IR/Equality.h"
+#include "IR/Printer.h"
+#include "IR/Visitor.h"
 
 #include <set>
 
@@ -11,7 +11,7 @@ namespace ir {
 
 namespace {
 
-struct GatherFreeVars : public IRVisitor {
+struct GatherFreeVars : public Visitor {
     // return in seen-order
     std::vector<std::pair<std::string, Type>> free_vars;
     // no duplicates
@@ -31,7 +31,7 @@ struct GatherFreeVars : public IRVisitor {
             seen_vars.insert(node->name);
         }
         // TODO: consider implications on recursive definition.
-        IRVisitor::visit(node);
+        Visitor::visit(node);
     }
 
     void visit(const LetStmt *node) override {
@@ -69,7 +69,7 @@ struct GatherFreeVars : public IRVisitor {
 };
 
 
-struct AlwaysReturns : public IRVisitor {
+struct AlwaysReturns : public Visitor {
     bool returns = false;
     void visit(const Return *) override {
         returns = true;
@@ -118,7 +118,7 @@ struct AlwaysReturns : public IRVisitor {
     }
 };
 
-struct ReturnType : public IRVisitor {
+struct ReturnType : public Visitor {
     Type type;
 
     void visit(const Return *node) override {
@@ -175,7 +175,7 @@ struct ReturnType : public IRVisitor {
     }
 };
 
-struct GatherStructTypes : public IRVisitor {
+struct GatherStructTypes : public Visitor {
     // return in seen-order
     std::vector<const Struct_t *> struct_types;
     // no duplicates
@@ -189,16 +189,16 @@ struct GatherStructTypes : public IRVisitor {
     }
 
     // TODO: override all Expr/Stmt ops that might interact
-    // with a Struct_t and make sure the IRVisitor recurses
+    // with a Struct_t and make sure the Visitor recurses
 
     void visit(const Build *node) override {
         node->type.accept(this);
-        IRVisitor::visit(node);
+        Visitor::visit(node);
     }
 
     void visit(const Access *node) override {
         node->value.type().accept(this);
-        IRVisitor::visit(node);
+        Visitor::visit(node);
     }
 };
 

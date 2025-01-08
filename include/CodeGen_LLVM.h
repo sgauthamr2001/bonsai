@@ -8,14 +8,14 @@
 
 #include <memory>
 
-#include "IR/IRVisitor.h"
+#include "IR/Visitor.h"
 #include "LLVMIncl.h"
 #include "Scope.h"
 
 
 namespace bonsai {
 
-struct CodeGen_LLVM : public ir::IRVisitor {
+struct CodeGen_LLVM : public ir::Visitor {
     CodeGen_LLVM();
 
     // TODO: all entry points must set function!

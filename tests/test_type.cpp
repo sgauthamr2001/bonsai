@@ -1,5 +1,5 @@
 #include "IR/Type.h"
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 
 using namespace bonsai::ir;
 using namespace bonsai;

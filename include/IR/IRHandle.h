@@ -3,7 +3,7 @@
 
 #include "IntrusivePtr.h"
 
-#include "IRVisitor.h"
+#include "Visitor.h"
 
 #include <cassert>
 
@@ -23,8 +23,8 @@ struct IRHandle : public IntrusivePtr<const IRNode> {
 
     /** Dispatch to the correct visitor method for this node. E.g. if
      * this node is actually an Add node, then this will call
-     * IRVisitor::visit(const Add *) */
-    void accept(IRVisitor *v) const {
+     * Visitor::visit(const Add *) */
+    void accept(Visitor *v) const {
         assert(this->ptr);
         this->ptr->accept(v);
     }

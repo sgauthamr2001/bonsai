@@ -1,4 +1,4 @@
-#include "IR/IREquality.h"
+#include "IR/Equality.h"
 
 namespace bonsai {
 namespace ir {

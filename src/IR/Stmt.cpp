@@ -1,6 +1,6 @@
 #include "IR/Stmt.h"
 
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 
 namespace bonsai {
 namespace ir {

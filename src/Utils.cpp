@@ -1,6 +1,6 @@
 #include "Utils.h"
 
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 
 namespace bonsai {
 
@@ -78,7 +78,7 @@ ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
 }
 
 ir::Expr replace(const std::string &var_name, ir::Expr repl, const ir::Expr &orig) {
-    struct Replacer : public ir::IRMutator {
+    struct Replacer : public ir::Mutator {
         Replacer(const std::string &_var_name, ir::Expr _repl)
             : var_name(_var_name), repl(std::move(_repl)) {}
         private:

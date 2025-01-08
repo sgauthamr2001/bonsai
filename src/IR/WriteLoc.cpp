@@ -1,6 +1,6 @@
 #include "IR/WriteLoc.h"
 
-#include "IR/IRPrinter.h"
+#include "IR/Printer.h"
 #include "IR/TypeEnforcement.h"
 
 namespace bonsai {
