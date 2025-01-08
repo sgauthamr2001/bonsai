@@ -23,14 +23,13 @@ Stmt Store::make(std::string name, Expr index, Expr value) {
 }
 
 // Stmt LetStmt::make(std::string name, Expr value, Stmt body) {
-Stmt LetStmt::make(std::string name, Expr value, bool mutating) {
-    internal_assert(!name.empty()) << "Empty name in LetStmt::make";
+Stmt LetStmt::make(WriteLoc loc, Expr value) {
+    internal_assert(loc.defined()) << "Undefined write location in Assign::make";
     internal_assert(value.defined()) << "Undefined value in LetStmt::make";
     // internal_assert(body.defined()) << "Undefined body in LetStmt::make";
     LetStmt *node = new LetStmt;
-    node->name = std::move(name);
+    node->loc = std::move(loc);
     node->value = std::move(value);
-    node->mutating = mutating;
     // node->body = std::move(body);
     return node;
 }
@@ -53,6 +52,17 @@ Stmt Sequence::make(std::vector<Stmt> stmts) {
     }
     Sequence *node = new Sequence;
     node->stmts = std::move(stmts);
+    return node;
+}
+
+Stmt Assign::make(WriteLoc loc, Expr value, bool mutating) {
+    internal_assert(loc.defined()) << "Undefined write location in Assign::make";
+    internal_assert(value.defined()) << "Undefined value in Assign::make";
+    Assign *node = new Assign;
+    node->loc = std::move(loc);
+    node->value = std::move(value);
+    node->mutating = mutating;
+    // node->body = std::move(body);
     return node;
 }
 

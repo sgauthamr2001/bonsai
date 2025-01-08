@@ -44,6 +44,7 @@ struct Store;
 struct LetStmt;
 struct IfElse;
 struct Sequence;
+struct Assign;
 struct Accumulate;
 
 }  // namespace ir

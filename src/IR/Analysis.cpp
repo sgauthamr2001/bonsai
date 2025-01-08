@@ -36,9 +36,35 @@ struct GatherFreeVars : public IRVisitor {
 
     void visit(const LetStmt *node) override {
         // TODO: fix this!! use SSA.
-        seen_vars.insert(node->name);
+        seen_vars.insert(node->loc.base);
+        for (const auto &value : node->loc.accesses) {
+            if (std::holds_alternative<Expr>(value)) {
+                std::get<Expr>(value).accept(this);
+            }
+        }
+        node->value.accept(this);
         // node->body.accept(this);
         // seen_vars.erase(node->name);
+    }
+
+    void visit(const Assign *node) override {
+        seen_vars.insert(node->loc.base);
+        for (const auto &value : node->loc.accesses) {
+            if (std::holds_alternative<Expr>(value)) {
+                std::get<Expr>(value).accept(this);
+            }
+        }
+        node->value.accept(this);
+    }
+
+    void visit(const Accumulate *node) override {
+        seen_vars.insert(node->loc.base);
+        for (const auto &value : node->loc.accesses) {
+            if (std::holds_alternative<Expr>(value)) {
+                std::get<Expr>(value).accept(this);
+            }
+        }
+        node->value.accept(this);
     }
 };
 
@@ -79,6 +105,12 @@ struct AlwaysReturns : public IRVisitor {
         node->stmts.back().accept(this);
     }
 
+    void visit(const Assign *node) override {
+        // TODO: fix this!!
+        returns = false;
+        // node->body.accept(this);
+    }
+
     void visit(const Accumulate *node) override {
         // TODO: fix this!!
         returns = false;
@@ -98,6 +130,16 @@ struct ReturnType : public IRVisitor {
     }
 
     void visit(const LetStmt *node) override {
+        // TODO: fix this!! bring back SSA
+        // node->body.accept(this);
+    }
+
+    void visit(const Assign *node) override {
+        // TODO: fix this!! bring back SSA
+        // node->body.accept(this);
+    }
+
+    void visit(const Accumulate *node) override {
         // TODO: fix this!! bring back SSA
         // node->body.accept(this);
     }

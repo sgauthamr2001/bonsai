@@ -21,6 +21,8 @@ std::ostream &operator<<(std::ostream& os, const Type &type);
 std::string to_string(const Stmt &stmt);
 std::ostream &operator<<(std::ostream& os, const Stmt &stmt);
 
+std::ostream &operator<<(std::ostream& os, const WriteLoc &loc);
+
 std::string to_string(const BinOp::OpType &op);
 std::string to_string(const UnOp::OpType &op);
 std::string to_string(const VectorReduce::OpType &op);
@@ -83,6 +85,7 @@ struct IRPrinter : public IRVisitor {
     void visit(const LetStmt *) override;
     void visit(const IfElse *) override;
     void visit(const Sequence *) override;
+    void visit(const Assign *) override;
     void visit(const Accumulate *) override;
 protected:
     /** The stream on which we're outputting */

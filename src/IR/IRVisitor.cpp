@@ -23,6 +23,13 @@ void visit_list(IRVisitor *v, const std::vector<T> nodes) {
 //     }
 // }
 
+void visit_writeloc(IRVisitor *v, const WriteLoc &loc) {
+    for (const auto &value : loc.accesses) {
+        if (std::holds_alternative<Expr>(value)) {
+            std::get<Expr>(value).accept(v);
+        }
+    }
+}
 }
 
 void IRVisitor::visit(const Int_t *) {
@@ -170,7 +177,15 @@ void IRVisitor::visit(const Sequence *node) {
     visit_list(this, node->stmts);
 }
 
+void IRVisitor::visit(const Assign *node) {
+    visit_writeloc(this, node->loc);
+    node->value.accept(this);
+    // TODO: fix this!! bring back SSA
+    // node->body.accept(this);
+}
+
 void IRVisitor::visit(const Accumulate *node) {
+    visit_writeloc(this, node->loc);
     node->value.accept(this);
     // TODO: fix this!! bring back SSA
     // node->body.accept(this);

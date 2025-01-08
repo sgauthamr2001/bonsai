@@ -397,68 +397,84 @@ private:
             // TODO: allow tuple declaration/assignment?
             // TODO: how to do SSA in parsing?
             ir::WriteLoc loc = parseWriteLoc();
-            if (loc.accesses.empty()) {
-                if ((peek().type == Token::Type::COL) ||
-                    (peek().type == Token::Type::ASSIGN)) {
-                    // Just a regular variable write.
-                    return parseNameDecl(loc.base);
-                }
+            if (loc.accesses.empty() && !name_in_scope(loc.base)) {
+                // Just a regular variable write
+                // might be an Assign (if labelled `mut`)
+                return parseNameDecl(std::move(loc));
+            } else if (consume(Token::Type::ASSIGN)) {
+                return parseAssign(std::move(loc));
+            } else {
+                // Must be an accumulate.
+                return parseAccumulate(std::move(loc));
             }
-
-            return parseAccumulate(std::move(loc));
         }
         internal_error << "TODO: implement parseStmt for " << peek().toString();
         return ir::Stmt();
     }
 
-    ir::Stmt parseNameDecl(const std::string &name) {
-        ir::Type type;
+    ir::Stmt parseNameDecl(ir::WriteLoc loc) {
+        // This is a never-seen-before write to a variable.
+        internal_assert(!loc.type.defined());
+        ir::Type type_label;
         bool _mutable = false;
+
         if (consume(Token::Type::COL)) {
             if (consume(Token::Type::MUT)) {
                 _mutable = true;
                 if (peek().type == Token::Type::IDENTIFIER) {
-                    type = parseType();
+                    type_label = parseType();
                 } // otherwise just a `mut` label.
                 // TODO: should we ever allow "just" a mut label?
             } else {
-                type = parseType();
+                type_label = parseType();
             }
         }
 
         expect(Token::Type::ASSIGN);
         ir::Expr value = parseExpr();
         expect(Token::Type::SEMICOL);
+
         // TODO: do type-forcing here!
-        auto check_type = [&]() {
-            if (type.defined() && value.type().defined()) {
-                internal_assert(ir::equals(type, value.type()))
-                    << "Mismatching type: " << name << " is labelled with type: " << type
-                    << " but " << value << " has type " << value.type();
-            }
-        };
-        check_type();
+        if (type_label.defined() && value.type().defined()) {
+            internal_assert(ir::equals(type_label, value.type()))
+                << "Mismatching assignment: " << loc << " is labelled with type: " << type_label
+                << " but " << value << " has type " << value.type();
+        }
+        ir::Type write_type = type_label.defined() ? type_label : value.type();
 
-        bool mutating = false;
+        add_type_to_frame(loc.base, write_type, _mutable);
 
-        if (name_in_scope(name)) {
-            internal_assert(is_mutable(name)) << "Variable: " << name << " cannot be reassigned, it is not mutable.";
-            internal_assert(!type.defined()) << "Mutable write to " << name << " cannot provide type label: " << type;
-            type = get_type_from_frame(name);
-            check_type();
-            if (!type.defined() && value.type().defined()) {
-                modify_type_in_frame(name, value.type());
-            }
-            mutating = true;
+        if (!_mutable) {
+            return ir::LetStmt::make(std::move(loc), std::move(value));
         } else {
-            if (type.defined()) {
-                add_type_to_frame(name, type, _mutable);
-            } else {
-                add_type_to_frame(name, value.type(), _mutable);
-            }
+            loc = ir::WriteLoc(loc.base, std::move(write_type));
+            return ir::Assign::make(std::move(loc), std::move(value), /*mutating*/ false);
+        }
+    }
+
+    ir::Stmt parseAssign(ir::WriteLoc loc) {
+        ir::Expr value = parseExpr();
+        expect(Token::Type::SEMICOL);
+
+        // TODO: do type forcing here!
+        if (loc.type.defined() && value.type().defined()) {
+            internal_assert(ir::equals(loc.type, value.type()))
+                << "Mismatching assignment: " << loc << " has type: " << loc.type
+                << " but " << value << " has type " << value.type();
         }
 
-        return ir::LetStmt::make(name, std::move(value), mutating);
+        const bool mutating = name_in_scope(loc.base);
+
+        if (!loc.type.defined() && value.type().defined()) {
+            // TODO: do type forcing here!
+            if (loc.accesses.empty()) {
+                modify_type_in_frame(loc.base, value.type());
+                loc = ir::WriteLoc(loc.base, value.type());
+            }
+            // e.g. if accesses wasn't empty, we could still infer a partial type.
+        }
+
+        return ir::Assign::make(std::move(loc), std::move(value), mutating);
     }
 
     ir::Stmt parseAccumulate(ir::WriteLoc loc) {

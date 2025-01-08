@@ -11,14 +11,15 @@ namespace bonsai {
 namespace ir {
 
 struct WriteLoc {
+    Type base_type;
     Type type; // type of current write.
     std::string base; // name
     // A string implies a struct access, an expr must be an integer index.
     std::vector<std::variant<std::string, Expr>> accesses;
 
     WriteLoc() {} // required for Accumulate::make to work.
-    WriteLoc(const std::string &_base, Type _type)
-        : base(_base), type(std::move(_type)) {
+    WriteLoc(const std::string &_base, Type _base_type)
+        : base(_base), base_type(_base_type), type(_base_type) {
         internal_assert(!base.empty()) << "Write location with empty base";
     }
 

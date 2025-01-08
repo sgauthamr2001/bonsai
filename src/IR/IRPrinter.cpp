@@ -65,6 +65,16 @@ std::ostream &operator<<(std::ostream &stream, const Indentation &indentation) {
     return stream;
 }
 
+std::ostream &operator<<(std::ostream& os, const WriteLoc &loc) {
+    if (loc.defined()) {
+        IRPrinter printer(os);
+        printer.print(loc);
+    } else {
+        os << "(undef-loc)";
+    }
+    return os;
+}
+
 
 void IRPrinter::print(const Type &type) {
     if (type.defined()) {
@@ -451,7 +461,7 @@ void IRPrinter::visit(const Store *node) {
 
 void IRPrinter::visit(const LetStmt *node) {
     // ScopedBinding<> bind(known_type, node->name);
-    os << get_indent() << "let " << node->name << " = ";
+    os << get_indent() << "let " << node->loc << " = ";
     print_no_parens(node->value);
     os << " in\n";
     // TODO: fix this!! bring back SSA
@@ -491,6 +501,16 @@ void IRPrinter::visit(const Sequence *node) {
     for (const auto &stmt : node->stmts) {
         stmt.accept(this);
     }
+}
+
+void IRPrinter::visit(const Assign *node) {
+    os << get_indent();
+    print(node->loc);
+    os << " = ";
+    print_no_parens(node->value);
+    os << "\n";
+    // TODO: fix this!! bring back SSA
+    // print(node->body);
 }
 
 void IRPrinter::visit(const Accumulate *node) {

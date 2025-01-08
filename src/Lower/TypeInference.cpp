@@ -197,6 +197,9 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
         bool undef_types = false;
         ir::Expr mutate(const ir::Expr &expr) override {
             undef_types = undef_types || !expr.type().defined();
+            if (!expr.type().defined()) {
+                std::cerr << "Undefined expr: " << expr << std::endl;
+            }
             // TODO: record all undefined exprs for error message?
             if (undef_types) {
                 return expr;
@@ -222,10 +225,38 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
             }
         }
 
-        ir::Stmt visit(const ir::Accumulate *node) override {
+        ir::Stmt visit(const ir::Assign *node) override {
+            bool before = undef_types;
             undef_types = undef_types || !node->value.type().defined();
             undef_types = undef_types || !node->loc.type.defined();
+            for (const auto &value : node->loc.accesses) {
+                if (std::holds_alternative<ir::Expr>(value)) {
+                    undef_types = undef_types || !std::get<ir::Expr>(value).type().defined();
+                }
+            }
             if (undef_types) {
+                if (!before) {
+                    std::cerr << "undefined types detected: " << ir::Stmt(node) << std::endl;
+                }
+                return node;
+            } else {
+                return IRMutator::visit(node);
+            }
+        }
+
+        ir::Stmt visit(const ir::Accumulate *node) override {
+            bool before = undef_types;
+            undef_types = undef_types || !node->value.type().defined();
+            undef_types = undef_types || !node->loc.type.defined();
+            for (const auto &value : node->loc.accesses) {
+                if (std::holds_alternative<ir::Expr>(value)) {
+                    undef_types = undef_types || !std::get<ir::Expr>(value).type().defined();
+                }
+            }
+            if (undef_types) {
+                if (!before) {
+                    std::cerr << "undefined types detected: " << ir::Stmt(node) << std::endl;
+                }
                 return node;
             } else {
                 return IRMutator::visit(node);
@@ -257,8 +288,8 @@ ir::Function infer_types(const ir::Function &fnotypes, const ir::Program &progra
     // TODO: is there more that we can do?
 
     internal_assert(!has_undef_expr_types(ftypes.body))
-        << "Type inference failed to infer all types of: " << fnotypes.body
-        << "Inferred: " << ftypes.body;
+        << "Type inference failed to infer all types of:\n" << fnotypes.body
+        << "\n\nInferred:\n" << ftypes.body;
     return ftypes;
 }
 

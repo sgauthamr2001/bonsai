@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
     // Parse the input file
     bonsai::ir::Program program = bonsai::parser::parse(filename);
 
-    // TODO: type inference
+    // Perform type inference.
     program = bonsai::lower::infer_types(program);
 
     program.dump(std::cout);

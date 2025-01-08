@@ -79,6 +79,7 @@ protected:
     virtual void visit(const ir::LetStmt *) override;
     virtual void visit(const ir::IfElse *) override;
     virtual void visit(const ir::Sequence *) override;
+    virtual void visit(const ir::Assign *) override;
     virtual void visit(const ir::Accumulate *) override;
 
 

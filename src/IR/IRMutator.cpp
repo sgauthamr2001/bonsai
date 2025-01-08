@@ -20,6 +20,21 @@ std::pair<std::vector<T>, bool> visit_list(IRMutator *v, const std::vector<T> &l
     }
     return {std::move(_l), not_changed};
 }
+
+std::pair<WriteLoc, bool> mutate_writeloc(IRMutator *v, const WriteLoc &loc) {
+    WriteLoc new_loc(loc.base, loc.base_type);
+    bool not_changed = true;
+    for (const auto &value : loc.accesses) {
+        if (std::holds_alternative<Expr>(value)) {
+            Expr new_value = v->mutate(std::get<Expr>(value));
+            not_changed = not_changed && new_value.same_as(std::get<Expr>(value));
+            new_loc.add_index_access(std::move(new_value));
+        } else {
+            new_loc.add_struct_access(std::get<std::string>(value));
+        }
+    }
+    return {std::move(new_loc), not_changed};
+}
 }  // namespace
 
 Type IRMutator::mutate(const Type &type) {
@@ -288,15 +303,16 @@ Stmt IRMutator::visit(const Store *node) {
 }
 
 Stmt IRMutator::visit(const LetStmt *node) {
+    auto [loc, not_changed] = mutate_writeloc(this, node->loc);
     Expr value = mutate(node->value);
     // Stmt body = mutate(node->body);
-    if (value.same_as(node->value)
+    if (not_changed && value.same_as(node->value)
         // && body.same_as(node->body)
         ) {
         return node;
     } else {
         // return LetStmt::make(node->name, std::move(value), std::move(body));
-        return LetStmt::make(node->name, std::move(value), node->mutating);
+        return LetStmt::make(std::move(loc), std::move(value));
     }
 }
 
@@ -322,16 +338,31 @@ Stmt IRMutator::visit(const Sequence *node) {
     }
 }
 
-Stmt IRMutator::visit(const Accumulate *node) {
+Stmt IRMutator::visit(const Assign *node) {
+    auto [loc, not_changed] = mutate_writeloc(this, node->loc);
     Expr value = mutate(node->value);
     // Stmt body = mutate(node->body);
-    if (value.same_as(node->value)
+    if (not_changed && value.same_as(node->value)
+        // && body.same_as(node->body)
+        ) {
+        return node;
+    } else {
+        // return Assign::make(node->loc, std::move(value), node->mutating, std::move(body));
+        return Assign::make(std::move(loc), std::move(value), node->mutating);
+    }
+}
+
+Stmt IRMutator::visit(const Accumulate *node) {
+    auto [loc, not_changed] = mutate_writeloc(this, node->loc);
+    Expr value = mutate(node->value);
+    // Stmt body = mutate(node->body);
+    if (not_changed && value.same_as(node->value)
         // && body.same_as(node->body)
         ) {
         return node;
     } else {
         // return Accumulate::make(node->loc, node->op, std::move(value), std::move(body));
-        return Accumulate::make(node->loc, node->op, std::move(value));
+        return Accumulate::make(std::move(loc), node->op, std::move(value));
     }
 }
 
