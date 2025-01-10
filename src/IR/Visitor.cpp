@@ -97,6 +97,11 @@ void Visitor::visit(const UnOp *node) {
     node->a.accept(this);
 }
 
+void Visitor::visit(const Select *node) {
+    node->cond.accept(this);
+    node->tvalue.accept(this);
+    node->fvalue.accept(this);
+}
 
 void Visitor::visit(const Broadcast *node) {
     node->value.accept(this);
@@ -106,7 +111,6 @@ void Visitor::visit(const VectorReduce *node) {
     node->value.accept(this);
 }
 
-
 void Visitor::visit(const VectorShuffle *node) {
     node->value.accept(this);
     visit_list(this, node->idxs);
@@ -115,6 +119,11 @@ void Visitor::visit(const VectorShuffle *node) {
 void Visitor::visit(const Ramp *node) {
     node->base.accept(this);
     node->stride.accept(this);
+}
+
+void Visitor::visit(const Extract *node) {
+    node->vec.accept(this);
+    node->idx.accept(this);
 }
 
 void Visitor::visit(const Build *node) {

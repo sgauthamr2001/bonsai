@@ -67,11 +67,13 @@ struct Printer : public Visitor {
     void visit(const BinOp *) override;
     void print(const UnOp::OpType &op);
     void visit(const UnOp *) override;
+    void visit(const Select *) override;
     void visit(const Broadcast *) override;
     void print(const VectorReduce::OpType &op);
     void visit(const VectorReduce *) override;
     void visit(const VectorShuffle *) override;
     void visit(const Ramp *) override;
+    void visit(const Extract *) override;
     void visit(const Build *) override;
     void visit(const Access *) override;
     void visit(const Intrinsic *) override;

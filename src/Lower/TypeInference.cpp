@@ -269,16 +269,20 @@ bool has_undef_expr_types(const ir::Stmt &stmt) {
     return finder.undef_types;
 }
 
+ir::Stmt infer_types(ir::Stmt stmt, const std::map<std::string, ir::Type> &func_types) {
+    // First, try to use function types inferred so far to replace undefined call sites.
+    stmt = replace_undef_calls(stmt, func_types);
+    // Use known semantics of set operations to set lambda argument types.
+    stmt = set_setop_lambda_types(stmt);
+    return stmt;
+}
+
 ir::Function infer_types(const ir::Function &fnotypes, const ir::Program &program, const std::map<std::string, ir::Type> &func_types) {
     ir::Function ftypes;
     ftypes.name = fnotypes.name;
     ftypes.args = fnotypes.args;
 
-    // First, try to use function types inferred so far to replace undefined call sites.
-    ftypes.body = replace_undef_calls(fnotypes.body, func_types);
-
-    // Use known semantics of set operations to set lambda argument types.
-    ftypes.body = set_setop_lambda_types(fnotypes.body);
+    ftypes.body = infer_types(fnotypes.body, func_types);
 
     // If we know the return type (due to annotations), try to coerce all returns to it.
     // If we don't know from annotations, try to infer from some return type, then coerce.
@@ -318,6 +322,11 @@ ir::Program infer_types(const ir::Program &program) {
             func_types[f] = ir::Function_t::make(new_program.funcs[f].ret_type, arg_types);
         }
     }
+
+    new_program.main_body = infer_types(program.main_body, func_types);
+    internal_assert(!has_undef_expr_types(new_program.main_body))
+        << "Type inference failed to infer all types of main body:\n" << program.main_body
+        << "\n\nInferred:\n" << new_program.main_body;
 
     // std::cout << "\n\nInferred types:\n";
     // new_program.dump(std::cout);

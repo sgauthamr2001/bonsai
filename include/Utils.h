@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IR/Expr.h"
+#include "IR/Printer.h"
 #include "IR/Type.h"
 
 #include "Error.h"
@@ -40,5 +41,7 @@ bool is_power_of_two(int32_t x);
 int32_t next_power_of_two(int32_t x);
 
 size_t find_struct_index(const std::string &field, const ir::Struct_t::Map &fields);
+
+uint32_t vector_field_lane(const std::string &field);
 
 }  // namespace bonsai

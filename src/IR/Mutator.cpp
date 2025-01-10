@@ -175,6 +175,18 @@ Expr Mutator::visit(const UnOp *node) {
     }
 }
 
+Expr Mutator::visit(const Select *node) {
+    Expr cond = mutate(node->cond);
+    Expr tvalue = mutate(node->tvalue);
+    Expr fvalue = mutate(node->fvalue);
+    if (cond.same_as(node->cond) &&
+        tvalue.same_as(node->tvalue) &&
+        fvalue.same_as(node->fvalue)) {
+        return node;
+    }
+    return Select::make(std::move(cond), std::move(tvalue), std::move(fvalue));
+}
+
 Expr Mutator::visit(const Broadcast *node) {
     Expr value = mutate(node->value);
     if (value.same_as(node->value)) {
@@ -211,6 +223,16 @@ Expr Mutator::visit(const Ramp *node) {
         return node;
     }
     return Ramp::make(std::move(base), std::move(stride), node->lanes);
+}
+
+Expr Mutator::visit(const Extract *node) {
+    Expr vec = mutate(node->vec);
+    Expr idx = mutate(node->idx);
+    if (vec.same_as(node->vec) &&
+        idx.same_as(node->idx)) {
+        return node;
+    }
+    return Extract::make(std::move(vec), std::move(idx));
 }
 
 Expr Mutator::visit(const Build *node) {

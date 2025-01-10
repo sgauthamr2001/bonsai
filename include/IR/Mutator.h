@@ -30,10 +30,12 @@ struct Mutator {
     virtual Expr visit(const Var *);
     virtual Expr visit(const BinOp *);
     virtual Expr visit(const UnOp *);
+    virtual Expr visit(const Select *);
     virtual Expr visit(const Broadcast *);
     virtual Expr visit(const VectorReduce *);
     virtual Expr visit(const VectorShuffle *);
     virtual Expr visit(const Ramp *);
+    virtual Expr visit(const Extract *);
     virtual Expr visit(const Build *);
     virtual Expr visit(const Access *);
     virtual Expr visit(const Intrinsic *);

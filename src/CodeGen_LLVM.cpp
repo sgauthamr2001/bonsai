@@ -37,6 +37,9 @@
 #include "IR/Printer.h"
 #include "IR/Stmt.h"
 #include "IR/Type.h"
+
+#include "Lower/Intrinsics.h"
+
 #include "Utils.h"
 
 #include <sstream>
@@ -94,88 +97,147 @@ CodeGen_LLVM::CodeGen_LLVM() {
     f64_t = llvm::Type::getDoubleTy(*context);
 }
 
-void CodeGen_LLVM::print_expr_function(const Expr &expr) {
-    // Make function type
-    llvm::Type *ret_type = codegen_type(expr.type());
+// void CodeGen_LLVM::print_expr_function(const Expr &expr) {
+//     // Make function type
+//     llvm::Type *ret_type = codegen_type(expr.type());
 
-    const auto free_vars = gather_free_vars(expr);
-    std::vector<llvm::Type *> arg_types(free_vars.size());
-    for (uint32_t i = 0; i < free_vars.size(); i++) {
-        arg_types[i] = codegen_type(free_vars[i].second);
+//     const auto free_vars = gather_free_vars(expr);
+//     std::vector<llvm::Type *> arg_types(free_vars.size());
+//     for (uint32_t i = 0; i < free_vars.size(); i++) {
+//         arg_types[i] = codegen_type(free_vars[i].second);
+//     }
+
+//     llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
+//     function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, "temp", module.get());
+
+//     // TODO: should scope be cleared here?
+//     uint32_t arg_idx = 0;
+//     for (auto &arg : function->args()) {
+//         arg.setName(free_vars[arg_idx].first);
+//         // also add args to scope.
+//         scope.push(free_vars[arg_idx].first, &arg);
+//         arg_idx++;
+//     }
+
+//     // Add entry point.
+//     llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), "entry", function);
+//     llvm::IRBuilderBase::InsertPoint here = builder->saveIP();
+//     builder->SetInsertPoint(entry_bb);
+
+//     llvm::Value *ret_val = codegen_expr(expr);
+//     // Add return statement.
+//     builder->CreateRet(ret_val);
+
+//     // Validate the generated code, checking for consistency.
+//     verifyFunction(*function);
+
+//     function->dump();
+
+//     this->optimize_module();
+
+//     module->dump();
+// }
+
+// void CodeGen_LLVM::print_stmt_function(const Stmt &stmt) {
+//     // TODO: this should be called ONCE on a whole Module.
+//     auto struct_types = gather_struct_types(stmt);
+//     // Must be called before getting ret_type, in case ret_type is struct
+//     declare_struct_types(struct_types);
+
+//     // Make function type
+//     llvm::Type *ret_type = codegen_type(get_return_type(stmt));
+
+//     const auto free_vars = gather_free_vars(stmt);
+//     std::vector<llvm::Type *> arg_types(free_vars.size());
+//     for (uint32_t i = 0; i < free_vars.size(); i++) {
+//         arg_types[i] = codegen_type(free_vars[i].second);
+//     }
+
+//     llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
+//     function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, "temp", module.get());
+
+//     // TODO: should scope be cleared here?
+//     uint32_t arg_idx = 0;
+//     for (auto &arg : function->args()) {
+//         arg.setName(free_vars[arg_idx].first);
+//         // also add args to scope.
+//         scope.push(free_vars[arg_idx].first, &arg);
+//         arg_idx++;
+//     }
+
+//     // Add entry point.
+//     llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), "entry", function);
+//     llvm::IRBuilderBase::InsertPoint here = builder->saveIP();
+//     builder->SetInsertPoint(entry_bb);
+
+//     codegen_stmt(stmt);
+
+//     // Validate the generated code, checking for consistency.
+//     verifyFunction(*function);
+
+//     function->dump();
+
+//     this->optimize_module();
+
+//     module->dump();
+// }
+
+void CodeGen_LLVM::compile_function(const Function &func) {
+    // Make function type
+    llvm::Type *ret_type = codegen_type(func.ret_type);
+    std::vector<llvm::Type *> arg_types(func.args.size());
+    for (uint32_t i = 0; i < func.args.size(); i++) {
+        arg_types[i] = codegen_type(func.args[i].type);
     }
 
     llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
-    function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, "temp", module.get());
+    function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, func.name, module.get());
 
-    // TODO: should scope be cleared here?
+    frames.new_frame();
+
     uint32_t arg_idx = 0;
     for (auto &arg : function->args()) {
-        arg.setName(free_vars[arg_idx].first);
-        // also add args to scope.
-        scope.push(free_vars[arg_idx].first, &arg);
+        arg.setName(func.args[arg_idx].name);
+        // TODO: allow mutable args? probably not.
+        frames.add_to_frame(func.args[arg_idx].name, {&arg, /* mutable */ false});
         arg_idx++;
     }
 
     // Add entry point.
-    llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), "entry", function);
+    llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), func.name + "_entry", function);
     llvm::IRBuilderBase::InsertPoint here = builder->saveIP();
     builder->SetInsertPoint(entry_bb);
-
-    llvm::Value *ret_val = codegen_expr(expr);
-    // Add return statement.
-    builder->CreateRet(ret_val);
+    codegen_stmt(func.body);
+    frames.pop_frame();
 
     // Validate the generated code, checking for consistency.
     verifyFunction(*function);
 
     function->dump();
-
-    this->optimize_module();
-
-    module->dump();
 }
 
-void CodeGen_LLVM::print_stmt_function(const Stmt &stmt) {
-    // TODO: this should be called ONCE on a whole Module.
-    auto struct_types = gather_struct_types(stmt);
-    // Must be called before getting ret_type, in case ret_type is struct
+void CodeGen_LLVM::compile_program(const Program &program) {
+    std::vector<const Struct_t *> struct_types;
+    for (const auto &[_, t] : program.types) {
+        if (t.is<Struct_t>()) {
+            struct_types.push_back(t.as<Struct_t>());
+        }
+    }
     declare_struct_types(struct_types);
 
-    // Make function type
-    llvm::Type *ret_type = codegen_type(get_return_type(stmt));
+    frames.new_frame();
 
-    const auto free_vars = gather_free_vars(stmt);
-    std::vector<llvm::Type *> arg_types(free_vars.size());
-    for (uint32_t i = 0; i < free_vars.size(); i++) {
-        arg_types[i] = codegen_type(free_vars[i].second);
+    // TODO: add program.externs to the global frame.
+
+    for (const auto &[_, func] : program.funcs) {
+        this->compile_function(func);
     }
 
-    llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
-    function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, "temp", module.get());
+    // TODO: now compile main function from program.main_body with arguments defined by program.externs
 
-    // TODO: should scope be cleared here?
-    uint32_t arg_idx = 0;
-    for (auto &arg : function->args()) {
-        arg.setName(free_vars[arg_idx].first);
-        // also add args to scope.
-        scope.push(free_vars[arg_idx].first, &arg);
-        arg_idx++;
-    }
-
-    // Add entry point.
-    llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), "entry", function);
-    llvm::IRBuilderBase::InsertPoint here = builder->saveIP();
-    builder->SetInsertPoint(entry_bb);
-
-    codegen_stmt(stmt);
-
-    // Validate the generated code, checking for consistency.
-    verifyFunction(*function);
-
-    function->dump();
+    frames.pop_frame();
 
     this->optimize_module();
-
     module->dump();
 }
 
@@ -350,7 +412,8 @@ void CodeGen_LLVM::visit(const Int_t *node) {
 }
 
 void CodeGen_LLVM::visit(const UInt_t *node) {
-    internal_error << "TODO: implement UInt_t code generation: " << node;
+    // LLVM does not distinguish between signed and unsigned integer types.
+    type = llvm::Type::getIntNTy(*context, node->bits);
 }
 
 void CodeGen_LLVM::visit(const Bool_t *node) {
@@ -372,7 +435,7 @@ void CodeGen_LLVM::visit(const Float_t *node) {
             type = llvm::Type::getDoubleTy(*context);
             return;
         default:
-            internal_error << "There is no llvm type matching this floating-point bit width: " << node;
+            internal_error << "There is no llvm type matching this floating-point bit width: " << Type(node);
     }
 }
 
@@ -384,7 +447,7 @@ void CodeGen_LLVM::visit(const Ptr_t *node) {
 
 void CodeGen_LLVM::visit(const Vector_t *node) {
     llvm::Type *etype = codegen_type(node->etype);
-    internal_assert(!etype->isVoidTy()) << "Cannot make a vector of type void: " << node;
+    internal_assert(!etype->isVoidTy()) << "Cannot make a vector of type void: " << Type(node);
     // TODO: do we ever want to support scalable vectors? probably not.
     type = llvm::VectorType::get(etype, node->lanes, /* Scalable */ false);
 }
@@ -397,19 +460,19 @@ void CodeGen_LLVM::visit(const Struct_t *node) {
 void CodeGen_LLVM::visit(const Tuple_t *node) {
     // TODO: struct_types should include tuples, probably? but they're unnamed...
     // maybe use to_string() to map from node to built Struct_t
-    internal_error << "TODO: implement Tuple_t code generation: " << node;
+    internal_error << "TODO: implement Tuple_t code generation: " << Type(node);
 }
 
 void CodeGen_LLVM::visit(const Option_t *node) {
-    internal_error << "TODO: implement Option_t code generation: " << node;
+    internal_error << "TODO: implement Option_t code generation: " << Type(node);
 }
 
 void CodeGen_LLVM::visit(const Set_t *node) {
-    internal_error << "TODO: implement Set_t code generation: " << node;
+    internal_error << "TODO: implement Set_t code generation: " << Type(node);
 }
 
 void CodeGen_LLVM::visit(const Function_t *node) {
-    internal_error << "TODO: implement Function_t code generation: " << node;
+    internal_error << "TODO: implement Function_t code generation: " << Type(node);
 }
 
 void CodeGen_LLVM::visit(const IntImm *node) {
@@ -427,7 +490,13 @@ void CodeGen_LLVM::visit(const FloatImm *node) {
 }
 
 void CodeGen_LLVM::visit(const Var *node) {
-    value = scope.get(node->name);
+    auto [_value, _mutable] = frames.from_frames(node->name);
+    if (_mutable) {
+        llvm::Type *_type = codegen_type(node->type);
+        value = builder->CreateLoad(_type, _value);
+    } else {
+        value = _value; // immutable so not pointer.
+    }
 }
 
 void CodeGen_LLVM::visit(const BinOp *node) {
@@ -467,7 +536,7 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 return;
             }
             default:  {
-                internal_error << "Unimplemented BinOp lowering: " << node;
+                internal_error << "Unimplemented BinOp lowering for float: " << Expr(node);
             }
         }
     } else if (node->type.is_int()) {
@@ -490,13 +559,18 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 value = builder->CreateSub(a, b);
                 return;
             }
+            case BinOp::Mod: {
+                // signed remainder
+                value = builder->CreateSRem(a, b);
+                return;
+            }
             case BinOp::Le: {
-                // TODO: unsigned variant.
+                // unsigned comparison
                 value = builder->CreateICmpSLE(a, b);
                 return;
             }
             case BinOp::Lt: {
-                // TODO: unsigned variant.
+                // signed comparison
                 value = builder->CreateICmpSLT(a, b);
                 return;
             }
@@ -505,18 +579,113 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 return;
             }
             default:  {
-                internal_error << "Unimplemented BinOp lowering: " << node;
+                internal_error << "Unimplemented BinOp lowering for signed integer: " << Expr(node);
+            }
+        }
+    } else if (node->type.is_uint()) {
+        switch (node->op) {
+            case BinOp::Add: {
+                value = builder->CreateAdd(a, b);
+                return;
+            }
+            case BinOp::Mul: {
+                value = builder->CreateMul(a, b);
+                return;
+            }
+            case BinOp::Div: {
+                // Use unsigned division for unsigned integers
+                value = builder->CreateUDiv(a, b);
+                return;
+            }
+            case BinOp::Sub: {
+                value = builder->CreateSub(a, b);
+                return;
+            }
+            case BinOp::Mod: {
+                // unsigned remainder
+                value = builder->CreateURem(a, b);
+                return;
+            }
+            case BinOp::Le: {
+                // Unsigned less-than-or-equal comparison
+                value = builder->CreateICmpULE(a, b);
+                return;
+            }
+            case BinOp::Lt: {
+                // Unsigned less-than comparison
+                value = builder->CreateICmpULT(a, b);
+                return;
+            }
+            case BinOp::Eq: {
+                value = builder->CreateICmpEQ(a, b);
+                return;
+            }
+            default: {
+                internal_error << "Unimplemented BinOp lowering for unsigned integer: " << Expr(node);
+            }
+        }
+    } else if (node->type.is_bool()) {
+        switch (node->op) {
+            case BinOp::And: {
+                value = builder->CreateAnd(a, b);
+                return;
+            }
+            case BinOp::Or: {
+                value = builder->CreateOr(a, b);
+                return;
+            }
+            case BinOp::Xor: {
+                value = builder->CreateXor(a, b);
+                return;
+            }
+            default: {
+                internal_error << "Unimplemented BinOp lowering for boolean: " << Expr(node);
             }
         }
     }
-    internal_error << "Cannot codegen BinOp: " << node;
+
+    internal_error << "Cannot codegen BinOp: " << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const UnOp *node) {
     // TODO: upgrade type for arithmetic?
     llvm::Value *a = codegen_expr(node->a);
 
-    internal_error << "Cannot codegen UnOp: " << node;
+    switch (node->op) {
+        case UnOp::Neg: {
+            if (node->type.is_float()) {
+                value = builder->CreateFNeg(a);
+            } else {
+                internal_assert(node->type.is_int() || node->type.is_uint());
+                llvm::Type *itype = a->getType();
+                llvm::Constant *_0 = llvm::ConstantInt::get(itype, 0);
+                value = builder->CreateSub(_0, a);
+            }
+            return;
+        }
+        case UnOp::Not: {
+            internal_assert(node->type.is_bool());
+            value = builder->CreateNot(a);
+            return;
+        }
+    }
+
+    internal_error << "Cannot codegen UnOp: " << Expr(node);
+}
+
+void CodeGen_LLVM::visit(const Select *node) {
+    llvm::Value *cond = codegen_expr(node->cond);
+    llvm::Value *tvalue = codegen_expr(node->tvalue);
+    llvm::Value *fvalue = codegen_expr(node->fvalue);
+    if (tvalue->getType()->isVectorTy()) {
+        // TODO: handle broadcasting!
+        internal_assert(cond->getType()->isVectorTy()) << "Select lowering failure: " << ir::Expr(node);
+        internal_assert(fvalue->getType()->isVectorTy()) << "Select lowering failure: " << ir::Expr(node);
+    }
+    // TODO: try Vector Predication Intrinsics!
+    // https://llvm.org/docs/LangRef.html#vector-predication-intrinsics
+    // https://llvm.org/docs/LangRef.html#llvm-vp-select-intrinsics
+    value = builder->CreateSelect(cond, tvalue, fvalue);
 }
 
 void CodeGen_LLVM::visit(const Broadcast *node) {
@@ -525,7 +694,7 @@ void CodeGen_LLVM::visit(const Broadcast *node) {
 }
 
 void CodeGen_LLVM::visit(const VectorReduce *node) {
-    internal_assert(node->type.is_scalar()) << "Cannot codegen 2+ dimensional VectorReduce: " << node;
+    internal_assert(node->type.is_scalar()) << "Cannot codegen 2+ dimensional VectorReduce: " << Expr(node);
     // TODO: upgrade type for arithmetic?
 
     llvm::Value *v = codegen_expr(node->value);
@@ -569,8 +738,12 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
         // TODO: what is the difference between fmax and fmaximum?
         intrin = node->type.is_float() ? llvm::Intrinsic::vector_reduce_fmax : llvm::Intrinsic::vector_reduce_smax;
         break;
+    case VectorReduce::Idxmax:
+        // TODO: on x86 lower to phminposuw
+        value = codegen_expr(lower::argmax(node->value));
+        return;
     default: {
-        internal_error << "Unsupported VectorReduce operation" << node;
+        internal_error << "Unsupported VectorReduce operation" << Expr(node);
     }
     }
 
@@ -578,72 +751,198 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
 
     if (init) {
         // std::cerr << "Calling with init = " << init << "\n";
+        // std::cout << "calling intrinsic for: " << ir::Expr(node) << std::endl;
         value = builder->CreateIntrinsic(elementType, intrin, {init, v});
     } else {
+        // std::cout << "calling intrinsic for: " << ir::Expr(node) << std::endl;
         value = builder->CreateIntrinsic(elementType, intrin, {v});
     }
 
-    internal_assert(value) << "VectorReduce intrin failure: " << node;
+    internal_assert(value) << "VectorReduce intrin failure: " << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const VectorShuffle *node) {
-    internal_error << "TODO: implement VectorShuffle code generation: " << node;
+    llvm::Value *_value = codegen_expr(node->value);
+    llvm::Type *vectorType = _value->getType();
+    llvm::Type *out_type = codegen_type(node->type);
+    const uint32_t inputSize = node->value.type().lanes();
+    const uint32_t outputSize = node->type.lanes();
+
+    llvm::Type *etype = codegen_type(node->type.element_of());
+
+    // TODO: optimize the case for a constant shuffle!
+
+    llvm::Value *result = llvm::UndefValue::get(llvm::VectorType::get(etype, outputSize, /* isScalable */ false));
+
+    // Generate an extract and insert per index.
+    for (size_t i = 0; i < node->idxs.size(); i++) {
+        const Expr &idx = node->idxs[i];
+        // We need 32 bit indices.
+        internal_assert(idx.type().is_int() || idx.type().is_uint());
+        llvm::Value *load_index = codegen_expr(idx);
+
+        // TODO: we should maybe clamp to [0, inputSize) to avoid UB...
+
+        // TODO: truncs aren't really safe...
+        if (idx.type().is_int()) {
+            load_index = builder->CreateSExtOrTrunc(load_index, i32_t);
+        } else {
+            load_index = builder->CreateZExtOrTrunc(load_index, i32_t);
+        }
+
+        // llvm::errs() << *_value << " and " << *load_index << "\n";
+        llvm::Value *element = builder->CreateExtractElement(_value, load_index);
+
+        llvm::Constant *store_idx = llvm::ConstantInt::get(i32_t, i);
+        result = builder->CreateInsertElement(result, element, store_idx);
+    }
+
+    value = result;
 }
 
 void CodeGen_LLVM::visit(const Ramp *node) {
-    internal_error << "TODO: implement Ramp code generation: " << node;
+    internal_error << "TODO: implement Ramp code generation: " << Expr(node);
+}
+
+void CodeGen_LLVM::visit(const Extract *node) {
+    llvm::Value *vec = codegen_expr(node->vec);
+    llvm::Value *idx = codegen_expr(node->idx);
+    value = builder->CreateExtractElement(vec, idx);
 }
 
 void CodeGen_LLVM::visit(const Intrinsic *node) {
-    internal_error << "TODO: implement Intrinsic code generation: " << node;
+    llvm::Intrinsic::IndependentIntrinsics intrin;
+    switch (node->op) {
+        case Intrinsic::abs: {
+            intrin = node->args[0].type().is_float() ? llvm::Intrinsic::fabs : llvm::Intrinsic::abs;
+            break;
+        }
+        case Intrinsic::cos: {
+            intrin = llvm::Intrinsic::cos;
+            break;
+        }
+        case Intrinsic::cross: {
+            Expr expr = lower::cross_product(node->args[0], node->args[1]);
+            value = codegen_expr(expr);
+            return;
+        }
+        case Intrinsic::max: {
+            if (node->args[0].type().is_int()) {
+                intrin = llvm::Intrinsic::smax;
+            } else if (node->args[0].type().is_uint()) {
+                intrin = llvm::Intrinsic::umax;
+            } else {
+                internal_assert(node->args[0].type().is_float()) << "Cannot lower max of type: " << node->args[0].type();
+                // Follows the IEEE-754 semantics for maxNum except for the handling of signaling NaNs. This matches the behavior of libm’s fmax.
+                // https://llvm.org/docs/LangRef.html#llvm-maxnum-intrinsic
+                // intrin = llvm::Intrinsic::maxnum;
+                internal_error << "TODO: figure out fmax codegen: " << Expr(node);
+            }
+            break;
+        }
+        case Intrinsic::min: {
+            if (node->args[0].type().is_int()) {
+                intrin = llvm::Intrinsic::smin;
+            } else if (node->args[0].type().is_uint()) {
+                intrin = llvm::Intrinsic::umin;
+            } else {
+                internal_assert(node->args[0].type().is_float()) << "Cannot lower min of type: " << node->args[0].type();
+                // Follows the IEEE-754 semantics for minNum, except for handling of signaling NaNs. This match’s the behavior of libm’s fmin.
+                // https://llvm.org/docs/LangRef.html#llvm-minnum-intrinsic
+                // intrin = llvm::Intrinsic::minnum;
+                internal_error << "TODO: figure out fmin codegen: " << Expr(node);
+            }
+            break;
+        }
+        case Intrinsic::sin: {
+            intrin = llvm::Intrinsic::sin;
+            break;
+        }
+        case Intrinsic::sqrt: {
+            intrin = llvm::Intrinsic::sqrt;
+            break;
+        }
+    }
+    std::vector<llvm::Value *> args(node->args.size());
+    for (size_t i = 0; i < args.size(); i++) {
+        args[i] = codegen_expr(node->args[i]);
+    }
+
+    llvm::Type *ret_type = codegen_type(node->type);
+
+    // std::cout << "calling intrinsic for: " << ir::Expr(node) << std::endl;
+    value = builder->CreateIntrinsic(ret_type, intrin, args);
+
+    internal_assert(value) << "Intrinsic codegen failure: " << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const Lambda *node) {
-    internal_error << "TODO: implement Lambda code generation: " << node;
+    internal_error << "TODO: implement Lambda code generation: " << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const GeomOp *node) {
-    internal_error << "TODO: implement GeomOp code generation: " << node;
+    internal_error << "TODO: implement GeomOp code generation: " << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const SetOp *node) {
-    internal_error << "TODO: implement SetOp code generation: " << node;
+    internal_error << "TODO: implement SetOp code generation: " << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const Call *node) {
-    internal_error << "TODO: implement Call code generation: " << node;
+    llvm::Function *func = codegen_func_ptr(node->func);
+
+    // TODO: figure out how to make sure we have the right
+    // number of arguments here for better error handling.
+
+    const size_t n_args = node->args.size();
+    std::vector<llvm::Value *> args(n_args);
+
+    for (size_t i = 0; i < n_args; i++) {
+        args[i] = codegen_expr(node->args[i]);
+    }
+
+    value = builder->CreateCall(func, args);
 }
 
 void CodeGen_LLVM::visit(const Build *node) {
     // This will be a StructType or a VectorType
     llvm::Type *build_type = codegen_type(node->type);
-    const size_t n = node->values.size();
-    std::vector<llvm::Value *> values(n);
-    for (size_t i = 0; i < n; i++) {
-        values[i] = codegen_expr(node->values[i]);
+
+    std::vector<llvm::Value *> values = codegen_exprs(node->values);
+
+    const bool build_empty = values.empty();
+
+    if (build_empty) {
+        value = llvm::Constant::getNullValue(build_type);
+        return;
     }
 
-    // This is poison instead of undef bc optimizations rewrite undef here to poison for some reason.
     value = llvm::PoisonValue::get(build_type);
 
     if (build_type->isVectorTy()) {
-        for (size_t i = 0; i < n; i++) {
+        for (size_t i = 0; i < values.size(); i++) {
             value = builder->CreateInsertElement(value, values[i], i);
         }
+        return;
     } else if (build_type->isStructTy()) {
-        for (size_t i = 0; i < n; i++) {
+        for (size_t i = 0; i < values.size(); i++) {
             value = builder->CreateInsertValue(value, values[i], i);
         }
+        return;
     } else {
-        internal_error << "Unexpected llvm Type in Build lowering: " << node;
+        internal_error << "Unexpected llvm Type in Build lowering: " << Expr(node);
     }
 }
 
 void CodeGen_LLVM::visit(const Access *node) {
     llvm::Value *_struct = codegen_expr(node->value);
-    internal_assert(_struct->getType()->isStructTy()) << "Lowering of an Access's value did not result in a struct type: " << node;
-    const size_t idx = find_struct_index(node->field, node->value.type().as<Struct_t>()->fields);
-    value = builder->CreateExtractValue(_struct, idx);
+    if (_struct->getType()->isStructTy()) {
+        const size_t idx = find_struct_index(node->field, node->value.type().as<Struct_t>()->fields);
+        value = builder->CreateExtractValue(_struct, idx);
+        return;
+    }
+    internal_error << "Lowering of an Access's value did not result in a struct type: " << Expr(node);
+    
 }
 
 void CodeGen_LLVM::visit(const Return *node) {
@@ -727,13 +1026,13 @@ void CodeGen_LLVM::visit(const Store *node) {
 }
 
 void CodeGen_LLVM::visit(const LetStmt *node) {
-    // TODO: fix this!! bring back ssa.
-    scope.push(node->loc.base, codegen_expr(node->value));
-    // ScopedBinding<llvm::Value *> bind(scope, node->name, codegen_expr(node->value));
-    // codegen_stmt(node->body);
+    llvm::Value *_value = codegen_expr(node->value);
+    frames.add_to_frame(node->loc.base, {_value, /* mutable */ false});
 }
 
 void CodeGen_LLVM::visit(const IfElse *node) {
+    // internal_error << "TODO: implement codegen for IfElse: " << Stmt(node);
+
     // Gather the conditions and values in an if-else chain
     struct Block {
         Expr expr;
@@ -784,16 +1083,60 @@ void CodeGen_LLVM::visit(const IfElse *node) {
     }
 }
 
-void CodeGen_LLVM::visit(const Sequence *node) {
-    internal_error << "TODO: implement codegen for Sequence!";
-}
+// default behavior is fine.
+// void CodeGen_LLVM::visit(const Sequence *node) {
+//     internal_error << "TODO: implement codegen for Sequence!";
+// }
 
 void CodeGen_LLVM::visit(const Assign *node) {
-    internal_error << "TODO: implement codegen for assign: " << node;
+    // internal_error << "TODO: implement codegen for assign: " << Stmt(node);
+
+    llvm::Value *loc = codegen_write_loc(node->loc);
+    internal_assert(loc) << "Failed to codegen LLVM ptr for: " << node->loc << " in assignment: " << ir::Stmt(node);
+
+    llvm::Value *_value = codegen_expr(node->value);
+
+    // TODO: handle node->mutating?
+
+    llvm::Type *value_type = _value->getType();
+
+    // internal_assert(value->getType()->getPointerElementType()->isSameType(value_type)) << "Type mismatch between WriteLoc and Expr in Assign" << Stmt(node);
+
+    // llvm::errs() << "trying to store: " << *_value << " in " << *loc << "\n";
+    builder->CreateStore(_value, loc, /* isVolatile */ false); // TODO: when is isVolatile true?
 }
 
 void CodeGen_LLVM::visit(const Accumulate *node) {
-    internal_error << "TODO: implement codegen for Accumulate!";
+    llvm::Value *loc = codegen_write_loc(node->loc);
+
+    llvm::Value *_value = codegen_expr(node->value);
+
+    llvm::Value *current = builder->CreateLoad(_value->getType(), loc);
+    llvm::Value *acc = nullptr;
+
+    switch (node->op) {
+        case Accumulate::Add: {
+            if (node->value.type().is_float()) {
+                acc = builder->CreateFAdd(current, _value);
+            } else {
+                acc = builder->CreateAdd(current, _value);
+            }
+            break;
+        }
+        case Accumulate::Mul: {
+            if (node->value.type().is_float()) {
+                acc = builder->CreateFMul(current, _value);
+            } else {
+                acc = builder->CreateMul(current, _value);
+            }
+            break;
+        }
+        default: {
+            internal_error << "TODO: implement codegen for accumulate: " << Stmt(node);
+        }
+    }
+
+    builder->CreateStore(acc, loc);
 }
 
 void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const Expr &index) {
@@ -891,25 +1234,26 @@ void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> stru
 
 llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx) {
     llvm::DataLayout d(module.get());
-    llvm::Value *base_address = scope.get(buffer);
+    auto [base_addr, _] = frames.from_frames(buffer);
+    // llvm::Value *base_addr = frames.from_frames(buffer);
 
     // TODO: upgrade type for storage?
     llvm::Type *load_type = codegen_type(type);
-    unsigned address_space = base_address->getType()->getPointerAddressSpace();
+    unsigned address_space = base_addr->getType()->getPointerAddressSpace();
     llvm::Type *pointer_load_type = load_type->getPointerTo(address_space);
     
     // TODO: This can likely be removed once opaque pointers are default
     // in all supported LLVM versions.
-    base_address = builder->CreatePointerCast(base_address, pointer_load_type);
+    base_addr = builder->CreatePointerCast(base_addr, pointer_load_type);
 
     // TODO: support Halide's nice optimizations here.
     if (idx == nullptr) {
-        return base_address;
+        return base_addr;
     }
 
     llvm::Constant *constant_index = llvm::dyn_cast<llvm::Constant>(idx);
     if (constant_index && constant_index->isZeroValue()) {
-        return base_address;
+        return base_addr;
     }
 
     // Promote index to 64-bit on targets that use 64-bit pointers.
@@ -924,7 +1268,7 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, con
         idx = builder->CreateIntCast(idx, desired_index_type, /* isSigned */ true);
     }
 
-    return builder->CreateInBoundsGEP(load_type, base_address, idx);
+    return builder->CreateInBoundsGEP(load_type, base_addr, idx);
 }
 
 llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, const Expr &idx) {
@@ -940,6 +1284,14 @@ llvm::Value *CodeGen_LLVM::codegen_expr(const Expr &e) {
     return value;
 }
 
+std::vector<llvm::Value *> CodeGen_LLVM::codegen_exprs(const std::vector<ir::Expr> exprs) {
+    std::vector<llvm::Value *> values(exprs.size());
+    for (size_t i = 0; i < exprs.size(); i++) {
+        values[i] = codegen_expr(exprs[i]);
+    }
+    return values;
+}
+
 void CodeGen_LLVM::codegen_stmt(const Stmt &s) {
     internal_assert(s.defined());
     s.accept(this);
@@ -953,6 +1305,47 @@ llvm::Type *CodeGen_LLVM::codegen_type(const Type &t) {
     return type;
 }
 
+llvm::Function *CodeGen_LLVM::codegen_func_ptr(const Expr &expr) {
+    if (expr.is<Var>()) {
+        return module->getFunction(expr.as<Var>()->name);
+    }
+    internal_error << "TODO: cannot codegen function pointer from: " << expr;
+    return nullptr;
+}
+
+llvm::Value *CodeGen_LLVM::codegen_write_loc(const ir::WriteLoc &loc) {
+    llvm::Value *base = nullptr;
+    if (frames.name_in_scope(loc.base)) {
+        auto [_base, _mutable] = frames.from_frames(loc.base);
+        internal_assert(_mutable) << "Attempting to codegen write to immutable data: " << loc.base;
+        base = _base;
+    } else {
+        // Create alloc of base type
+        llvm::Type *base_type = codegen_type(loc.base_type);
+
+        base = builder->CreateAlloca(base_type, /* arraysize ? */ nullptr, loc.base);
+        frames.add_to_frame(loc.base, {base, /* mutable */ true});
+    }
+    llvm::Value *ptr = base;
+    llvm::Type *ptype = codegen_type(loc.base_type);
+    std::string name = loc.base;
+
+    for (const auto &value : loc.accesses) {
+        if (std::holds_alternative<std::string>(value)) {
+            internal_error << "TODO: implement field write access: " << std::get<std::string>(value) << " in loc: " << loc;
+        } else {
+            Expr idx = std::get<Expr>(value);
+            llvm::Value *_idx = codegen_expr(idx);
+            name += "_idx";
+            ptr = builder->CreateGEP(ptype, ptr, {_idx}, name);
+            // TODO: update ptype?
+        }
+    }
+    // llvm::errs() << *base << "\n";
+    // llvm::errs() << *ptr << "\n";
+    // internal_assert(loc.accesses.empty()) << "TODO: implement codegen writeloc for accesses: " << loc;
+    return ptr;
+}
 
 
 } //  namespace bonsai

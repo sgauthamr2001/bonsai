@@ -301,6 +301,15 @@ void Printer::visit(const UnOp *node) {
     close();
 }
 
+void Printer::visit(const Select *node) {
+    os << "select(";
+    print_no_parens(node->cond);
+    os << ", ";
+    print_no_parens(node->tvalue);
+    os << ", ";
+    print_no_parens(node->fvalue);
+    os << ")";
+}
 
 void Printer::visit(const Broadcast *node) {
     os << "x" << node->lanes << "(";
@@ -342,6 +351,14 @@ void Printer::visit(const Ramp *node) {
     os << ", ";
     print_no_parens(node->stride);
     os << ", " << node->lanes << ")";
+}
+
+void Printer::visit(const Extract *node) {
+    // TODO: parens?
+    print(node->vec);
+    os << "[";
+    print_no_parens(node->idx);
+    os << "]";
 }
 
 void Printer::visit(const Build *node) {

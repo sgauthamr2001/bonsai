@@ -226,6 +226,27 @@ Expr UnOp::make(UnOp::OpType op, Expr a) {
     return node;
 }
 
+Expr Select::make(Expr cond, Expr tvalue, Expr fvalue) {
+    internal_assert(cond.defined()) << "Select with undefined condition";
+    // TODO: if we allow Select in the frontend then we need to be able to not perform this check?
+    internal_assert(cond.type().defined() && cond.type().is_bool()) << "Select with non-bool condition: " << cond;
+    internal_assert(tvalue.defined() && fvalue.defined()) << "Select with undefined operands: " << cond << " " << tvalue << " " << fvalue;
+
+    Select *node = new Select;
+
+    const bool infer_types = type_enforcement_enabled() || (tvalue.type().defined() && fvalue.type().defined());
+
+    if (infer_types) {
+        internal_assert(equals(tvalue.type(), fvalue.type())) << "Select of mismatched types: " << tvalue << " versus " << fvalue;
+        node->type = tvalue.type();
+    }
+
+    node->cond = std::move(cond);
+    node->tvalue = std::move(tvalue);
+    node->fvalue = std::move(fvalue);
+    return node;
+}
+
 Expr Broadcast::make(uint32_t lanes, Expr value) {
     internal_assert(value.defined()) << "Broadcast of undefined.";
 
@@ -299,6 +320,24 @@ Expr Ramp::make(Expr base, Expr stride, int lanes) {
     node->base = std::move(base);
     node->stride = std::move(stride);
     node->lanes = lanes;
+    return node;
+}
+
+Expr Extract::make(Expr vec, Expr idx) {
+    internal_assert(vec.defined()) << "Extract of undefined vector";
+    internal_assert(idx.defined()) << "Extract with undefined idx of: " << vec;
+
+    Extract *node = new Extract;
+
+    const bool infer_types = type_enforcement_enabled() || vec.type().defined();
+    if (infer_types) {
+        internal_assert(vec.type().is_vector()) << "Extract of non-vector: " << vec;
+        internal_assert(idx.type().is_int() || idx.type().is_uint()) << "Extract with non-integer index: " << idx;
+        node->type = vec.type().element_of();
+    }
+
+    node->vec = std::move(vec);
+    node->idx = std::move(idx);
     return node;
 }
 

@@ -22,7 +22,7 @@ void WriteLoc::add_struct_access(const std::string &field) {
 }
 
 void WriteLoc::add_index_access(const Expr &index) {
-    internal_assert(!index.defined()) << "Write location made with undefined index";
+    internal_assert(index.defined()) << "Write location made with undefined index";
     // TODO: if we were doing stronger type inference, we could add a constraint
     // that the type of index must be an integer (signed or unsigned).
     internal_assert(!index.type().defined() || index.type().is_int() || index.type().is_uint())

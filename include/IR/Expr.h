@@ -22,13 +22,13 @@ enum class IRExprEnum {
     Var,
     BinOp,
     UnOp,
-    Add,
-    Mul,
+    Select,
     // Vector ops
     Broadcast,
     VectorReduce,
     VectorShuffle,
     Ramp,
+    Extract,
     // Struct ops.
     Build,
     Access,
@@ -171,6 +171,14 @@ struct UnOp : ExprNode<UnOp> {
     static const IRExprEnum _node_type = IRExprEnum::UnOp;
 };
 
+struct Select : ExprNode<Select> {
+    Expr cond, tvalue, fvalue;
+
+    static Expr make(Expr cond, Expr tvalue, Expr fvalue);
+
+    static const IRExprEnum _node_type = IRExprEnum::Select;
+};
+
 struct Broadcast : ExprNode<Broadcast> {
     uint32_t lanes;
     Expr value;
@@ -215,6 +223,14 @@ struct Ramp : ExprNode<Ramp> {
     static Expr make(Expr base, Expr stride, int lanes);
 
     static const IRExprEnum _node_type = IRExprEnum::Ramp;
+};
+
+struct Extract : ExprNode<Extract> {
+    Expr vec, idx;
+
+    static Expr make(Expr vec, Expr idx);
+
+    static const IRExprEnum _node_type = IRExprEnum::Extract;
 };
 
 // Construct a value of a Type (e.g. Vector_t or Struct_t)

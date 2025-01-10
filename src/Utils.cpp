@@ -116,4 +116,18 @@ size_t find_struct_index(const std::string &field, const Struct_t::Map &fields) 
     return 0;
 }
 
+uint32_t vector_field_lane(const std::string &field) {
+    if (field == "x") {
+        return 0;
+    } else if (field == "y") {
+        return 1;
+    } else if (field == "z") {
+        return 2;
+    } else if (field == "w") {
+        return 3;
+    } 
+    internal_error << "Cannot get lane for vector field: " << field;
+    return -1;
+}
+
 }  // namespace bonsai
