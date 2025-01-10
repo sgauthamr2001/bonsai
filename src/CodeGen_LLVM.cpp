@@ -942,7 +942,6 @@ void CodeGen_LLVM::visit(const Access *node) {
         return;
     }
     internal_error << "Lowering of an Access's value did not result in a struct type: " << Expr(node);
-    
 }
 
 void CodeGen_LLVM::visit(const Return *node) {

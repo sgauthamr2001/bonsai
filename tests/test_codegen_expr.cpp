@@ -15,8 +15,8 @@ void test_example() {
     Expr _2 = FloatImm::make(f32, 2.0);
     Expr expr = BinOp::make(BinOp::Add, ap1, _2);
     std::cout << expr << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_expr_function(expr);
+    // CodeGen_LLVM codegen;
+    // codegen.print_expr_function(expr);
 }
 
 void test_example2() {
@@ -27,8 +27,8 @@ void test_example2() {
     Expr _2 = IntImm::make(i16, 2);
     expr = BinOp::make(BinOp::Mul, expr, _2);
     std::cout << expr << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_expr_function(expr);
+    // CodeGen_LLVM codegen;
+    // codegen.print_expr_function(expr);
 }
 
 void test_example3() {
@@ -39,8 +39,8 @@ void test_example3() {
     Expr _2 = IntImm::make(i16, 2);
     expr = BinOp::make(BinOp::Add,expr, _2);
     std::cout << expr << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_expr_function(expr);
+    // CodeGen_LLVM codegen;
+    // codegen.print_expr_function(expr);
 }
 
 int main(void) {

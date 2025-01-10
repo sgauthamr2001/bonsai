@@ -16,9 +16,14 @@ int main(int argc, char* argv[]) {
     // Perform type inference.
     program = bonsai::lower::infer_types(program);
 
+    // Perform canoncalization.
+    program = bonsai::lower::canonicalize(program);
+
     program.dump(std::cout);
-    bonsai::internal_error << "TODO: implement lowering after type inference";
-    
+    // bonsai::internal_error << "TODO: implement lowering after type inference";
+
+
+
     // TODO:
     // Lower spatial queries
     // Perform first round of scheduling.
@@ -26,6 +31,9 @@ int main(int argc, char* argv[]) {
     // Perform second round of scheduling.
     // Perform final code generation
     // TODO: AOT or JIT option?
+
+    bonsai::CodeGen_LLVM codegen;
+    codegen.compile_program(program);
 
     return 1;
 }

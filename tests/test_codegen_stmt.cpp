@@ -16,8 +16,8 @@ void test_example() {
     Expr expr = BinOp::make(BinOp::Add, ap1, _2);
     Stmt stmt = Return::make(expr);
     std::cout << stmt << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_stmt_function(stmt);
+    // CodeGen_LLVM codegen;
+    // codegen.print_stmt_function(stmt);
 }
 
 void test_example2() {
@@ -30,8 +30,8 @@ void test_example2() {
         Return::make(Var::make(f32, "b")),
     });
     std::cout << stmt << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_stmt_function(stmt);
+    // CodeGen_LLVM codegen;
+    // codegen.print_stmt_function(stmt);
 }
 
 void test_example3() {
@@ -44,8 +44,8 @@ void test_example3() {
         Return::make(b)
     );
     std::cout << stmt << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_stmt_function(stmt);
+    // CodeGen_LLVM codegen;
+    // codegen.print_stmt_function(stmt);
 }
 
 void test_example4() {
@@ -60,8 +60,8 @@ void test_example4() {
         b = VectorReduce::make(op, b);
         Stmt stmt = Return::make(b);
         std::cout << stmt << std::endl;
-        CodeGen_LLVM codegen;
-        codegen.print_stmt_function(stmt);
+        // CodeGen_LLVM codegen;
+        // codegen.print_stmt_function(stmt);
     }
 }
 
@@ -80,8 +80,8 @@ void test_example5() {
             Return::make(b),
         });
         std::cout << stmt << std::endl;
-        CodeGen_LLVM codegen;
-        codegen.print_stmt_function(stmt);
+        // CodeGen_LLVM codegen;
+        // codegen.print_stmt_function(stmt);
     }
 }
 

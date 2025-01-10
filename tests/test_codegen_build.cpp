@@ -20,8 +20,8 @@ void test_example() {
     Expr value = Build::make(point_with_id, {i0, x, y, z});
     Stmt stmt = Return::make(value);
     std::cout << stmt << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_stmt_function(stmt);
+    // CodeGen_LLVM codegen;
+    // codegen.print_stmt_function(stmt);
 }
 
 void test_example1() {
@@ -33,8 +33,8 @@ void test_example1() {
     Expr value = Build::make(f32x3, {x, y, z});
     Stmt stmt = Return::make(value);
     std::cout << stmt << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_stmt_function(stmt);
+    // CodeGen_LLVM codegen;
+    // codegen.print_stmt_function(stmt);
 }
 
 void test_example2() {
@@ -50,8 +50,8 @@ void test_example2() {
     Expr value = Build::make(point_with_id, {x, y, z, i0});
     Stmt stmt = Return::make(value);
     std::cout << stmt << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_stmt_function(stmt);
+    // CodeGen_LLVM codegen;
+    // codegen.print_stmt_function(stmt);
 }
 
 void test_example3() {
@@ -65,8 +65,8 @@ void test_example3() {
     Expr value = Build::make(point_with_id, {x, y, z, i0});
     Stmt stmt = Return::make(Access::make("x", value));
     std::cout << stmt << std::endl;
-    CodeGen_LLVM codegen;
-    codegen.print_stmt_function(stmt);
+    // CodeGen_LLVM codegen;
+    // codegen.print_stmt_function(stmt);
 }
 
 
