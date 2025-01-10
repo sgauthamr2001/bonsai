@@ -23,6 +23,7 @@ enum class IRExprEnum {
     BinOp,
     UnOp,
     Select,
+    Cast,
     // Vector ops
     Broadcast,
     VectorReduce,
@@ -177,6 +178,14 @@ struct Select : ExprNode<Select> {
     static Expr make(Expr cond, Expr tvalue, Expr fvalue);
 
     static const IRExprEnum _node_type = IRExprEnum::Select;
+};
+
+struct Cast : ExprNode<Cast> {
+    Expr value;
+
+    static Expr make(Type type, Expr value);
+
+    static const IRExprEnum _node_type = IRExprEnum::Cast;
 };
 
 struct Broadcast : ExprNode<Broadcast> {
@@ -337,7 +346,7 @@ struct Call : ExprNode<Call> {
 // TODO: need Load with more info than Halide, can load from arbitrary pointer...
 
 
-// TODO: ??? Select, Load, (?)Let, Not, Negate
+// TODO: ??? Load, (?)Let
 
 }  // namespace ir
 

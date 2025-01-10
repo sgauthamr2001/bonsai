@@ -311,6 +311,14 @@ void Printer::visit(const Select *node) {
     os << ")";
 }
 
+void Printer::visit(const Cast *node) {
+    os << "cast<";
+    print(node->type);
+    os << ">(";
+    print_no_parens(node->value);
+    os << ")";
+}
+
 void Printer::visit(const Broadcast *node) {
     os << "x" << node->lanes << "(";
     print_no_parens(node->value);

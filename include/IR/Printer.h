@@ -68,6 +68,7 @@ struct Printer : public Visitor {
     void print(const UnOp::OpType &op);
     void visit(const UnOp *) override;
     void visit(const Select *) override;
+    void visit(const Cast *) override;
     void visit(const Broadcast *) override;
     void print(const VectorReduce::OpType &op);
     void visit(const VectorReduce *) override;

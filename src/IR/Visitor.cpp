@@ -103,6 +103,11 @@ void Visitor::visit(const Select *node) {
     node->fvalue.accept(this);
 }
 
+void Visitor::visit(const Cast *node) {
+    // TODO: node->type.accept(this) ?
+    node->value.accept(this);
+}
+
 void Visitor::visit(const Broadcast *node) {
     node->value.accept(this);
 }

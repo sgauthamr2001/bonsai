@@ -26,6 +26,7 @@ struct Var;
 struct BinOp;
 struct UnOp;
 struct Select;
+struct Cast;
 struct Broadcast;
 struct VectorReduce;
 struct VectorShuffle;

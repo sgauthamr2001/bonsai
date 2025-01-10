@@ -42,6 +42,12 @@ bool Type::is_uint() const {
            (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_uint());
 }
 
+bool Type::is_int_or_uint() const {
+    return this->is<Int_t>() ||
+           this->is<UInt_t>() ||
+           (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_int_or_uint());
+}
+
 bool Type::is_float() const {
     return this->is<Float_t>() ||
            (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_float());
@@ -68,7 +74,7 @@ bool Type::is_vector() const {
 bool Type::is_numeric() const {
     // scalar + vector of numbers
     // TODO: let Struct_ts overload their numeric operators.
-    return this->is_int() || this->is_float();
+    return this->is_int_or_uint() || this->is_float();
 }
 
 Type Type::to_bool() const {

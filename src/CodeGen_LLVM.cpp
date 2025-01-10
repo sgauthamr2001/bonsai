@@ -210,10 +210,13 @@ void CodeGen_LLVM::compile_function(const Function &func) {
     codegen_stmt(func.body);
     frames.pop_frame();
 
+    // Restore previous insertion point
+    builder->restoreIP(here);
+
     // Validate the generated code, checking for consistency.
     verifyFunction(*function);
 
-    function->dump();
+    // function->dump();
 }
 
 void CodeGen_LLVM::compile_program(const Program &program) {
@@ -237,7 +240,12 @@ void CodeGen_LLVM::compile_program(const Program &program) {
 
     frames.pop_frame();
 
+    // std::cout << "\n\n\nBefore:\n\n\n" << std::endl;
+
+    // module->dump();
+
     this->optimize_module();
+    // std::cout << "\n\n\nAfter:\n\n\n" << std::endl;
     module->dump();
 }
 
@@ -656,7 +664,7 @@ void CodeGen_LLVM::visit(const UnOp *node) {
             if (node->type.is_float()) {
                 value = builder->CreateFNeg(a);
             } else {
-                internal_assert(node->type.is_int() || node->type.is_uint());
+                internal_assert(node->type.is_int_or_uint());
                 llvm::Type *itype = a->getType();
                 llvm::Constant *_0 = llvm::ConstantInt::get(itype, 0);
                 value = builder->CreateSub(_0, a);
@@ -686,6 +694,39 @@ void CodeGen_LLVM::visit(const Select *node) {
     // https://llvm.org/docs/LangRef.html#vector-predication-intrinsics
     // https://llvm.org/docs/LangRef.html#llvm-vp-select-intrinsics
     value = builder->CreateSelect(cond, tvalue, fvalue);
+}
+
+void CodeGen_LLVM::visit(const Cast *node) {
+    // TODO: upgrade_type_for_arithmetic?
+    llvm::Value *_value = codegen_expr(node->value);
+
+    const ir::Type &src = node->value.type();
+    const ir::Type &dst = node->type;
+
+    llvm::Type *llvm_dst = codegen_type(dst);
+
+    // TODO: handle vectors better?
+
+    // These just copy Halide's lowering (minus a few pointer things).
+    if (src.is_int_or_uint() && dst.is_int_or_uint()) {
+        value = builder->CreateIntCast(_value, llvm_dst, /* isSigned */ src.is_int());
+    } else if (src.is_float() && dst.is_int()) {
+        value = builder->CreateFPToSI(value, llvm_dst);
+    } else if (src.is_float() && dst.is_uint()) {
+        // TODO: Halide has a weird corner case for uint1 -> float, but we don't use uint1 as bools.
+        // so I think we can ignore this, and handle it explicitly in bool -> float casts.
+        // Note: this has undefined behavior on overflow.
+        value = builder->CreateFPToUI(value, llvm_dst);
+    } else if (src.is_int() && dst.is_float()) {
+        value = builder->CreateSIToFP(value, llvm_dst);
+    } else if (src.is_uint() && dst.is_float()) {
+        value = builder->CreateUIToFP(value, llvm_dst);
+    } else if (src.is_float() && dst.is_float()) {
+        // Float widening or narrowing
+        value = builder->CreateFPCast(value, llvm_dst);
+    } else {
+        internal_error << "TODO: implement Cast codegen: " << Expr(node);
+    }
 }
 
 void CodeGen_LLVM::visit(const Broadcast *node) {
@@ -1217,6 +1258,7 @@ void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> stru
     // TODO: maybe make sure there's never an infinitely-recursive type?
     for (const auto& _struct : structs) {
         struct_types[_struct->name] = llvm::StructType::create(*context, _struct->name);
+        // llvm::errs() << "created: " << *struct_types[_struct->name] << "\n";
     }
     // Now build bodies, possibly referencing other struct types.
     for (const auto& _struct : structs) {
@@ -1226,8 +1268,8 @@ void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> stru
             types[i++] = codegen_type(value);
         }
         struct_types[_struct->name]->setBody(types);
+        // llvm::errs() << "built: " << *struct_types[_struct->name] << "\n";
     }
-
 }
 
 

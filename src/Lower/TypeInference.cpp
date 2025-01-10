@@ -1,6 +1,7 @@
 #include "Lower/TypeInference.h"
 
 #include "IR/Analysis.h"
+#include "IR/Equality.h"
 #include "IR/TypeEnforcement.h"
 #include "IR/Printer.h"
 #include "IR/Visitor.h"
@@ -179,8 +180,12 @@ ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
                 internal_assert(is_const(node->value))
                     << "Cannot coerce value: " << node->value << " into return type: " << ret_type;
                 return ir::Return::make(constant_cast(ret_type, node->value));
+            } else if (!ir::equals(node->value.type(), ret_type)) {
+                // TODO: check is_castable? The below might fail horrendously or silently...
+                ir::Expr new_value = ir::Cast::make(ret_type, node->value);
+                return ir::Return::make(std::move(new_value));
             } else {
-                return ir::Mutator::visit(node);
+                return node; // no need to recurse past this point
             }
         }
     };

@@ -71,6 +71,7 @@ protected:
     virtual void visit(const ir::BinOp *) override;
     virtual void visit(const ir::UnOp *) override;
     virtual void visit(const ir::Select *) override;
+    virtual void visit(const ir::Cast *) override;
     virtual void visit(const ir::Broadcast *) override;
     virtual void visit(const ir::VectorReduce *) override;
     virtual void visit(const ir::VectorShuffle *) override;

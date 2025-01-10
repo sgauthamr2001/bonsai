@@ -212,7 +212,7 @@ Expr UnOp::make(UnOp::OpType op, Expr a) {
     if (infer_types) {
         if (op == UnOp::Not) {
             // not on only integers and boolean? what does not of float mean
-            internal_assert(a.type().is_int() || a.type().is_bool() || a.type().is_uint()) << "Cannot not non-([u]int | bool): " << to_string(op) << a;
+            internal_assert(a.type().is_int_or_uint() || a.type().is_bool()) << "Cannot not non-([u]int | bool): " << to_string(op) << a;
             node->type = a.type();
         } else {
             // Must be signed int or float?
@@ -244,6 +244,25 @@ Expr Select::make(Expr cond, Expr tvalue, Expr fvalue) {
     node->cond = std::move(cond);
     node->tvalue = std::move(tvalue);
     node->fvalue = std::move(fvalue);
+    return node;
+}
+
+Expr Cast::make(Type type, Expr value) {
+    internal_assert(type.defined()) << "Cannot cast to undefined type: " << value;
+    internal_assert(value.defined()) << "Cast of undefined value: " << type;
+
+    Cast *node = new Cast;
+
+    const bool infer_types = type_enforcement_enabled() || value.type().defined();
+    if (infer_types) {
+        internal_assert(value.type().is_vector() == type.is_vector())
+            << "Cannot remove vector type via cast: " << type << " from " << value;
+        internal_assert(!type.is_vector() || (type.lanes() == value.type().lanes()))
+            << "Cannot change lanes via cast: " << type << " from " << value;
+    }
+
+    node->type = std::move(type);
+    node->value = std::move(value);
     return node;
 }
 
@@ -296,7 +315,7 @@ Expr VectorShuffle::make(Expr value, std::vector<Expr> idxs) {
     const bool infer_types = type_enforcement_enabled() || value.type().defined();
     if (infer_types) {
         internal_assert(value.type().is_vector()) << "VectorShuffle of non-vector: " << value;
-        internal_assert(std::all_of(idxs.cbegin(), idxs.cend(), [](const auto &e) { return e.type().defined() && (e.type().is_int() || e.type().is_uint()); }))
+        internal_assert(std::all_of(idxs.cbegin(), idxs.cend(), [](const auto &e) { return e.type().defined() && (e.type().is_int_or_uint()); }))
             << "Vector Shuffle with undefined index types, of value: " << value << " on " << std::accumulate(std::next(idxs.begin()), idxs.end(), to_string(idxs[0]) + " : " + to_string(idxs[0].type()), [](const std::string &a, const Expr &b) { return a + ", " + to_string(b) + " : " + to_string(b.type()); });
         node->type = Vector_t::make(value.type().element_of(), idxs.size());
     }
@@ -332,7 +351,7 @@ Expr Extract::make(Expr vec, Expr idx) {
     const bool infer_types = type_enforcement_enabled() || vec.type().defined();
     if (infer_types) {
         internal_assert(vec.type().is_vector()) << "Extract of non-vector: " << vec;
-        internal_assert(idx.type().is_int() || idx.type().is_uint()) << "Extract with non-integer index: " << idx;
+        internal_assert(idx.type().is_int_or_uint()) << "Extract with non-integer index: " << idx;
         node->type = vec.type().element_of();
     }
 
