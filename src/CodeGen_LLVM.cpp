@@ -819,7 +819,7 @@ void CodeGen_LLVM::visit(const VectorShuffle *node) {
     for (size_t i = 0; i < node->idxs.size(); i++) {
         const Expr &idx = node->idxs[i];
         // We need 32 bit indices.
-        internal_assert(idx.type().is_int() || idx.type().is_uint());
+        internal_assert(idx.type().is_int_or_uint());
         llvm::Value *load_index = codegen_expr(idx);
 
         // TODO: we should maybe clamp to [0, inputSize) to avoid UB...
