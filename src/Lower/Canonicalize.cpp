@@ -1,6 +1,7 @@
 #include "Lower/Canonicalize.h"
 
 #include "IR/Mutator.h"
+#include "Lower/LowerOption.h"
 
 #include "Error.h"
 #include "Utils.h"
@@ -92,6 +93,8 @@ ir::Program canonicalize(const ir::Program &program) {
 
     new_program.main_body = canonicalize(program.main_body);
 
+
+    new_program = lower_option(new_program);
     // TODO: more canonicalizations
     return new_program;
 }

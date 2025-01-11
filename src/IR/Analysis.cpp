@@ -232,11 +232,34 @@ Type get_return_type(const Stmt &stmt) {
     return getter.type;
 }
 
-std::vector<const Struct_t *> gather_struct_types(const Stmt &stmt) {
+std::vector<const Struct_t *> gather_struct_types(const Program &program) {
     GatherStructTypes gather;
-    stmt.accept(&gather);
+
+    // TODO: can externs contain optionals?
+
+    for (const auto &[_, f] : program.funcs) {
+        for (const auto &arg : f.args) {
+            arg.type.accept(&gather);
+            if (arg.default_value.defined()) {
+                arg.default_value.accept(&gather); // is this necessary?
+            }
+        }
+        f.ret_type.accept(&gather);
+        f.body.accept(&gather);
+    }
+
+    for (const auto &[_, t] : program.types) {
+        t.accept(&gather);
+    }
+
+    if (program.main_body.defined()) {
+        // TODO: main should *always* be defined!
+        program.main_body.accept(&gather);
+    }
+
     return std::move(gather.struct_types);
 }
+
 
 // TODO: merge with is_const ?
 bool is_constant_expr(const Expr &expr) {

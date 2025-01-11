@@ -220,12 +220,7 @@ void CodeGen_LLVM::compile_function(const Function &func) {
 }
 
 void CodeGen_LLVM::compile_program(const Program &program) {
-    std::vector<const Struct_t *> struct_types;
-    for (const auto &[_, t] : program.types) {
-        if (t.is<Struct_t>()) {
-            struct_types.push_back(t.as<Struct_t>());
-        }
-    }
+    const auto struct_types = gather_struct_types(program);
     declare_struct_types(struct_types);
 
     frames.new_frame();
@@ -551,7 +546,7 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 internal_error << "Unimplemented BinOp lowering for float: " << Expr(node);
             }
         }
-    } else if (node->type.is_int()) {
+    } else if (node->a.type().is_int()) {
         // TODO: do we ever want NSW?
         switch (node->op) {
             case BinOp::Add: {
@@ -594,7 +589,7 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 internal_error << "Unimplemented BinOp lowering for signed integer: " << Expr(node);
             }
         }
-    } else if (node->type.is_uint()) {
+    } else if (node->a.type().is_uint()) {
         switch (node->op) {
             case BinOp::Add: {
                 value = builder->CreateAdd(a, b);
@@ -636,7 +631,7 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 internal_error << "Unimplemented BinOp lowering for unsigned integer: " << Expr(node);
             }
         }
-    } else if (node->type.is_bool()) {
+    } else if (node->a.type().is_bool()) {
         switch (node->op) {
             case BinOp::And: {
                 value = builder->CreateAnd(a, b);
