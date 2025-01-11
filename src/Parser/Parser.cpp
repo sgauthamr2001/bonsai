@@ -801,13 +801,15 @@ private:
             }
         }
 
-        if (consume(Token::Type::LSQUIGGLE)) {
-            internal_assert(fields.empty()) << "Cannot build a struct that is a field access: " << name;
-            internal_assert(program.types.contains(name)) << "Unknown type in constructor: " << name;
-            ir::Type type = program.types.at(name);
-            internal_assert(type.defined());
-            auto args = parseExprListUntil(Token::Type::RSQUIGGLE);
-            return ir::Build::make(std::move(type), std::move(args));
+        if (peek().type == Token::Type::LSQUIGGLE) {
+            if (fields.empty() && program.types.contains(name)) {
+                expect(Token::Type::LSQUIGGLE);
+                ir::Type type = program.types.at(name);
+                internal_assert(type.defined());
+                auto args = parseExprListUntil(Token::Type::RSQUIGGLE);
+                return ir::Build::make(std::move(type), std::move(args));
+            }
+            // otherwise ignore, not a struct build, e.g. maybe `if` expr { body }
         }
 
         internal_assert(!consume(Token::Type::LBRACKET))

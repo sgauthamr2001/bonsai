@@ -73,18 +73,34 @@ struct RewriteOptions : public ir::Mutator {
     // rewrite cast<option>(value) -> build<struct_option>(value)
     ir::Expr visit(const ir::Cast *node) override {
         ir::Expr expr = ir::Mutator::visit(node);
-        node = expr.as<ir::Cast>();
-        internal_assert(node);
-        if (node->type.is<ir::Option_t>()) {
-            ir::Type new_type = mutate(node->type);
-            return ir::Build::make(std::move(new_type), {node->value, ir::BoolImm::make(true)});
+        const ir::Cast *_node = expr.as<ir::Cast>();
+        internal_assert(_node);
+        if (_node->type.is<ir::Option_t>()) {
+            ir::Type new_type = mutate(_node->type);
+            return ir::Build::make(std::move(new_type), {_node->value, ir::BoolImm::make(true)});
+        } else if (_node->type.is<ir::Bool_t>() && node->value.type().is<ir::Option_t>()) {
+            return ir::Access::make("set", _node->value);
+        } else if (node->value.type().is<ir::Option_t>()) {
+            ir::Expr deref = ir::Access::make("value", _node->value);
+            internal_assert(ir::equals(_node->type, deref.type()))
+                << "Lowering of option access: " << node->value << " resulted in: " << _node->value << " which does not match cast type: " << deref.type();
+            return deref;
         } else {
             return expr;
         }
     }
 
+    ir::Expr visit(const ir::Var *node) override {
+        ir::Type type = mutate(node->type);
+        if (type.same_as(node->type)) {
+            return node;
+        } else {
+            return ir::Var::make(std::move(type), node->name);
+        }
+    }
+
     // TODO: which other relevant nodes are there?
-    // TODO: if coercion and option dereferencing.
+    // TODO: need safety checks on dereferencing!
 };
 
 ir::Type lower_option(const ir::Type &type) {
