@@ -19,3 +19,11 @@ func use_option(i : option[i32]) -> i32 {
         return 0;
     }
 }
+
+func use_option1(i : option[i32]) -> i32 {
+    if i {
+        return i + 10;
+    } else {
+        return 0;
+    }
+}

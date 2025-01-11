@@ -204,9 +204,21 @@ void try_match_types(Expr &a, Expr &b) {
                            << " are types " << a.type() << " and " << b.type();
         }
     } else if (a.type().defined() && !b.type().defined() && is_const(b)) {
-        b = constant_cast(a.type(), b);
+        if (a.type().is<Option_t>()) {
+            const ir::Type &etype = a.type().as<Option_t>()->etype;
+            b = constant_cast(etype, b);
+            a = Cast::make(etype, a);
+        } else {
+            b = constant_cast(a.type(), b);
+        }
     } else if (b.type().defined() && !a.type().defined() && is_const(a)) {
-        a = constant_cast(b.type(), a);
+        if (b.type().is<Option_t>()) {
+            const ir::Type &etype = b.type().as<Option_t>()->etype;
+            a = constant_cast(etype, a);
+            b = Cast::make(etype, b);
+        } else {
+            a = constant_cast(b.type(), a);
+        }
     }
     // otherwise can't (currently) do better.
 }
