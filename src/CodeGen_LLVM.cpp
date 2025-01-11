@@ -808,16 +808,12 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
 
 void CodeGen_LLVM::visit(const VectorShuffle *node) {
     llvm::Value *_value = codegen_expr(node->value);
-    llvm::Type *vectorType = _value->getType();
     llvm::Type *out_type = codegen_type(node->type);
-    const uint32_t inputSize = node->value.type().lanes();
-    const uint32_t outputSize = node->type.lanes();
-
-    llvm::Type *etype = codegen_type(node->type.element_of());
+    // const uint32_t inputSize = node->value.type().lanes();
 
     // TODO: optimize the case for a constant shuffle!
 
-    llvm::Value *result = llvm::UndefValue::get(llvm::VectorType::get(etype, outputSize, /* isScalable */ false));
+    llvm::Value *result = llvm::UndefValue::get(out_type);
 
     // Generate an extract and insert per index.
     for (size_t i = 0; i < node->idxs.size(); i++) {
@@ -1140,13 +1136,6 @@ void CodeGen_LLVM::visit(const Assign *node) {
 
     llvm::Value *_value = codegen_expr(node->value);
 
-    // TODO: handle node->mutating?
-
-    llvm::Type *value_type = _value->getType();
-
-    // internal_assert(value->getType()->getPointerElementType()->isSameType(value_type)) << "Type mismatch between WriteLoc and Expr in Assign" << Stmt(node);
-
-    // llvm::errs() << "trying to store: " << *_value << " in " << *loc << "\n";
     builder->CreateStore(_value, loc, /* isVolatile */ false); // TODO: when is isVolatile true?
 }
 
@@ -1191,7 +1180,7 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
 
     // If the index is constant, we generate some TBAA info that helps
     // LLVM understand our loads/stores aren't aliased.
-    bool constant_index = false;
+    // bool constant_index = false;
     int64_t base = 0;
     int64_t width = 1;
 
@@ -1212,18 +1201,18 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
                     base -= base % width;
                     width *= 2;
                 }
-                constant_index = true;
+                // constant_index = true;
             }
         } else {
             const int64_t *pbase = as_const_int(index);
             if (pbase) {
                 base = *pbase;
-                constant_index = true;
+                // constant_index = true;
             }
         }
     } else {
         // Index is implied 0
-        constant_index = true;
+        // constant_index = true;
         base = 0;
     }
 

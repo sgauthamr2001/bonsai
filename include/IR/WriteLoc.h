@@ -19,7 +19,7 @@ struct WriteLoc {
 
     WriteLoc() {} // required for Accumulate::make to work.
     WriteLoc(const std::string &_base, Type _base_type)
-        : base(_base), base_type(_base_type), type(_base_type) {
+        : base_type(_base_type), type(_base_type), base(_base) {
         internal_assert(!base.empty()) << "Write location with empty base";
     }
 

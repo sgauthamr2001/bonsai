@@ -44,6 +44,8 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 # Gather source files for the library
 file(GLOB_RECURSE SRC_FILES ${SRC_DIR}/*.cpp)
 
+add_compile_options(-Wall)
+
 # Create object files from source files
 add_library(bonsai_objects OBJECT ${SRC_FILES})
 target_include_directories(bonsai_objects PRIVATE ${INCLUDE_DIR})

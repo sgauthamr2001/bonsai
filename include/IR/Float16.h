@@ -16,7 +16,7 @@ struct float16_t {
     // TODO: copy over Halide's implementation!
 private:
     // The raw bits.
-    uint16_t data = 0;
+    // uint16_t data = 0;
 };
 
 double cast_to_float16(const double value);

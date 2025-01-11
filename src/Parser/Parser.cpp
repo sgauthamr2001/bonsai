@@ -478,7 +478,7 @@ private:
     }
 
     ir::Stmt parseAccumulate(ir::WriteLoc loc) {
-        ir::Accumulate::OpType op;
+        ir::Accumulate::OpType op = ir::Accumulate::OpType::Add;
         // Try to parse an accumulate
         if (consume(Token::Type::PLUS)) {
             op = ir::Accumulate::OpType::Add;

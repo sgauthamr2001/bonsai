@@ -92,7 +92,6 @@ Expr FloatImm::make(Type t, double value) {
             value = (float)value;
             break;
         case 64:
-            value = value;
             break;
         default:
             internal_error << "FloatImm must be f16, f32, or f64, instead received: " << t;
