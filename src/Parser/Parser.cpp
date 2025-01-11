@@ -618,10 +618,10 @@ private:
         } else if (peek().type == Token::Type::IDENTIFIER) {
             return parseIdentifier();
         // Parse literals.
-        // } else if (consume(Token::Type::TRUE)) {
-            // return BoolImm::make(true);
-        // } else if (consume(Token::Type::FALSE)) {
-            // return BoolImm::make(false);
+        } else if (consume(Token::Type::TRUE)) {
+            return ir::BoolImm::make(true);
+        } else if (consume(Token::Type::FALSE)) {
+            return ir::BoolImm::make(false);
         } else if (peek().type == Token::Type::INT_LITERAL) {
             // can't know concrete type yet, let type inference figure it out.
             const Token token = expect(Token::Type::INT_LITERAL);
@@ -636,7 +636,6 @@ private:
             // can't know concrete type yet, let type inference figure it out.
             const Token token = expect(Token::Type::FLOAT_LITERAL);
             const double value = std::get<double>(token.value);
-            std::cout << "making FloatImm of value: " << value;
             return ir::FloatImm::make(ir::Type(), value);
         } else if (consume(Token::Type::LAMBDA)) {
             std::vector<ir::Lambda::Argument> args = parseLambdaArgs();

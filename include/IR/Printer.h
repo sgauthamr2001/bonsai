@@ -62,6 +62,7 @@ struct Printer : public Visitor {
     void visit(const IntImm *) override;
     void visit(const UIntImm *) override;
     void visit(const FloatImm *) override;
+    void visit(const BoolImm *) override;
     void visit(const Var *) override;
     void print(const BinOp::OpType &op);
     void visit(const BinOp *) override;

@@ -22,6 +22,7 @@ struct Expr;
 struct IntImm;
 struct UIntImm;
 struct FloatImm;
+struct BoolImm;
 struct Var;
 struct BinOp;
 struct UnOp;

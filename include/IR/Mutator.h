@@ -27,6 +27,7 @@ struct Mutator {
     virtual Expr visit(const IntImm *);
     virtual Expr visit(const UIntImm *);
     virtual Expr visit(const FloatImm *);
+    virtual Expr visit(const BoolImm *);
     virtual Expr visit(const Var *);
     virtual Expr visit(const BinOp *);
     virtual Expr visit(const UnOp *);

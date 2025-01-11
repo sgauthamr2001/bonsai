@@ -105,6 +105,23 @@ Expr FloatImm::make(Type t, double value) {
     return node;
 }
 
+Expr BoolImm::make(bool value) {
+    static BoolImm *global_true = []() {
+        BoolImm *b = new BoolImm;
+        b->value = true;
+        b->type = Bool_t::make();
+        return b;
+    }();
+    static BoolImm *global_false = []() {
+        BoolImm *b = new BoolImm;
+        b->value = false;
+        b->type = Bool_t::make();
+        return b;
+    }();
+
+    return value ? global_true : global_false;
+}
+
 Expr Var::make(Type type, const std::string &name) {
     internal_assert(!name.empty()) << "Var::make called with empty name and type: " << type;
     internal_assert(!type_enforcement_enabled() || type.defined()) << "Var::make called with undefined type for name: " << name;
@@ -387,11 +404,16 @@ Expr Build::make(Type type, std::vector<Expr> values) {
                 const auto &fields = type.as<Struct_t>()->fields;
                 for (size_t i = 0; i < values.size(); i++) {
                     internal_assert(equals(fields[i].second, values[i].type()))
-                        << "Build<Vector_t> requires matching field types, expected: " << fields[i].second << " but received " << values[i] << " for field " << fields[i].first;
+                        << "Build<Struct_t> requires matching field types, expected: " << fields[i].second << " but received " << values[i] << " for field " << fields[i].first;
                 }
             }
+        } else if (type.is<Option_t>()) {
+            if (!values.empty()) {
+                internal_assert(values.size() == 1 && equals(type.as<Option_t>()->etype, values[0].type()))
+                    << "Cannot build option type: " << type << " from base: " << values[0];
+            }
         } else {
-            internal_error << "Build::make with non-(vector, struct) type: " << type;
+            internal_error << "Build::make with non-(vector, struct, option) type: " << type;
         }
     }
 

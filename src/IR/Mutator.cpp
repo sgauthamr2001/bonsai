@@ -152,6 +152,10 @@ Expr Mutator::visit(const FloatImm *node) {
     return node;
 }
 
+Expr Mutator::visit(const BoolImm *node) {
+    return node;
+}
+
 Expr Mutator::visit(const Var *node) {
     return node;
 }

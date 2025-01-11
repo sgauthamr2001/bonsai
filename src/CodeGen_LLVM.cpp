@@ -497,6 +497,10 @@ void CodeGen_LLVM::visit(const FloatImm *node) {
     value = llvm::ConstantFP::get(codegen_type(node->type), node->value);
 }
 
+void CodeGen_LLVM::visit(const BoolImm *node) {
+    value = llvm::ConstantInt::get(codegen_type(node->type), node->value, /* IsSigned */ false);
+}
+
 void CodeGen_LLVM::visit(const Var *node) {
     auto [_value, _mutable] = frames.from_frames(node->name);
     if (_mutable) {

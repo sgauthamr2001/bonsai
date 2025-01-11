@@ -30,6 +30,8 @@ bool is_const_one(const Expr &e) {
         return u->value == 1;
     } else if (const FloatImm *f = e.as<FloatImm>()) {
         return f->value == 1.f;
+    } else if (const BoolImm *b = e.as<BoolImm>()) {
+        return b->value;
     } else {
         return false;
     }
@@ -44,7 +46,10 @@ bool is_const(const Expr &e) {
     } else if (const Build *b = e.as<Build>()) {
         return b->values.empty(); // default is constant!
     } else {
-        return e.is<IntImm>() || e.is<UIntImm>() || e.is<FloatImm>(); // TODO: bools
+        return e.is<IntImm>() ||
+               e.is<UIntImm>() ||
+               e.is<FloatImm>() ||
+               e.is<BoolImm>();
     }
 }
 
@@ -69,6 +74,8 @@ ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
         return make_const(t, e.as<UIntImm>()->value);
     } else if (e.is<FloatImm>()) {
         return make_const(t, e.as<FloatImm>()->value);
+    } else if (e.is<BoolImm>()) {
+        return make_const(t, e.as<BoolImm>()->value);
     } else if (e.is<Build>() && e.as<Build>()->values.empty()) {
         return Build::make(t, {});
     } else {

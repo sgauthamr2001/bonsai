@@ -85,6 +85,9 @@ void Visitor::visit(const UIntImm *) {
 void Visitor::visit(const FloatImm *) {
 }
 
+void Visitor::visit(const BoolImm *) {
+}
+
 void Visitor::visit(const Var *) {
 }
 

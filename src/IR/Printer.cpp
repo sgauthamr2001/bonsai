@@ -236,6 +236,11 @@ void Printer::visit(const FloatImm *node) {
     }
 }
 
+void Printer::visit(const BoolImm *node) {
+    auto str = node->value ? "true" : "false";
+    os << str;
+}
+
 void Printer::visit(const Var *node) {
     if (!known_type.contains(node->name) &&
         node->type.defined() &&

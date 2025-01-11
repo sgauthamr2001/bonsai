@@ -91,6 +91,8 @@ ir::Program canonicalize(const ir::Program &program) {
     }
 
     new_program.main_body = canonicalize(program.main_body);
+
+    // TODO: more canonicalizations
     return new_program;
 }
 
