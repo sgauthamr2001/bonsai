@@ -22,7 +22,7 @@ element Vector3f = vector[f32, 3];
 
 // pstd::optional<TriangleIntersection> IntersectTriangle
 // shapes.cpp
-func triangle_intersection(ray : Ray, tri : Triangle) -> TriangleIntersection {
+func triangle_intersection(ray : Ray, tri : Triangle) -> option[TriangleIntersection] {
     // Return no intersection if triangle is degenerate
     if (sqlen(cross(tri.p2 - tri.p0, tri.p1 - tri.p0)) == 0)
         return {};

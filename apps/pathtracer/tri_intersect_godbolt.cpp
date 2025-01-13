@@ -1,3 +1,6 @@
+// flags: -std=c++17 --target=aarch64-linux-gnu -O3
+// compare to: -mtriple=aarch64-linux-gnu -O3
+
 #include <array>
 #include <cmath>
 #include <optional>
