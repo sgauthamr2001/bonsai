@@ -21,16 +21,20 @@ namespace bonsai {
 struct CodeGen_LLVM : public ir::Visitor {
     CodeGen_LLVM();
 
-    // TODO: all entry points must set function!
-
-    // TODO: remove, just for simple testing.
-    // void print_expr_function(const ir::Expr &expr);
-    // void print_stmt_function(const ir::Stmt &stmt);
-    void compile_function(const ir::Function &func);
-    void compile_program(const ir::Program &prog);
+    /** Takes a bonsai Program and compiles it to an llvm Module. */
+    virtual std::unique_ptr<llvm::Module> compile_program(const ir::Program &prog);
+    std::unique_ptr<llvm::LLVMContext> steal_context() { return std::move(context); }
 protected:
+    /** Grab all the context specific internal state. */
+    virtual void init_context();
+    /** Initialize the CodeGen_LLVM internal state to compile a fresh
+     * module. This allows reuse of one CodeGen_LLVM object to compiled
+     * multiple related modules (e.g. multiple device kernels). */
+    virtual void init_module();
+
     virtual void optimize_module();
 
+    void compile_function(const ir::Function &func);
     llvm::Value *codegen_expr(const ir::Expr &expr);
     std::vector<llvm::Value *> codegen_exprs(const std::vector<ir::Expr> exprs);
     void codegen_stmt(const ir::Stmt &stmt);

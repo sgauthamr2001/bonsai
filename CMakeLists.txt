@@ -35,6 +35,9 @@ llvm_map_components_to_libnames(LLVM_LIBS
     passes
     native
     # irbuilder
+    orcjit
+    executionengine # Required for LLJIT
+    runtimeDyld # Required for JIT execution
 )
 
 # Set RPATH for runtime library search on macOS

@@ -50,19 +50,22 @@ namespace bonsai {
 using namespace ir;
 
 CodeGen_LLVM::CodeGen_LLVM() {
-    // open new context and module
-    context = std::make_unique<llvm::LLVMContext>();
-    module = std::make_unique<llvm::Module>("bonsai_module", *context);
-    // Create a new builder for the module.
-    // TODO: there might be params to the IRBuilder...
-    builder = std::make_unique<llvm::IRBuilder<>>(*context);
+    // TODO: set up independent state (e.g. wildcard matchers)
 
     // TODO: initialize all intended targets?
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
     llvm::InitializeNativeTargetAsmParser();
+}
 
-    // TODO: move to init_context and copy over Halide other stuff.
+void CodeGen_LLVM::init_context() {
+    // TODO: Halide passes this in as an argument for some reason?
+    // open new context and module
+    context = std::make_unique<llvm::LLVMContext>();
+
+    // Create a new builder for the module.
+    // TODO: there might be params to the IRBuilder...
+    builder = std::make_unique<llvm::IRBuilder<>>(*context);
 
     // Branch weights for very likely branches
     llvm::MDBuilder md_builder(*context);
@@ -97,90 +100,14 @@ CodeGen_LLVM::CodeGen_LLVM() {
     f64_t = llvm::Type::getDoubleTy(*context);
 }
 
-// void CodeGen_LLVM::print_expr_function(const Expr &expr) {
-//     // Make function type
-//     llvm::Type *ret_type = codegen_type(expr.type());
+void CodeGen_LLVM::init_module() {
+    init_context();
 
-//     const auto free_vars = gather_free_vars(expr);
-//     std::vector<llvm::Type *> arg_types(free_vars.size());
-//     for (uint32_t i = 0; i < free_vars.size(); i++) {
-//         arg_types[i] = codegen_type(free_vars[i].second);
-//     }
-
-//     llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
-//     function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, "temp", module.get());
-
-//     // TODO: should scope be cleared here?
-//     uint32_t arg_idx = 0;
-//     for (auto &arg : function->args()) {
-//         arg.setName(free_vars[arg_idx].first);
-//         // also add args to scope.
-//         scope.push(free_vars[arg_idx].first, &arg);
-//         arg_idx++;
-//     }
-
-//     // Add entry point.
-//     llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), "entry", function);
-//     llvm::IRBuilderBase::InsertPoint here = builder->saveIP();
-//     builder->SetInsertPoint(entry_bb);
-
-//     llvm::Value *ret_val = codegen_expr(expr);
-//     // Add return statement.
-//     builder->CreateRet(ret_val);
-
-//     // Validate the generated code, checking for consistency.
-//     verifyFunction(*function);
-
-//     function->dump();
-
-//     this->optimize_module();
-
-//     module->dump();
-// }
-
-// void CodeGen_LLVM::print_stmt_function(const Stmt &stmt) {
-//     // TODO: this should be called ONCE on a whole Module.
-//     auto struct_types = gather_struct_types(stmt);
-//     // Must be called before getting ret_type, in case ret_type is struct
-//     declare_struct_types(struct_types);
-
-//     // Make function type
-//     llvm::Type *ret_type = codegen_type(get_return_type(stmt));
-
-//     const auto free_vars = gather_free_vars(stmt);
-//     std::vector<llvm::Type *> arg_types(free_vars.size());
-//     for (uint32_t i = 0; i < free_vars.size(); i++) {
-//         arg_types[i] = codegen_type(free_vars[i].second);
-//     }
-
-//     llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
-//     function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, "temp", module.get());
-
-//     // TODO: should scope be cleared here?
-//     uint32_t arg_idx = 0;
-//     for (auto &arg : function->args()) {
-//         arg.setName(free_vars[arg_idx].first);
-//         // also add args to scope.
-//         scope.push(free_vars[arg_idx].first, &arg);
-//         arg_idx++;
-//     }
-
-//     // Add entry point.
-//     llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), "entry", function);
-//     llvm::IRBuilderBase::InsertPoint here = builder->saveIP();
-//     builder->SetInsertPoint(entry_bb);
-
-//     codegen_stmt(stmt);
-
-//     // Validate the generated code, checking for consistency.
-//     verifyFunction(*function);
-
-//     function->dump();
-
-//     this->optimize_module();
-
-//     module->dump();
-// }
+    // Start with a module containing the initial module for this target.
+    // module = get_initial_module_for_target(target, context);
+    // TODO: handle all the module set-up that Halide does.
+    module = std::make_unique<llvm::Module>("bonsai_module", *context);
+}
 
 void CodeGen_LLVM::compile_function(const Function &func) {
     // Make function type
@@ -219,7 +146,9 @@ void CodeGen_LLVM::compile_function(const Function &func) {
     // function->dump();
 }
 
-void CodeGen_LLVM::compile_program(const Program &program) {
+std::unique_ptr<llvm::Module> CodeGen_LLVM::compile_program(const Program &program) {
+    init_module(); // TODO: init_codegen()?
+
     const auto struct_types = gather_struct_types(program);
     declare_struct_types(struct_types);
 
@@ -242,6 +171,8 @@ void CodeGen_LLVM::compile_program(const Program &program) {
     this->optimize_module();
     // std::cout << "\n\n\nAfter:\n\n\n" << std::endl;
     module->dump();
+
+    return std::move(module);
 }
 
 std::unique_ptr<llvm::TargetMachine> make_target_machine(const llvm::Module &module) {

@@ -115,3 +115,7 @@ func triangle_intersection(ray : Ray, tri : Triangle) -> option[TriangleIntersec
     // Return _TriangleIntersection_ for intersection
     return TriangleIntersection{b0, b1, b2, t};   
 }
+
+func main() -> i32 {
+    return 1;
+}
