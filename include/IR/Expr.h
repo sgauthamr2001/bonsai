@@ -278,6 +278,7 @@ struct Intrinsic : ExprNode<Intrinsic> {
         abs,
         cos,
         cross,
+        fma,
         max,
         min,
         sin,

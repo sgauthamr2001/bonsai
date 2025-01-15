@@ -393,6 +393,7 @@ std::string to_string(const Intrinsic::OpType &op) {
         case Intrinsic::abs: return "abs";
         case Intrinsic::cos: return "cos";
         case Intrinsic::cross: return "cross";
+        case Intrinsic::fma: return "fma";
         case Intrinsic::max: return "max";
         case Intrinsic::min: return "min";
         case Intrinsic::sin: return "sin";

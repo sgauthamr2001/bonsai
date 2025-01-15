@@ -193,16 +193,21 @@ void try_match_types(Expr &a, Expr &b) {
             }
         }
         internal_assert(is_const(a) || is_const(b)) << "Implicit casting of types: " << a << " is not the same type as " << b << ": " << a.type() << " versus " << b.type();
-        // TODO: is this right?
-        // Cast to the larger bitwidth
-        if (a.type().bits() > b.type().bits()) {
-            b = constant_cast(a.type(), b);
-        } else if (b.type().bits() > a.type().bits()) {
+        if (is_const(a)) {
             a = constant_cast(b.type(), a);
         } else {
-            internal_error << "Same bitwidth, not sure how to cast: " << a << " and " << b
-                           << " are types " << a.type() << " and " << b.type();
+            b = constant_cast(a.type(), b);
         }
+        // // TODO: is this right?
+        // // Cast to the larger bitwidth
+        // if (a.type().bits() > b.type().bits()) {
+        //     b = constant_cast(a.type(), b);
+        // } else if (b.type().bits() > a.type().bits()) {
+        //     a = constant_cast(b.type(), a);
+        // } else {
+        //     internal_error << "Same bitwidth, not sure how to cast: " << a << " and " << b
+        //                    << " are types " << a.type() << " and " << b.type();
+        // }
     } else if (a.type().defined() && !b.type().defined() && is_const(b)) {
         if (a.type().is<Option_t>()) {
             const ir::Type &etype = a.type().as<Option_t>()->etype;

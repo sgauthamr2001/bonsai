@@ -34,7 +34,8 @@ protected:
 
     virtual void optimize_module();
 
-    void compile_function(const ir::Function &func);
+    llvm::Function *declare_function(const ir::Function &func);
+    void compile_function(const ir::Function &func, llvm::Function *function);
     llvm::Value *codegen_expr(const ir::Expr &expr);
     std::vector<llvm::Value *> codegen_exprs(const std::vector<ir::Expr> exprs);
     void codegen_stmt(const ir::Stmt &stmt);
@@ -102,7 +103,7 @@ protected:
     // Local state for codegen() impls.
     llvm::Value *value = nullptr;
     llvm::Type *type = nullptr;
-    llvm::Function *function = nullptr;
+    llvm::Function *current_function = nullptr;
 
     // Global LLVM state
     std::unique_ptr<llvm::LLVMContext> context;

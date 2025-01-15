@@ -177,9 +177,15 @@ ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
             // TODO: may need to back-propagate information to variable declarations...
             if (!node->value.type().defined()) {
                 // TODO: support is_castable!
-                internal_assert(is_const(node->value))
-                    << "Cannot coerce value: " << node->value << " into return type: " << ret_type;
-                return ir::Return::make(constant_cast(ret_type, node->value));
+                if (is_const(node->value)) {
+                    return ir::Return::make(constant_cast(ret_type, node->value));
+                } else {
+                    internal_assert(node->value.is<ir::Build>())
+                        << "Cannot coerce value: " << node->value << " into return type: " << ret_type;
+                    ir::Expr new_value = ir::Build::make(ret_type, node->value.as<ir::Build>()->values);
+                    internal_assert(new_value.type().defined() && ir::equals(ret_type, new_value.type()));
+                    return ir::Return::make(std::move(new_value));
+                }
             } else if (!ir::equals(node->value.type(), ret_type)) {
                 // TODO: check is_castable? The below might fail horrendously or silently...
                 ir::Expr new_value = ir::Cast::make(ret_type, node->value);

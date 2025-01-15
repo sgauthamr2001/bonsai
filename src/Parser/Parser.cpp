@@ -39,6 +39,7 @@ private:
     TokenStream tokens;
     ir::Program program;
     std::list<std::map<std::string, std::pair<ir::Type, bool>>> frames;
+    const ir::Type u32 = ir::UInt_t::make(32), i32 = ir::Int_t::make(32), f32 = ir::Float_t::make(32);
 
     ir::Type get_type_from_frame(const std::string &name) const {
         for (auto it = frames.rbegin(); it != frames.rend(); it++) {
@@ -626,17 +627,20 @@ private:
             // can't know concrete type yet, let type inference figure it out.
             const Token token = expect(Token::Type::INT_LITERAL);
             const int64_t value = std::get<int64_t>(token.value);
-            return ir::IntImm::make(ir::Type(), value);
+            // default (pre-type casting) is i32
+            return ir::IntImm::make(i32, value);
         } else if (peek().type == Token::Type::UINT_LITERAL) {
             // can't know concrete type yet, let type inference figure it out.
             const Token token = expect(Token::Type::UINT_LITERAL);
             const uint64_t value = std::get<uint64_t>(token.value);
-            return ir::UIntImm::make(ir::Type(), value);
+            // default (pre-type casting) is u32
+            return ir::UIntImm::make(u32, value);
         } else if (peek().type == Token::Type::FLOAT_LITERAL) {
             // can't know concrete type yet, let type inference figure it out.
             const Token token = expect(Token::Type::FLOAT_LITERAL);
             const double value = std::get<double>(token.value);
-            return ir::FloatImm::make(ir::Type(), value);
+            // default (pre-type casting) is f32
+            return ir::FloatImm::make(f32, value);
         } else if (consume(Token::Type::LAMBDA)) {
             std::vector<ir::Lambda::Argument> args = parseLambdaArgs();
             new_frame();
@@ -694,6 +698,7 @@ private:
 
             // Intrinsics/set operations
             if (fields.empty()) {
+                // TODO: generalize intrinsic parsing.
                 if (name == "abs") {
                     internal_assert(args.size() == 1) << "abs takes a single argument, received: " << args.size();
                     return ir::Intrinsic::make(ir::Intrinsic::abs, std::move(args));
@@ -709,6 +714,9 @@ private:
                 } else if (name == "cross") {
                     internal_assert(args.size() == 2) << "cross takes two arguments, received: " << args.size();
                     return ir::Intrinsic::make(ir::Intrinsic::cross, std::move(args));
+                } else if (name == "fma") {
+                    internal_assert(args.size() == 3) << "fma takes two arguments, received: " << args.size();
+                    return ir::Intrinsic::make(ir::Intrinsic::fma, std::move(args));
                 } else if (name == "argmin") {
                     internal_assert(args.size() == 2) << "argmin takes two arguments, received: " << args.size();
                     return ir::SetOp::make(ir::SetOp::argmin, std::move(args[0]), std::move(args[1]));

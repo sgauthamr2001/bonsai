@@ -109,7 +109,7 @@ void CodeGen_LLVM::init_module() {
     module = std::make_unique<llvm::Module>("bonsai_module", *context);
 }
 
-void CodeGen_LLVM::compile_function(const Function &func) {
+llvm::Function *CodeGen_LLVM::declare_function(const Function &func) {
     // Make function type
     llvm::Type *ret_type = codegen_type(func.ret_type);
     std::vector<llvm::Type *> arg_types(func.args.size());
@@ -118,9 +118,16 @@ void CodeGen_LLVM::compile_function(const Function &func) {
     }
 
     llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
-    function = llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, func.name, module.get());
+    return llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, func.name, module.get());
+}
 
+void CodeGen_LLVM::compile_function(const Function &func, llvm::Function *function) {
     frames.new_frame();
+
+    // TODO: allow nested functions? Can LLVM even do that?
+    internal_assert(current_function == nullptr);
+    internal_assert(function);
+    current_function = function;
 
     uint32_t arg_idx = 0;
     for (auto &arg : function->args()) {
@@ -143,6 +150,8 @@ void CodeGen_LLVM::compile_function(const Function &func) {
     // Validate the generated code, checking for consistency.
     verifyFunction(*function);
 
+    current_function = nullptr;
+
     // function->dump();
 }
 
@@ -156,8 +165,14 @@ std::unique_ptr<llvm::Module> CodeGen_LLVM::compile_program(const Program &progr
 
     // TODO: add program.externs to the global frame.
 
-    for (const auto &[_, func] : program.funcs) {
-        this->compile_function(func);
+    std::map<std::string, llvm::Function *> func_map;
+    for (const auto &[fname, func] : program.funcs) {
+        // Declare function
+        func_map[fname] = this->declare_function(func);
+    }
+
+    for (const auto &[fname, func] : program.funcs) {
+        this->compile_function(func, func_map[fname]);
     }
 
     // TODO: now compile main function from program.main_body with arguments defined by program.externs
@@ -793,6 +808,10 @@ void CodeGen_LLVM::visit(const Intrinsic *node) {
             value = codegen_expr(expr);
             return;
         }
+        case Intrinsic::fma: {
+            intrin = llvm::Intrinsic::fma;
+            break;
+        }
         case Intrinsic::max: {
             if (node->args[0].type().is_int()) {
                 intrin = llvm::Intrinsic::smax;
@@ -857,6 +876,7 @@ void CodeGen_LLVM::visit(const SetOp *node) {
 
 void CodeGen_LLVM::visit(const Call *node) {
     llvm::Function *func = codegen_func_ptr(node->func);
+    internal_assert(func) << "Failed to codegen function pointer to: " << Expr(node);
 
     // TODO: figure out how to make sure we have the right
     // number of arguments here for better error handling.
@@ -1025,11 +1045,12 @@ void CodeGen_LLVM::visit(const IfElse *node) {
 
     // TODO: we will support a switch statement, make sure to use Halide's codegen for it!
 
-    llvm::BasicBlock *after_bb = needs_after_bb ? llvm::BasicBlock::Create(*context, "after_bb", function) : nullptr;
+    internal_assert(current_function);
+    llvm::BasicBlock *after_bb = needs_after_bb ? llvm::BasicBlock::Create(*context, "after_bb", current_function) : nullptr;
 
     for (const auto &p : blocks) {
-        llvm::BasicBlock *then_bb = llvm::BasicBlock::Create(*context, "then_bb", function);
-        llvm::BasicBlock *next_bb = llvm::BasicBlock::Create(*context, "next_bb", function);
+        llvm::BasicBlock *then_bb = llvm::BasicBlock::Create(*context, "then_bb", current_function);
+        llvm::BasicBlock *next_bb = llvm::BasicBlock::Create(*context, "next_bb", current_function);
         builder->CreateCondBr(codegen_expr(p.expr), then_bb, next_bb);
         builder->SetInsertPoint(then_bb);
         codegen_stmt(p.stmt);
