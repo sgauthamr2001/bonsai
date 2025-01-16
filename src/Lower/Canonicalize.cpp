@@ -88,11 +88,11 @@ ir::Program canonicalize(const ir::Program &program) {
     new_program.types = program.types;
 
     for (const auto &[f, func] : program.funcs) {
-        new_program.funcs[f] = ir::Function(func.name, func.args, func.ret_type, canonicalize(func.body));
+        ir::Stmt body = canonicalize(func->body);
+        new_program.funcs[f] = std::make_shared<ir::Function>(func->name, func->args, func->ret_type, body);
     }
 
     new_program.main_body = canonicalize(program.main_body);
-
 
     new_program = lower_option(new_program);
     // TODO: more canonicalizations

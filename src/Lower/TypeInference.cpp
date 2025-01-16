@@ -68,10 +68,10 @@ std::map<std::string, std::set<std::string>> build_undef_call_graph(const ir::Pr
     std::map<std::string, std::set<std::string>> undef_call_graph;
     for (const auto &f : program.funcs) {
         // TODO: do we need this for funcs with defined ret_types? probably not.
-        if (f.second.ret_type.defined()) {
+        if (f.second->ret_type.defined()) {
             undef_call_graph[f.first] = {}; // can be evaluated in any order.
         } else {
-            f.second.body.accept(&builder);
+            f.second->body.accept(&builder);
             undef_call_graph[f.first] = std::move(builder.undef_calls);
             builder.clear();
         }
@@ -288,23 +288,23 @@ ir::Stmt infer_types(ir::Stmt stmt, const std::map<std::string, ir::Type> &func_
     return stmt;
 }
 
-ir::Function infer_types(const ir::Function &fnotypes, const ir::Program &program, const std::map<std::string, ir::Type> &func_types) {
-    ir::Function ftypes;
-    ftypes.name = fnotypes.name;
-    ftypes.args = fnotypes.args;
+std::shared_ptr<ir::Function> infer_types(const std::shared_ptr<ir::Function> &fnotypes, const ir::Program &program, const std::map<std::string, ir::Type> &func_types) {
+    auto ftypes = std::make_shared<ir::Function>();
+    ftypes->name = fnotypes->name;
+    ftypes->args = fnotypes->args;
 
-    ftypes.body = infer_types(fnotypes.body, func_types);
+    ftypes->body = infer_types(fnotypes->body, func_types);
 
     // If we know the return type (due to annotations), try to coerce all returns to it.
     // If we don't know from annotations, try to infer from some return type, then coerce.
-    ftypes.ret_type = fnotypes.ret_type.defined() ? fnotypes.ret_type : ir::get_return_type(ftypes.body);
-    ftypes.body = coerce_return_types(ftypes.body, ftypes.ret_type);
+    ftypes->ret_type = fnotypes->ret_type.defined() ? fnotypes->ret_type : ir::get_return_type(ftypes->body);
+    ftypes->body = coerce_return_types(ftypes->body, ftypes->ret_type);
 
     // TODO: is there more that we can do?
 
-    internal_assert(!has_undef_expr_types(ftypes.body))
-        << "Type inference failed to infer all types of:\n" << fnotypes.body
-        << "\n\nInferred:\n" << ftypes.body;
+    internal_assert(!has_undef_expr_types(ftypes->body))
+        << "Type inference failed to infer all types of:\n" << fnotypes->body
+        << "\n\nInferred:\n" << ftypes->body;
     return ftypes;
 }
 
@@ -325,12 +325,12 @@ ir::Program infer_types(const ir::Program &program) {
     for (const auto &f : topo_order) {
         new_program.funcs[f] = infer_types(program.funcs.at(f), new_program, func_types);
         {
-            const size_t n_args = new_program.funcs[f].args.size();
+            const size_t n_args = new_program.funcs[f]->args.size();
             std::vector<ir::Type> arg_types(n_args);
             for (size_t i = 0; i < n_args; i++) {
-                arg_types[i] = new_program.funcs[f].args[i].type;
+                arg_types[i] = new_program.funcs[f]->args[i].type;
             }
-            func_types[f] = ir::Function_t::make(new_program.funcs[f].ret_type, arg_types);
+            func_types[f] = ir::Function_t::make(new_program.funcs[f]->ret_type, arg_types);
         }
     }
 

@@ -52,10 +52,33 @@ using namespace ir;
 CodeGen_LLVM::CodeGen_LLVM() {
     // TODO: set up independent state (e.g. wildcard matchers)
 
-    // TODO: initialize all intended targets?
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    llvm::InitializeNativeTargetAsmParser();
+    init_llvm();
+}
+
+void CodeGen_LLVM::init_llvm() {
+    static std::once_flag init_llvm_once;
+    std::call_once(init_llvm_once, []() {
+
+        llvm::InitializeNativeTarget();
+        llvm::InitializeNativeTargetAsmPrinter();
+        llvm::InitializeNativeTargetAsmParser();
+
+    // TODO: allow these.
+// #define LLVM_TARGET(target) \
+//     Initialize##target##Target();
+// #include <llvm/Config/Targets.def>
+// #undef LLVM_TARGET
+
+// #define LLVM_ASM_PARSER(target) \
+//     Initialize##target##AsmParser();
+// #include <llvm/Config/AsmParsers.def>
+// #undef LLVM_ASM_PARSER
+
+// #define LLVM_ASM_PRINTER(target) \
+//     Initialize##target##AsmPrinter();
+// #include <llvm/Config/AsmPrinters.def>
+// #undef LLVM_ASM_PRINTER
+    });
 }
 
 void CodeGen_LLVM::init_context() {
@@ -168,11 +191,11 @@ std::unique_ptr<llvm::Module> CodeGen_LLVM::compile_program(const Program &progr
     std::map<std::string, llvm::Function *> func_map;
     for (const auto &[fname, func] : program.funcs) {
         // Declare function
-        func_map[fname] = this->declare_function(func);
+        func_map[fname] = this->declare_function(*func);
     }
 
     for (const auto &[fname, func] : program.funcs) {
-        this->compile_function(func, func_map[fname]);
+        this->compile_function(*func, func_map[fname]);
     }
 
     // TODO: now compile main function from program.main_body with arguments defined by program.externs

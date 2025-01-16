@@ -18,7 +18,7 @@ void Program::dump(std::ostream& os) const {
     for (const auto &[name, func] : funcs) {
         os << "func " << name << "(";
         bool first = true;
-        for (const auto &arg : func.args) {
+        for (const auto &arg : func->args) {
             if (!first) {
                 os << ",";
             }
@@ -31,7 +31,7 @@ void Program::dump(std::ostream& os) const {
                 os << " = " << arg.default_value;
             }
         }
-        os << ") -> " << func.ret_type << " {\n" << func.body << "}\n\n";
+        os << ") -> " << func->ret_type << " {\n" << func->body << "}\n\n";
     }
     os << std::endl;
     if (main_body.defined()) {

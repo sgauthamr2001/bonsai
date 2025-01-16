@@ -22,10 +22,12 @@ public:
     }
     int32_t increment() {
         return ++count;
-    }  // Increment and return new value
+    }
+    // Increment and return new value
     int32_t decrement() {
         return --count;
-    }  // Decrement and return new value
+    }
+    // Decrement and return new value
     bool is_const_zero() const {
         return count == 0;
     }

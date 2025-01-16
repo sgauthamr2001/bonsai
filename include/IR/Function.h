@@ -14,6 +14,17 @@ struct Function {
         std::string name;
         Type type;
         Expr default_value;
+
+        Argument() {}
+
+        Argument(std::string _name, Type _type, Expr _default_value)
+            : name(std::move(_name)), type(std::move(_type)), default_value(std::move(_default_value)) {}
+
+        Argument(const Argument&) = default;
+        Argument(Argument&&) noexcept = default;
+        Argument& operator=(const Argument&) = default;
+        Argument& operator=(Argument&&) noexcept = default;
+        ~Argument() = default;
     };
     std::vector<Argument> args;
     Type ret_type;
@@ -23,6 +34,12 @@ struct Function {
 
     Function(std::string _name, std::vector<Argument> _args, Type _ret_type, Stmt _body)
         : name(std::move(_name)), args(std::move(_args)), ret_type(std::move(_ret_type)), body(std::move(_body)) {}
+
+    Function(const Function&) = default;
+    Function(Function&&) noexcept = default;
+    Function& operator=(const Function&) = default;
+    Function& operator=(Function&&) noexcept = default;
+    ~Function() = default;
 };
 
 }  // namespace ir

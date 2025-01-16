@@ -314,10 +314,7 @@ private:
         // can break if the return type is not defined! We should assert
         // that the return type is defined for recursive calls, or implement
         // really good type unification or something.
-        {
-            ir::Function func(name, std::move(args), std::move(ret_type), ir::Stmt());
-            program.funcs[name] = std::move(func);
-        }
+        program.funcs[name] = std::make_shared<ir::Function>(name, std::move(args), std::move(ret_type), ir::Stmt());
 
         ir::Stmt body;
 
@@ -340,12 +337,12 @@ private:
 
         end_frame();
 
-        internal_assert(!program.funcs[name].body.defined()) << "Woah, how did " << name << " get a function body before being parsed?";
+        internal_assert(!program.funcs[name]->body.defined()) << "Woah, how did " << name << " get a function body before being parsed?";
 
-        program.funcs[name].body = std::move(body);
+        program.funcs[name]->body = std::move(body);
         if (!ret_type_set && ret_type.defined()) {
             // we were able to statically infer the return type
-            program.funcs[name].ret_type = std::move(ret_type);
+            program.funcs[name]->ret_type = std::move(ret_type);
         }
     }
 
@@ -767,27 +764,33 @@ private:
                     internal_assert(args.size() == 2) << "permute takes two arguments, received: " << args.size();
                     internal_assert(args[1].is<ir::Build>()) << "permute expects the second argument to be a list of indexes, instead received: " << args[1];
                     return ir::VectorShuffle::make(std::move(args[0]), args[1].as<ir::Build>()->values);
+                } else if (name == "eps") {
+                    internal_assert(args.size() == 0) << "eps() takes no arguments, but recieved: " << args.size();
+                    // TODO: make this type-specific and an LLVM intrinsic call!
+                    return ir::FloatImm::make(f32, std::numeric_limits<float>::epsilon() * 0.5);
                 } else {
                     if (program.funcs.contains(name)) {
                         ir::Type ftype;
-                        const ir::Function &func = program.funcs[name];
+                        const auto &func = program.funcs[name];
                         // TODO: handle default params!
-                        internal_assert(args.size() == func.args.size())
+                        internal_assert(args.size() == func->args.size())
                             << "Call to: " << name << " at line " << token.lineBegin << " has incorrect number of arguments.\n"
-                            << "Expected: " << func.args.size() << " but parsed " << args.size();
+                            << "Expected: " << func->args.size() << " but parsed " << args.size();
 
-                        if (func.ret_type.defined()) {
+                        if (func->ret_type.defined()) {
                             // Argument types are always required, but the return type could not be.
-                            std::vector<ir::Type> arg_types(func.args.size());
-                            for (size_t i = 0; i < func.args.size(); i++) {
-                                arg_types[i] = func.args[i].type;
+                            // TODO: does that mean we can pull this check out of the if statement?
+                            std::vector<ir::Type> arg_types(func->args.size());
+                            // TODO: insert generics when supported!
+                            for (size_t i = 0; i < func->args.size(); i++) {
+                                arg_types[i] = func->args[i].type;
                                 // TODO: we could push types down here, because we know the arg types.
                                 // That mixes type inference with parsing though, not sure we want that.
-                                internal_assert(!args[i].type().defined() || ir::equals(func.args[i].type, args[i].type()))
+                                internal_assert(!args[i].type().defined() || ir::equals(func->args[i].type, args[i].type()))
                                     << "Argument " << i << " of call to function " << name << " on line " << token.lineBegin
-                                    << " has incorrect type. Expected " << func.args[i].type << " but parsed: " << args[i].type();
+                                    << " has incorrect type. Expected " << func->args[i].type << " but parsed: " << args[i].type();
                             }
-                            ftype = ir::Function_t::make(func.ret_type, arg_types);
+                            ftype = ir::Function_t::make(func->ret_type, arg_types);
                         }
                         // TODO: if we allowed partially-defined types, we could make: Fn(arg_types) -> (undef)
                         // that would make type inference easier, but we'd have to change a lot of the error

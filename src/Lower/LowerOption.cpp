@@ -136,15 +136,15 @@ ir::Program lower_option(const ir::Program &program) {
     }
 
     for (const auto &[f, func] : program.funcs) {
-        std::vector<ir::Function::Argument> args(func.args.size());
+        std::vector<ir::Function::Argument> args(func->args.size());
         for (size_t i = 0; i < args.size(); i++) {
-            const auto &arg = func.args[i];
+            const auto &arg = func->args[i];
             args[i] = ir::Function::Argument{arg.name, lower_option(arg.type), lower_option(arg.default_value)};
         }
-        ir::Type ret_type = lower_option(func.ret_type);
-        ir::Stmt body = lower_option(func.body);
+        ir::Type ret_type = lower_option(func->ret_type);
+        ir::Stmt body = lower_option(func->body);
 
-        new_program.funcs[f] = ir::Function(func.name, std::move(args), std::move(ret_type), std::move(body));
+        new_program.funcs[f] = std::make_shared<ir::Function>(func->name, std::move(args), std::move(ret_type), std::move(body));
     }
 
     new_program.main_body = lower_option(program.main_body);

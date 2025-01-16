@@ -25,6 +25,8 @@ struct CodeGen_LLVM : public ir::Visitor {
     virtual std::unique_ptr<llvm::Module> compile_program(const ir::Program &prog);
     std::unique_ptr<llvm::LLVMContext> steal_context() { return std::move(context); }
 protected:
+    /** Initialize internal llvm state for the enabled targets. */
+    static void init_llvm();
     /** Grab all the context specific internal state. */
     virtual void init_context();
     /** Initialize the CodeGen_LLVM internal state to compile a fresh

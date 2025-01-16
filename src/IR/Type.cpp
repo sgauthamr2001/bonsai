@@ -136,7 +136,7 @@ Type Float_t::make(uint32_t bits) {
 }
 
 Type Bool_t::make() {
-    static Bool_t *global_bool = new Bool_t;
+    static Type global_bool = new Bool_t;
     return global_bool;
 }
 

@@ -238,14 +238,14 @@ std::vector<const Struct_t *> gather_struct_types(const Program &program) {
     // TODO: can externs contain optionals?
 
     for (const auto &[_, f] : program.funcs) {
-        for (const auto &arg : f.args) {
+        for (const auto &arg : f->args) {
             arg.type.accept(&gather);
             if (arg.default_value.defined()) {
                 arg.default_value.accept(&gather); // is this necessary?
             }
         }
-        f.ret_type.accept(&gather);
-        f.body.accept(&gather);
+        f->ret_type.accept(&gather);
+        f->body.accept(&gather);
     }
 
     for (const auto &[_, t] : program.types) {
