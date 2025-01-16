@@ -54,6 +54,7 @@ struct Token {
 
         ASSIGN, // =
         AND, // &&
+        AT, // @
         OR, // ||
         XOR, // ^
         NOT, // !

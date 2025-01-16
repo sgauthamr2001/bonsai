@@ -91,6 +91,7 @@ std::string Token::tokenTypeString(Token::Type type) {
         case Token::Type::SEMICOL: return "semicol";
         case Token::Type::ASSIGN: return "assign";
         case Token::Type::AND: return "and";
+        case Token::Type::AT: return "at";
         case Token::Type::OR: return "or";
         case Token::Type::XOR: return "xor";
         case Token::Type::NOT: return "not";

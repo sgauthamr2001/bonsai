@@ -14,6 +14,7 @@
 #include <sstream>
 
 #include "Error.h"
+#include "Utils.h"
 
 namespace bonsai {
 namespace parser {
@@ -690,11 +691,37 @@ private:
             return expr;
         };
 
+        std::vector<ir::Type> template_types;
+        if (consume(Token::Type::AT)) {
+            // Parse template type list
+            expect(Token::Type::LT);
+            template_types = parseTypeListUntil(Token::Type::GT);
+            internal_assert(!template_types.empty())
+                << "Template syntax expects type arguments, but did not receive any for name: " << name << " at line: " << token.lineBegin;
+            internal_assert(peek().type == Token::Type::LPAREN)
+                << "Template syntax supported only for function calls, found on name: " << name << " at line: " << token.lineBegin;
+        }
+
         if (consume(Token::Type::LPAREN)) {
             std::vector<ir::Expr> args = parseExprListUntil(Token::Type::RPAREN);
 
             // Intrinsics/set operations
             if (fields.empty()) {
+                if (name == "cast") {
+                    internal_assert(template_types.size() == 1) << "cast() expects a template parameter, instead received: " << template_types.size() << " at line: " << token.lineBegin;
+                    internal_assert(args.size() == 1) << "cast takes a single argument, received: " << args.size() << " at line: " << token.lineBegin;
+                    return ir::Cast::make(std::move(template_types[0]), std::move(args[0]));
+                } else if (name == "eps") {
+                    internal_assert(template_types.size() == 1) << "eps() expects a template parameter, instead received: " << template_types.size() << " at line: " << token.lineBegin;
+                    internal_assert(args.size() == 0) << "eps takes no arguments, received: " << args.size() << " at line: " << token.lineBegin;
+                    // TODO: or template?
+                    ir::Type type = std::move(template_types[0]);
+                    internal_assert(type.is_float()) << "eps takes only floating point template types, instead received: " << type;
+                    // TODO: this should be handled in codegen...
+                    return ir::FloatImm::make(type, machine_epsilon(type));
+                }
+
+                internal_assert(template_types.empty()) << name << " does not take template parameters, but received: " << template_types.size() << " at line: " << token.lineBegin;
                 // TODO: generalize intrinsic parsing.
                 if (name == "abs") {
                     internal_assert(args.size() == 1) << "abs takes a single argument, received: " << args.size();
@@ -764,10 +791,6 @@ private:
                     internal_assert(args.size() == 2) << "permute takes two arguments, received: " << args.size();
                     internal_assert(args[1].is<ir::Build>()) << "permute expects the second argument to be a list of indexes, instead received: " << args[1];
                     return ir::VectorShuffle::make(std::move(args[0]), args[1].as<ir::Build>()->values);
-                } else if (name == "eps") {
-                    internal_assert(args.size() == 0) << "eps() takes no arguments, but recieved: " << args.size();
-                    // TODO: make this type-specific and an LLVM intrinsic call!
-                    return ir::FloatImm::make(f32, std::numeric_limits<float>::epsilon() * 0.5);
                 } else {
                     if (program.funcs.contains(name)) {
                         ir::Type ftype;
@@ -775,7 +798,7 @@ private:
                         // TODO: handle default params!
                         internal_assert(args.size() == func->args.size())
                             << "Call to: " << name << " at line " << token.lineBegin << " has incorrect number of arguments.\n"
-                            << "Expected: " << func->args.size() << " but parsed " << args.size();
+                            << "Expected: " << func->args.size() << " but parsed " << args.size() << " at line: " << token.lineBegin;
 
                         if (func->ret_type.defined()) {
                             // Argument types are always required, but the return type could not be.
@@ -812,6 +835,8 @@ private:
             }
         }
 
+        internal_assert(template_types.empty()) << "TODO: support template arguments in constructors for: " << name << " at line: " << token.lineBegin;
+
         if (peek().type == Token::Type::LSQUIGGLE) {
             if (fields.empty() && program.types.contains(name)) {
                 expect(Token::Type::LSQUIGGLE);
@@ -840,6 +865,19 @@ private:
         } while (consume(Token::Type::COMMA));
         expect(token);
         return exprs;
+    }
+
+    std::vector<ir::Type> parseTypeListUntil(const Token::Type &token) {
+        std::vector<ir::Type> types;
+        if (consume(token)) {
+            return types;
+        }
+        do {
+            ir::Type type = parseType();
+            types.emplace_back(std::move(type));
+        } while (consume(Token::Type::COMMA));
+        expect(token);
+        return types;
     }
 
     std::vector<ir::Lambda::Argument> parseLambdaArgs() {

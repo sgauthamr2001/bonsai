@@ -46,4 +46,7 @@ size_t find_struct_index(const std::string &field, const ir::Struct_t::Map &fiel
 
 uint32_t vector_field_lane(const std::string &field);
 
+// TODO: this should be handled in codegen...
+double machine_epsilon(const ir::Type &t);
+
 }  // namespace bonsai

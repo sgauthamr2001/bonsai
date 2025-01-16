@@ -137,4 +137,20 @@ uint32_t vector_field_lane(const std::string &field) {
     return -1;
 }
 
+double machine_epsilon(const ir::Type &t) {
+    internal_assert(t.is_float()) << "eps takes only floating point template types, instead received: " << t;
+    switch (t.bits()) {
+        case 32: {
+            return std::numeric_limits<float>::epsilon() * 0.5;
+        }
+        case 64: {
+            return std::numeric_limits<double>::epsilon() * 0.5;
+        }
+        default: {
+            internal_error << "machine_epsilon() not supported for type: " << t;
+            return 0.0;
+        }
+    }
+}
+
 }  // namespace bonsai

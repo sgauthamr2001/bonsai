@@ -122,6 +122,10 @@ TokenStream Lexer::lex(std::istream &programStream) {
                     programStream.get();
                     tokens.addToken(Token::Type::SEMICOL, line, col++);
                     break;
+                case '@':
+                    programStream.get();
+                    tokens.addToken(Token::Type::AT, line, col++);
+                    break;
                 case '=':
                     programStream.get();
                     if (programStream.peek() == '=') {
