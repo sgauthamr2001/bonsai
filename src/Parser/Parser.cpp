@@ -141,7 +141,7 @@ private:
         if (auto token = consume(type)) {
             return *token;
         } else {
-            internal_error << "Expected " << Token::tokenTypeString(type) << ", instead received: " + peek().toString() << " at line: " << peek().lineBegin;
+            internal_error << "Expected " << Token::tokenTypeString(type) << ", instead received: " + peek().toString() << " at line: " << peek().lineBegin << ":" << peek().colBegin;
             return Token{};
         }
     }
@@ -692,14 +692,25 @@ private:
         };
 
         std::vector<ir::Type> template_types;
-        if (consume(Token::Type::AT)) {
+        if (consume(Token::Type::LBRACKET)) {
+            if (consume(Token::Type::LBRACKET)) {
             // Parse template type list
-            expect(Token::Type::LT);
-            template_types = parseTypeListUntil(Token::Type::GT);
+            template_types = parseTypeListUntil(Token::Type::RBRACKET);
+            expect(Token::Type::RBRACKET);
             internal_assert(!template_types.empty())
                 << "Template syntax expects type arguments, but did not receive any for name: " << name << " at line: " << token.lineBegin;
             internal_assert(peek().type == Token::Type::LPAREN)
                 << "Template syntax supported only for function calls, found on name: " << name << " at line: " << token.lineBegin;
+            } else {
+                std::vector<ir::Expr> idxs = parseExprListUntil(Token::Type::RBRACKET);
+                internal_assert(!idxs.empty())
+                    << "Indexing into array/vector expects at least one index for name: " << name << " at line: " << token.lineBegin;
+                ir::Expr expr = makeExpr();
+                for (auto &idx : idxs) {
+                    expr = ir::Extract::make(std::move(expr), std::move(idx));
+                }
+                return expr;
+            }
         }
 
         if (consume(Token::Type::LPAREN)) {
@@ -847,9 +858,6 @@ private:
             }
             // otherwise ignore, not a struct build, e.g. maybe `if` expr { body }
         }
-
-        internal_assert(!consume(Token::Type::LBRACKET))
-            << "TODO: this is probably a vector index, which the IR does not support yet: " << peek().toString();
 
         return makeExpr();
     }

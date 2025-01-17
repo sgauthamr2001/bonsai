@@ -6,9 +6,7 @@ func sqlen(v : vector[f32, 3]) -> f32 = sum(v * v);
 
 // static constexpr Float MachineEpsilon = std::numeric_limits<Float>::epsilon() * 0.5;
 
-// TODO: support the casting!
-// func gamma(n : i32) -> f32 = (n * meps()) / (1 - n * meps());
-func gamma(n : i32) -> f32 = n;
+func gamma(n : i32) -> f32 = (cast[[f32]](n) * eps[[f32]]()) / (1 - cast[[f32]](n) * eps[[f32]]());
 
 // TODO: implement generics!
 func prod_diff(a : f32, b : f32, c : f32, d : f32) -> f32 {
