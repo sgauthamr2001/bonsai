@@ -35,3 +35,7 @@ build
 build-dbg
 .vscode
 venv
+
+# Assembly files
+*.asm
+*.s
