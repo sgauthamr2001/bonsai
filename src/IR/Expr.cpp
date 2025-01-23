@@ -192,6 +192,20 @@ void try_match_types(Expr &a, Expr &b) {
                 return;
             }
         }
+
+        // Try broadcasting
+        if (a.type().is_vector() && b.type().is_scalar()) {
+            b = ir::Broadcast::make(a.type().lanes(), b);
+            // recurse in case wrong constant types still.
+            try_match_types(a, b);
+            return;
+        } else if (b.type().is_vector() && a.type().is_scalar()) {
+            a = ir::Broadcast::make(b.type().lanes(), a);
+            // recurse in case wrong constant types still.
+            try_match_types(a, b);
+            return;
+        }
+
         internal_assert(is_const(a) || is_const(b)) << "Implicit casting of types: " << a << " is not the same type as " << b << ": " << a.type() << " versus " << b.type();
         if (is_const(a)) {
             a = constant_cast(b.type(), a);
@@ -417,6 +431,7 @@ Expr Extract::make(Expr vec, Expr idx) {
 Expr Build::make(Type type, std::vector<Expr> values) {
     Build *node = new Build;
 
+    // TODO: handle type _defaults of Struct_t
     const bool infer_types = type_enforcement_enabled() || (type.defined() && std::all_of(values.cbegin(), values.cend(), [](const auto &v) { return v.type().defined(); }));
 
     if (infer_types) {

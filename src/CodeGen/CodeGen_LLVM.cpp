@@ -17,6 +17,7 @@
 #include <llvm/Transforms/Instrumentation/AddressSanitizer.h>
 #include <llvm/Transforms/Instrumentation/SanitizerCoverage.h>
 #include <llvm/Transforms/Instrumentation/ThreadSanitizer.h>
+#include <llvm/Transforms/Utils/RelLookupTableConverter.h>
 // #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Scalar/Reassociate.h>
@@ -99,6 +100,8 @@ void CodeGen_LLVM::init_context() {
     // strict_fp_math_md = md_builder.createFPMath(0.0);
     builder->setDefaultFPMathTag(default_fp_math_md);
     llvm::FastMathFlags fast_flags;
+    /*
+    // TODO: are these even allowed? Halide adds these, I don't think they're safe though.
     fast_flags.setNoNaNs();
     fast_flags.setNoInfs();
     fast_flags.setNoSignedZeros();
@@ -109,6 +112,7 @@ void CodeGen_LLVM::init_context() {
     fast_flags.setAllowReassoc();
     fast_flags.setAllowContract(true);
     fast_flags.setApproxFunc();
+    */
     builder->setFastMathFlags(fast_flags);
 
     // Define some types
@@ -256,6 +260,7 @@ void CodeGen_LLVM::optimize_module() {
     std::string target_triple = llvm::sys::getDefaultTargetTriple();
 
     std::unique_ptr<llvm::TargetMachine> tm = make_target_machine(*module);
+    // module->setDataLayout(tm->createDataLayout()); // TODO: is this right?
 
     const bool do_loop_opt = true; // get_target().has_feature(Target::EnableLLVMLoopOpt);
 
@@ -298,6 +303,19 @@ void CodeGen_LLVM::optimize_module() {
 
     mpm.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
 
+    if (tm->isPositionIndependent()) {
+        // Add a pass that converts lookup tables to relative lookup tables to make them PIC-friendly.
+        // See https://bugs.llvm.org/show_bug.cgi?id=45244
+        pb.registerOptimizerLastEPCallback(
+#if LLVM_VERSION >= 200
+            [&](ModulePassManager &mpm, OptimizationLevel, ThinOrFullLTOPhase)
+#else
+            [&](llvm::ModulePassManager &mpm, OptimizationLevel)
+#endif
+            {
+                mpm.addPass(llvm::RelLookupTableConverterPass());
+            });
+    }
 
     // get_target().has_feature(Target::SanitizerCoverage)
     if (false) {
@@ -554,6 +572,10 @@ void CodeGen_LLVM::visit(const BinOp *node) {
                 value = builder->CreateICmpEQ(a, b);
                 return;
             }
+            case BinOp::Neq: {
+                value = builder->CreateICmpNE(a, b);
+                return;
+            }
             default:  {
                 internal_error << "Unimplemented BinOp lowering for signed integer: " << Expr(node);
             }
@@ -594,6 +616,10 @@ void CodeGen_LLVM::visit(const BinOp *node) {
             }
             case BinOp::Eq: {
                 value = builder->CreateICmpEQ(a, b);
+                return;
+            }
+            case BinOp::Neq: {
+                value = builder->CreateICmpNE(a, b);
                 return;
             }
             default: {
@@ -751,6 +777,12 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
         // TODO: on x86 lower to phminposuw
         value = codegen_expr(lower::argmax(node->value));
         return;
+    case VectorReduce::Or:
+        intrin = llvm::Intrinsic::vector_reduce_or;
+        break;
+    case VectorReduce::And:
+        intrin = llvm::Intrinsic::vector_reduce_and;
+        break;
     default: {
         internal_error << "Unsupported VectorReduce operation" << Expr(node);
     }

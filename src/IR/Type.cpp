@@ -78,7 +78,9 @@ bool Type::is_numeric() const {
 }
 
 Type Type::to_bool() const {
-    if (this->is<Int_t>() || this->is<Float_t>() || this->is<UInt_t>()) {
+    if (this->is_bool()) {
+        return *this;
+    } else if (this->is<Int_t>() || this->is<Float_t>() || this->is<UInt_t>()) {
         return Bool_t::make();
     } else if (this->is<Vector_t>()) {
         const Vector_t *v = this->as<Vector_t>();
@@ -156,8 +158,9 @@ Type Vector_t::make(Type etype, uint32_t lanes) {
 }
 
 Type Struct_t::make(std::string name, Struct_t::Map fields) {
+    internal_assert(!name.empty()) << "Struct_t::make recieved undefined name";
     internal_assert(std::all_of(fields.cbegin(), fields.cend(), [](const auto &p) { return p.second.defined(); }))
-        << "Struct_t::make recieved undefined field type";
+        << "Struct_t::make recieved undefined field type in definition of " << name;
     Struct_t *node = new Struct_t;
     node->name = std::move(name);
     node->fields = std::move(fields);

@@ -237,6 +237,7 @@ private:
                     << "Duplicate field name: " << field_name << " in element definition: " << name;
                 fields.emplace_back(field_name, type);
             }
+            // expect(Token::Type::SEMICOL);
         } while (!consume(Token::Type::RSQUIGGLE));
 
         ir::Type element = ir::Struct_t::make(name, fields);
@@ -798,10 +799,19 @@ private:
                         internal_assert(args.size() == 2) << "min() currently only supports binary and unary, instead received: " << args.size() << " arguments at line " << token.lineBegin;
                         return ir::Intrinsic::make(ir::Intrinsic::min, std::move(args));
                     }
+                } else if (name == "any") {
+                    internal_assert(args.size() == 1) << "any takes a single argument, received: " << args.size();
+                    return ir::VectorReduce::make(ir::VectorReduce::Or, std::move(args[0]));
+                } else if (name == "all") {
+                    internal_assert(args.size() == 1) << "all takes a single argument, received: " << args.size();
+                    return ir::VectorReduce::make(ir::VectorReduce::And, std::move(args[0]));
                 } else if (name == "permute") {
                     internal_assert(args.size() == 2) << "permute takes two arguments, received: " << args.size();
                     internal_assert(args[1].is<ir::Build>()) << "permute expects the second argument to be a list of indexes, instead received: " << args[1];
                     return ir::VectorShuffle::make(std::move(args[0]), args[1].as<ir::Build>()->values);
+                } else if (name == "select") {
+                    internal_assert(args.size() == 3) << "select takes 3 arguments, received: " << args.size();
+                    return ir::Select::make(std::move(args[0]), std::move(args[1]), std::move(args[2]));
                 } else {
                     if (program.funcs.contains(name)) {
                         ir::Type ftype;

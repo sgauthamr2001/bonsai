@@ -215,6 +215,8 @@ struct VectorReduce : ExprNode<VectorReduce> {
         Min,
         Max,
         // TODO: and, or, saturating_add?
+        Or,
+        And
     };
 
     OpType op;
@@ -255,6 +257,7 @@ struct Extract : ExprNode<Extract> {
 struct Build : ExprNode<Build> {
     std::vector<Expr> values;
 
+    // TODO: add named-field variant (works well with default values).
     static Expr make(Type type, std::vector<Expr> values);
 
     static const IRExprEnum _node_type = IRExprEnum::Build;

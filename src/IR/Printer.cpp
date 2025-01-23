@@ -338,6 +338,8 @@ std::string to_string(const VectorReduce::OpType &op) {
         case VectorReduce::Mul: return "*";
         case VectorReduce::Min: return "min";
         case VectorReduce::Max: return "max";
+        case VectorReduce::Or: return "any";
+        case VectorReduce::And: return "all";
     }
 }
 

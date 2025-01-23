@@ -78,6 +78,8 @@ ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
         return make_const(t, e.as<BoolImm>()->value);
     } else if (e.is<Build>() && e.as<Build>()->values.empty()) {
         return Build::make(t, {});
+    } else if (e.is<Broadcast>()) {
+        return constant_cast(t, e.as<Broadcast>()->value);
     } else {
         internal_error << "Unsure how to convert constant to type: " << t << " expr: " << e;
         return ir::Expr();
