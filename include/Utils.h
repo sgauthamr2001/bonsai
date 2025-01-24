@@ -35,6 +35,8 @@ ir::Expr make_const(const ir::Type &t, const T &v) {
 }
 
 ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e);
+// Handles broadcasting if necessary.
+ir::Expr cast_to(const ir::Type &t, const ir::Expr &e);
 
 // TODO: a more generic version might be useful too.
 ir::Expr replace(const std::string &var_name, ir::Expr repl, const ir::Expr &orig);

@@ -60,10 +60,12 @@ struct RewriteOptions : public ir::Mutator {
             ir::Type new_type = mutate(node->type);
             if (node->values.empty()) {
                 // Build an "empty" struct - this sets the bool `set` to false by default.
-                return ir::Build::make(std::move(new_type), {});
+                static const std::vector<ir::Expr> empty = {};
+                return ir::Build::make(std::move(new_type), empty);
             } else {
                 internal_assert(node->values.size() == 1) << "Error in lowering build of Option_t, expected one argument by received: " << node->values.size();
-                return ir::Build::make(std::move(new_type), {node->values[0], ir::BoolImm::make(true)});
+                std::vector<ir::Expr> args = {node->values[0], ir::BoolImm::make(true)};
+                return ir::Build::make(std::move(new_type), std::move(args));
             }
         } else {
             return expr;
@@ -77,7 +79,8 @@ struct RewriteOptions : public ir::Mutator {
         internal_assert(_node);
         if (_node->type.is<ir::Option_t>()) {
             ir::Type new_type = mutate(_node->type);
-            return ir::Build::make(std::move(new_type), {_node->value, ir::BoolImm::make(true)});
+            std::vector<ir::Expr> args = {_node->value, ir::BoolImm::make(true)};
+            return ir::Build::make(std::move(new_type), std::move(args));
         } else if (_node->type.is<ir::Bool_t>() && node->value.type().is<ir::Option_t>()) {
             return ir::Access::make("set", _node->value);
         } else if (node->value.type().is<ir::Option_t>()) {

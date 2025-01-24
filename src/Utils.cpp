@@ -1,6 +1,7 @@
 #include "Utils.h"
 
 #include "IR/Printer.h"
+#include "IR/Equality.h"
 
 namespace bonsai {
 
@@ -61,7 +62,7 @@ Expr make_one(const Type &t) {
     return make_const(t, 1);
 }
 
-ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
+Expr constant_cast(const Type &t, const Expr &e) {
     internal_assert(t.defined() && e.defined()) << "received bad type conversion:" << e << " to " << t;
     internal_assert(is_const(e)) << "expected constant, instead received: " << e;
     // TODO: can we have non-scalar constants? parser doesn't support that yet, but it should!
@@ -77,24 +78,41 @@ ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e) {
     } else if (e.is<BoolImm>()) {
         return make_const(t, e.as<BoolImm>()->value);
     } else if (e.is<Build>() && e.as<Build>()->values.empty()) {
-        return Build::make(t, {});
+        static const std::vector<Expr> empty = {};
+        return Build::make(t, empty);
     } else if (e.is<Broadcast>()) {
         return constant_cast(t, e.as<Broadcast>()->value);
     } else {
         internal_error << "Unsure how to convert constant to type: " << t << " expr: " << e;
-        return ir::Expr();
+        return Expr();
     }
 }
 
-ir::Expr replace(const std::string &var_name, ir::Expr repl, const ir::Expr &orig) {
-    struct Replacer : public ir::Mutator {
-        Replacer(const std::string &_var_name, ir::Expr _repl)
+Expr cast_to(const Type &t, const Expr &e) {
+    // TODO: merge with try_match_types?
+    if (equals(t, e.type())) {
+        return e;
+    }
+    if (is_const(e)) {
+        return constant_cast(t, e);
+    }
+    internal_assert(e.type().defined()) << "Cannot cast untyped value: " << e << " to type: " << t;
+    if (t.is_vector() && e.type().is_scalar()) {
+        Expr inner = cast_to(t.element_of(), e);
+        return Broadcast::make(t.lanes(), std::move(inner));
+    }
+    return Cast::make(t, e);
+}
+
+Expr replace(const std::string &var_name, Expr repl, const Expr &orig) {
+    struct Replacer : public Mutator {
+        Replacer(const std::string &_var_name, Expr _repl)
             : var_name(_var_name), repl(std::move(_repl)) {}
         private:
             const std::string &var_name;
-            ir::Expr repl;
+            Expr repl;
         public:
-            ir::Expr visit(const ir::Var *node) override {
+            Expr visit(const Var *node) override {
                 if (node->name == var_name) {
                     return repl;
                 } else {
@@ -139,7 +157,7 @@ uint32_t vector_field_lane(const std::string &field) {
     return -1;
 }
 
-double machine_epsilon(const ir::Type &t) {
+double machine_epsilon(const Type &t) {
     internal_assert(t.is_float()) << "eps takes only floating point template types, instead received: " << t;
     switch (t.bits()) {
         case 32: {

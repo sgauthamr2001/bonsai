@@ -10,11 +10,14 @@ func build_ray() = Ray{};
 
 func build_ray_params(o : vec3f, d : vec3f, t : f32) = Ray{o, d, t};
 
-// TODO: get this working. Need IR changes.
-// func build_ray_params1(o : vec3f, d : vec3f) = Ray{o, d};
+// Tests default parameter build.
+func build_ray_params1(o : vec3f, d : vec3f) = Ray{o, d};
 
-// TODO: get this working. Need parser and IR support.
-// func build_ray_params2(o : vec3f, d : vec3f) = Ray{.o = o, .d = d};
+// Tests named struct build
+func build_ray_params2(o : vec3f, d : vec3f) = Ray{.o = o, .d = d};
+
+// Tests constant casting through struct building.
+func build_ray_params3(oall : f32, dall : f32) = Ray{.o = oall, .d = dall};
 
 element Ray1 {
     o : vec3f;

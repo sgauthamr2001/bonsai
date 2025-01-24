@@ -677,7 +677,8 @@ private:
             // TODO: is there an easy way to always know the type?
             if (consume(Token::Type::RSQUIGGLE)) {
                 // Empty!
-                return ir::Build::make(ir::Type(), {});
+                static const std::vector<ir::Expr> empty = {};
+                return ir::Build::make(ir::Type(), empty);
             } else {
                 std::vector<ir::Expr> args = parseExprListUntil(Token::Type::RSQUIGGLE);
                 // TODO: can we know the type?
@@ -886,6 +887,22 @@ private:
                 expect(Token::Type::LSQUIGGLE);
                 ir::Type type = program.types.at(name);
                 internal_assert(type.defined());
+                // Look for named struct build
+                if (consume(Token::Type::PERIOD)) {
+                    // TODO: this could use better error handling/messaging.
+                    std::map<std::string, ir::Expr> args;
+                    do {
+                        const Token token = expect(Token::Type::IDENTIFIER);
+                        const std::string field = std::get<std::string>(token.value);
+                        expect(Token::Type::ASSIGN);
+                        ir::Expr value = parseExpr();
+                        internal_assert(value.defined());
+                        args[field] = std::move(value);
+                    } while (consume(Token::Type::COMMA) && consume(Token::Type::PERIOD));
+                    expect(Token::Type::RSQUIGGLE);
+                    return ir::Build::make(std::move(type), std::move(args));
+                }
+                // Otherwise just a regular list-like struct build.
                 auto args = parseExprListUntil(Token::Type::RSQUIGGLE);
                 return ir::Build::make(std::move(type), std::move(args));
             }
