@@ -131,5 +131,7 @@ protected:
     // @}
 };
 
+std::unique_ptr<llvm::raw_fd_ostream> make_raw_fd_ostream(const std::string &filename);
+
 
 } //  namespace bonsai

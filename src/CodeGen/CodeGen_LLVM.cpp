@@ -212,7 +212,7 @@ std::unique_ptr<llvm::Module> CodeGen_LLVM::compile_program(const Program &progr
 
     this->optimize_module();
     // std::cout << "\n\n\nAfter:\n\n\n" << std::endl;
-    module->dump();
+    // module->dump();
 
     return std::move(module);
 }
@@ -1410,6 +1410,19 @@ llvm::Value *CodeGen_LLVM::codegen_write_loc(const ir::WriteLoc &loc) {
     // llvm::errs() << *ptr << "\n";
     // internal_assert(loc.accesses.empty()) << "TODO: implement codegen writeloc for accesses: " << loc;
     return ptr;
+}
+
+std::unique_ptr<llvm::raw_fd_ostream> make_raw_fd_ostream(const std::string &filename) {
+    std::string error_string;
+    std::error_code err;
+    std::unique_ptr<llvm::raw_fd_ostream> raw_out(new llvm::raw_fd_ostream(filename, err, llvm::sys::fs::OF_None));
+    if (err) {
+        error_string = err.message();
+    }
+    internal_assert(error_string.empty())
+        << "Error opening output " << filename << ": " << error_string << "\n";
+
+    return raw_out;
 }
 
 
