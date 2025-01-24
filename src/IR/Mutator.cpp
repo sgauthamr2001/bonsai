@@ -95,10 +95,20 @@ Type Mutator::visit(const Struct_t *node) {
         }
     }
 
+    // TODO: should we be recursing into defaults?
+    auto defaults = node->defaults; // copy
+    for (auto& [key, value] : defaults) {
+        Expr e = mutate(value);
+        if (!e.same_as(value)) {
+            changed = true;
+            value = e; // edits mapped value
+        }
+    }
+
     if (!changed) {
         return node;
     } else {
-        return Struct_t::make(node->name, std::move(fields));
+        return Struct_t::make(node->name, std::move(fields), std::move(defaults));
     }
 }
 

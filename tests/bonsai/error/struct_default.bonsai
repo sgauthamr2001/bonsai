@@ -1,0 +1,7 @@
+element vec3f = vector[f32, 3];
+
+element Ray {
+    o : vec3f;
+    d : vec3f = o; // not allowed: non-constant set value.
+    t : f32 = 0;
+}

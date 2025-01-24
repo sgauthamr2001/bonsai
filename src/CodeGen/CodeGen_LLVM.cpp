@@ -952,25 +952,54 @@ void CodeGen_LLVM::visit(const Build *node) {
 
     std::vector<llvm::Value *> values = codegen_exprs(node->values);
 
-    const bool build_empty = values.empty();
-
-    if (build_empty) {
-        value = llvm::Constant::getNullValue(build_type);
-        return;
-    }
-
-    value = llvm::PoisonValue::get(build_type);
-
     if (build_type->isVectorTy()) {
+        if (values.empty()) {
+            value = llvm::Constant::getNullValue(build_type);
+            return;
+        }
+        // Fill with designated values.
+        value = llvm::PoisonValue::get(build_type);
         for (size_t i = 0; i < values.size(); i++) {
             value = builder->CreateInsertElement(value, values[i], i);
         }
         return;
     } else if (build_type->isStructTy()) {
-        for (size_t i = 0; i < values.size(); i++) {
-            value = builder->CreateInsertValue(value, values[i], i);
+        internal_assert(node->type.is<Struct_t>());
+        internal_assert(values.empty() || (values.size() == node->type.as<Struct_t>()->fields.size()))
+            << "TODO: implement partial build codegen for: " << Expr(node);
+        const auto &defaults = node->type.as<Struct_t>()->defaults;
+        const auto &fields = node->type.as<Struct_t>()->fields;
+        if (defaults.empty() && values.empty()) {
+            value = llvm::Constant::getNullValue(build_type);
+            return;
+        } else if (values.empty()) {
+            // Is order of codegen important? Default values must be constants (w/o side effects), so I think no?
+            std::vector<std::pair<size_t, llvm::Value *>> inserts;
+            for (const auto &[field, _value] : defaults) {
+                size_t idx = find_struct_index(field, fields);
+                llvm::Value *llvm_value = codegen_expr(_value);
+                internal_assert(llvm_value);
+                inserts.emplace_back(idx, llvm_value);
+            }
+
+            // Fill the default values at least, and make the rest
+            value = llvm::Constant::getNullValue(build_type);
+
+            // Sort on insertion order.
+            std::sort(inserts.begin(), inserts.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+            for (const auto &[idx, _value] : inserts) {
+                internal_assert(_value);
+                value = builder->CreateInsertValue(value, _value, idx);
+            }
+            return;
+        } else {
+            internal_assert(defaults.empty() || (values.size() == fields.size()));
+            value = llvm::PoisonValue::get(build_type);
+            for (size_t i = 0; i < values.size(); i++) {
+                value = builder->CreateInsertValue(value, values[i], i);
+            }
+            return;
         }
-        return;
     } else {
         internal_error << "Unexpected llvm Type in Build lowering: " << Expr(node);
     }

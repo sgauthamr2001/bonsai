@@ -220,6 +220,7 @@ private:
 
         // Regular type declaration.
         ir::Struct_t::Map fields;
+        ir::Struct_t::DefMap defaults;
         expect(Token::Type::LSQUIGGLE);
         do {
             // Handle multiple names with a single type.
@@ -228,6 +229,12 @@ private:
                 const Token field = expect(Token::Type::IDENTIFIER);
                 const std::string field_name = std::get<std::string>(field.value);
                 names.push_back(field_name);
+                if (consume(Token::Type::ASSIGN)) {
+                    ir::Expr _default = parseExpr();
+                    internal_assert(ir::is_constant_expr(_default))
+                        << "Field default values must be constants, received: " << _default << " for field " << field_name << " of element " << name;
+                    defaults[field_name] = std::move(_default);
+                }
             } while (consume(Token::Type::COMMA));
 
             expect(Token::Type::COL);
@@ -236,12 +243,28 @@ private:
                 internal_assert(fields.cend() == std::find_if(fields.cbegin(), fields.cend(), [&field_name](const auto &p) { return p.first == field_name; }))
                     << "Duplicate field name: " << field_name << " in element definition: " << name;
                 fields.emplace_back(field_name, type);
+                if (defaults.contains(field_name)) {
+                    defaults[field_name] = constant_cast(type, defaults[field_name]);
+                }
             }
-            // expect(Token::Type::SEMICOL);
+
+            if (consume(Token::Type::ASSIGN)) {
+                ir::Expr _default = parseExpr();
+                internal_assert(ir::is_constant_expr(_default))
+                        << "Field default values must be constants, received: " << _default << " for typed fields " << " of element " << name;
+                _default = constant_cast(type, _default);
+                internal_assert(_default.defined());
+                for (const auto& field_name : names) {
+                    internal_assert(!defaults.contains(field_name))
+                        << "Duplicate default value for field " << field_name << " of element " << name
+                        << " individually marked: " << defaults[field_name] << " and group marked: " << _default;
+                    defaults[field_name] = _default;
+                }
+            }
+            expect(Token::Type::SEMICOL);
         } while (!consume(Token::Type::RSQUIGGLE));
 
-        ir::Type element = ir::Struct_t::make(name, fields);
-        program.types[name] = element;
+        program.types[name] = defaults.empty() ? ir::Struct_t::make(name, std::move(fields)) : ir::Struct_t::make(name, std::move(fields), std::move(defaults));
     }
 
     void parseInterface() {

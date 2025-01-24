@@ -167,6 +167,19 @@ Type Struct_t::make(std::string name, Struct_t::Map fields) {
     return node;
 }
 
+Type Struct_t::make(std::string name, Struct_t::Map fields, std::map<std::string, Expr> defaults) {
+    internal_assert(!name.empty()) << "Struct_t::make recieved undefined name";
+    internal_assert(std::all_of(fields.cbegin(), fields.cend(), [](const auto &p) { return p.second.defined(); }))
+        << "Struct_t::make recieved undefined field type in definition of " << name;
+    internal_assert(std::all_of(defaults.cbegin(), defaults.cend(), [](const auto &p) { return p.second.defined() && p.second.type().defined(); }))
+        << "Struct_t::make recieved undefined default expression";
+    Struct_t *node = new Struct_t;
+    node->name = std::move(name);
+    node->fields = std::move(fields);
+    node->defaults = std::move(defaults);
+    return node;
+}
+
 Type Tuple_t::make(std::vector<Type> etypes) {
     internal_assert(std::all_of(etypes.cbegin(), etypes.cend(), [](const Type &t) { return t.defined(); }))
         << "Tuple_t::make recieved undefined type";

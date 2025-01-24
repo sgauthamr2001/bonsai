@@ -1,0 +1,6 @@
+element vec3f = vector[f32, 3];
+
+element Ray {
+    o = 2, d : vec3f = 1;
+    t : f32 = 0;
+}

@@ -147,10 +147,13 @@ struct Struct_t : TypeNode<Struct_t> {
     // intentionally ordered.
     // TODO: re-implement an unordered version (for the front-end): UnorderedStruct_t
     typedef std::vector<std::pair<std::string, Type>> Map;
+    typedef std::map<std::string, Expr> DefMap;
     std::string name;
     Map fields;
+    DefMap defaults;
 
     static Type make(std::string name, Map fields);
+    static Type make(std::string name, Map fields, std::map<std::string, Expr> defaults);
 
     static const IRTypeEnum _node_type = IRTypeEnum::Struct_t;
 };
