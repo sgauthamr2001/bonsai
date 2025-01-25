@@ -2,11 +2,11 @@
 
 #include <string>
 
-#include "IntrusivePtr.h"
 #include "IRHandle.h"
 #include "IRNode.h"
-#include "Visitor.h"
+#include "IntrusivePtr.h"
 #include "Mutator.h"
+#include "Visitor.h"
 
 #include "Type.h"
 
@@ -48,45 +48,32 @@ using IRExprNode = IRNode<Expr, IRExprEnum>;
  *  They all contain their types (e.g. Int(32), Float(32))
  */
 struct BaseExprNode : public IRExprNode {
-    BaseExprNode(IRExprEnum t)
-        : IRExprNode(t) {
-    }
+    BaseExprNode(IRExprEnum t) : IRExprNode(t) {}
     virtual Expr mutate_expr(Mutator *m) const = 0;
     Type type;
 };
 
-
-template<typename T>
-struct ExprNode : public BaseExprNode {
-    void accept(Visitor *v) const override {
-        return v->visit((const T*)this);
-    }
+template <typename T> struct ExprNode : public BaseExprNode {
+    void accept(Visitor *v) const override { return v->visit((const T *)this); }
     Expr mutate_expr(Mutator *m) const override;
     ExprNode() : BaseExprNode(T::_node_type) {}
     ~ExprNode() override = default;
 };
-
 
 struct Expr : public IRHandle<IRExprNode> {
     /** Make an undefined expr */
     Expr() = default;
 
     /** Make an expr from a concrete expr node pointer (e.g. Add) */
-    Expr(const IRExprNode *n)
-        : IRHandle<IRExprNode>(n) {
-    }
+    Expr(const IRExprNode *n) : IRHandle<IRExprNode>(n) {}
 
     /** Override get() to return a BaseExprNode * instead of an IRNode.
      *  This is necessary to get mutate() to work properly. **/
-    const BaseExprNode *get() const {
-        return (const BaseExprNode *)ptr;
-    }
+    const BaseExprNode *get() const { return (const BaseExprNode *)ptr; }
 
     // TODO: implement copy/move semantics!
 
-    Type type() const {
-        return get()->type;
-    }
+    Type type() const { return get()->type; }
 
     explicit Expr(int8_t x);
     explicit Expr(int16_t x);
@@ -95,9 +82,8 @@ struct Expr : public IRHandle<IRExprNode> {
     // TODO: floats, uints, etc.
 };
 
-template<typename T>
-Expr ExprNode<T>::mutate_expr(Mutator *m) const {
-    return m->visit((const T*)this);
+template <typename T> Expr ExprNode<T>::mutate_expr(Mutator *m) const {
+    return m->visit((const T *)this);
 }
 
 struct IntImm : ExprNode<IntImm> {
@@ -168,10 +154,7 @@ struct BinOp : ExprNode<BinOp> {
 };
 
 struct UnOp : ExprNode<UnOp> {
-    enum OpType {
-        Neg,
-        Not
-    };
+    enum OpType { Neg, Not };
 
     OpType op;
     Expr a;
@@ -357,22 +340,18 @@ struct Call : ExprNode<Call> {
     static const IRExprEnum _node_type = IRExprEnum::Call;
 };
 
-
 // TODO: need Load with more info than Halide, can load from arbitrary pointer...
-
 
 // TODO: ??? Load, (?)Let
 
-}  // namespace ir
+} // namespace ir
 
-template<>
-inline RefCount &ref_count<ir::IRExprNode>(const ir::IRExprNode *t) noexcept {
+template <> inline RefCount &ref_count<ir::IRExprNode>(const ir::IRExprNode *t) noexcept {
     return t->ref_count;
 }
 
-template<>
-inline void destroy<ir::IRExprNode>(const ir::IRExprNode *t) {
+template <> inline void destroy<ir::IRExprNode>(const ir::IRExprNode *t) {
     delete t;
 }
 
-}  // namespace bonsai
+} // namespace bonsai

@@ -2,8 +2,8 @@
 
 #include "IR/Analysis.h"
 #include "IR/Equality.h"
-#include "IR/TypeEnforcement.h"
 #include "IR/Printer.h"
+#include "IR/TypeEnforcement.h"
 #include "IR/Visitor.h"
 
 #include "Error.h"
@@ -37,9 +37,9 @@ struct UndefCallGraphBuilder : public ir::Visitor {
         in_call = false;
 
         // possibly gather call values from arguments.
-        for (const auto& a : node->args) {
+        for (const auto &a : node->args) {
             a.accept(this);
-        }        
+        }
     }
 
     void visit(const ir::Access *node) override {
@@ -53,7 +53,9 @@ struct UndefCallGraphBuilder : public ir::Visitor {
                 << "Somehow in call but Var is not a function type: " << node;
             if (node->type.is<ir::Function_t>()) {
                 internal_assert(node->type.as<ir::Function_t>()->ret_type.defined())
-                    << "TODO: must have changed Function_t to allow undefined ret_type, need to update call graph builder!" << node;
+                    << "TODO: must have changed Function_t to allow undefined ret_type, need to "
+                       "update call graph builder!"
+                    << node;
             }
             if (!node->type.defined()) {
                 undef_calls.insert(node->name);
@@ -61,7 +63,6 @@ struct UndefCallGraphBuilder : public ir::Visitor {
         }
     }
 };
-
 
 std::map<std::string, std::set<std::string>> build_undef_call_graph(const ir::Program &program) {
     UndefCallGraphBuilder builder;
@@ -81,15 +82,18 @@ std::map<std::string, std::set<std::string>> build_undef_call_graph(const ir::Pr
 
 std::vector<std::string> func_topological_order(const ir::Program &program) {
     // Return the order that type inference should run in.
-    const std::map<std::string, std::set<std::string>> undef_call_graph = build_undef_call_graph(program);
-    // DFS-based topological sorting, https://en.wikipedia.org/wiki/Topological_sorting#Depth-first_search
+    const std::map<std::string, std::set<std::string>> undef_call_graph =
+        build_undef_call_graph(program);
+    // DFS-based topological sorting,
+    // https://en.wikipedia.org/wiki/Topological_sorting#Depth-first_search
 
     std::vector<std::string> order;
     std::set<std::string> seen;
     std::set<std::string> visiting;
 
     std::function<void(const std::string &)> visit = [&](const std::string &fname) -> void {
-        if (seen.contains(fname)) return;
+        if (seen.contains(fname))
+            return;
         internal_assert(!visiting.contains(fname))
             << "Type inference found a cycle containing function: " << fname
             << "\nYou may need to specify return types on one or more functions to break the cycle";
@@ -109,12 +113,16 @@ std::vector<std::string> func_topological_order(const ir::Program &program) {
     return order;
 }
 
-ir::Stmt replace_undef_calls(const ir::Stmt &stmt, const std::map<std::string, ir::Type> &func_types) {
+ir::Stmt replace_undef_calls(const ir::Stmt &stmt,
+                             const std::map<std::string, ir::Type> &func_types) {
     struct ReplaceUndefCalls : public ir::Mutator {
-        ReplaceUndefCalls(const std::map<std::string, ir::Type> &_func_types) : func_types(_func_types) {}
-    private:
+        ReplaceUndefCalls(const std::map<std::string, ir::Type> &_func_types)
+            : func_types(_func_types) {}
+
+      private:
         const std::map<std::string, ir::Type> &func_types;
-    public:
+
+      public:
         ir::Expr visit(const ir::Var *node) override {
             // TODO: this assumes func names nver conflict with variables, which
             // should be enforced with scopes in the parser. That is not currently the case.
@@ -122,8 +130,9 @@ ir::Stmt replace_undef_calls(const ir::Stmt &stmt, const std::map<std::string, i
                 if (func_types.contains(node->name)) {
                     return ir::Var::make(func_types.at(node->name), node->name);
                 } else {
-                    // TODO: we could error here, but there might be vars that we just don't know the type of yet.
-                    // for now, leave this node, the type might be inferred later (e.g. by return coercion)
+                    // TODO: we could error here, but there might be vars that we just don't know
+                    // the type of yet. for now, leave this node, the type might be inferred later
+                    // (e.g. by return coercion)
                     return node;
                 }
             } else {
@@ -144,16 +153,20 @@ ir::Stmt set_setop_lambda_types(const ir::Stmt &stmt) {
             // TODO: could also do the reverse, of the func is labeled but the set type is unknown?
             if (node->op != ir::SetOp::product && !a.type().defined()) {
                 // Perform lambda type setting
-                internal_assert(b.type().defined() && b.type().is<ir::Set_t>()) << "Cannot set lambda type with unknown argument type: " << node;
-                internal_assert(a.is<ir::Lambda>()) << "Cannot set lambda type if operand is not a lambda: " << node;
+                internal_assert(b.type().defined() && b.type().is<ir::Set_t>())
+                    << "Cannot set lambda type with unknown argument type: " << node;
+                internal_assert(a.is<ir::Lambda>())
+                    << "Cannot set lambda type if operand is not a lambda: " << node;
                 const ir::Lambda *f = a.as<ir::Lambda>();
                 // TODO: if this were a func object, this would give us the required return type.
-                internal_assert(f->args.size() == 1) << "Expected SetOp lambda to have one argument: " << node;
+                internal_assert(f->args.size() == 1)
+                    << "Expected SetOp lambda to have one argument: " << node;
                 const std::string &var_name = f->args[0].name;
                 ir::Type var_type = b.type().element_of();
                 ir::Expr new_var = ir::Var::make(var_type, var_name);
                 ir::Expr new_lambda_expr = replace(var_name, new_var, f->value);
-                ir::Expr new_lambda = ir::Lambda::make({{var_name, std::move(var_type)}}, std::move(new_lambda_expr));
+                ir::Expr new_lambda =
+                    ir::Lambda::make({{var_name, std::move(var_type)}}, std::move(new_lambda_expr));
                 return ir::SetOp::make(node->op, new_lambda, std::move(b));
             } else if (a.same_as(node->a) && b.same_as(node->b)) {
                 return node;
@@ -170,9 +183,11 @@ ir::Stmt set_setop_lambda_types(const ir::Stmt &stmt) {
 ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
     struct CoerceReturnTypes : public ir::Mutator {
         CoerceReturnTypes(const ir::Type &_ret_type) : ret_type(_ret_type) {}
-    private:
+
+      private:
         const ir::Type &ret_type;
-    public:
+
+      public:
         ir::Stmt visit(const ir::Return *node) override {
             // TODO: may need to back-propagate information to variable declarations...
             if (!node->value.type().defined()) {
@@ -181,9 +196,12 @@ ir::Stmt coerce_return_types(const ir::Stmt &stmt, const ir::Type &ret_type) {
                     return ir::Return::make(constant_cast(ret_type, node->value));
                 } else {
                     internal_assert(node->value.is<ir::Build>())
-                        << "Cannot coerce value: " << node->value << " into return type: " << ret_type;
-                    ir::Expr new_value = ir::Build::make(ret_type, node->value.as<ir::Build>()->values);
-                    internal_assert(new_value.type().defined() && ir::equals(ret_type, new_value.type()));
+                        << "Cannot coerce value: " << node->value
+                        << " into return type: " << ret_type;
+                    ir::Expr new_value =
+                        ir::Build::make(ret_type, node->value.as<ir::Build>()->values);
+                    internal_assert(new_value.type().defined() &&
+                                    ir::equals(ret_type, new_value.type()));
                     return ir::Return::make(std::move(new_value));
                 }
             } else if (!ir::equals(node->value.type(), ret_type)) {
@@ -288,7 +306,9 @@ ir::Stmt infer_types(ir::Stmt stmt, const std::map<std::string, ir::Type> &func_
     return stmt;
 }
 
-std::shared_ptr<ir::Function> infer_types(const std::shared_ptr<ir::Function> &fnotypes, const ir::Program &program, const std::map<std::string, ir::Type> &func_types) {
+std::shared_ptr<ir::Function> infer_types(const std::shared_ptr<ir::Function> &fnotypes,
+                                          const ir::Program &program,
+                                          const std::map<std::string, ir::Type> &func_types) {
     auto ftypes = std::make_shared<ir::Function>();
     ftypes->name = fnotypes->name;
     ftypes->args = fnotypes->args;
@@ -297,18 +317,20 @@ std::shared_ptr<ir::Function> infer_types(const std::shared_ptr<ir::Function> &f
 
     // If we know the return type (due to annotations), try to coerce all returns to it.
     // If we don't know from annotations, try to infer from some return type, then coerce.
-    ftypes->ret_type = fnotypes->ret_type.defined() ? fnotypes->ret_type : ir::get_return_type(ftypes->body);
+    ftypes->ret_type =
+        fnotypes->ret_type.defined() ? fnotypes->ret_type : ir::get_return_type(ftypes->body);
     ftypes->body = coerce_return_types(ftypes->body, ftypes->ret_type);
 
     // TODO: is there more that we can do?
 
     internal_assert(!has_undef_expr_types(ftypes->body))
-        << "Type inference failed to infer all types of:\n" << fnotypes->body
-        << "\n\nInferred:\n" << ftypes->body;
+        << "Type inference failed to infer all types of:\n"
+        << fnotypes->body << "\n\nInferred:\n"
+        << ftypes->body;
     return ftypes;
 }
 
-}  // namespace
+} // namespace
 
 ir::Program infer_types(const ir::Program &program) {
     // program.dump(std::cout);
@@ -336,8 +358,9 @@ ir::Program infer_types(const ir::Program &program) {
 
     new_program.main_body = infer_types(program.main_body, func_types);
     internal_assert(!has_undef_expr_types(new_program.main_body))
-        << "Type inference failed to infer all types of main body:\n" << program.main_body
-        << "\n\nInferred:\n" << new_program.main_body;
+        << "Type inference failed to infer all types of main body:\n"
+        << program.main_body << "\n\nInferred:\n"
+        << new_program.main_body;
 
     // std::cout << "\n\nInferred types:\n";
     // new_program.dump(std::cout);
@@ -345,5 +368,5 @@ ir::Program infer_types(const ir::Program &program) {
     return new_program;
 }
 
-}  // namespace parser
-}  // namespace bonsai
+} // namespace lower
+} // namespace bonsai

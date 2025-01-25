@@ -1,7 +1,7 @@
 #include "IR/Type.h"
 
-#include <utility>
 #include <stdexcept>
+#include <utility>
 
 #include "IR/Printer.h"
 
@@ -32,38 +32,29 @@ uint32_t Type::lanes() const {
 }
 
 bool Type::is_int() const {
-    return this->is<Int_t>() ||
-           (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_int());
+    return this->is<Int_t>() || (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_int());
 }
 
-
 bool Type::is_uint() const {
-    return this->is<UInt_t>() ||
-           (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_uint());
+    return this->is<UInt_t>() || (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_uint());
 }
 
 bool Type::is_int_or_uint() const {
-    return this->is<Int_t>() ||
-           this->is<UInt_t>() ||
+    return this->is<Int_t>() || this->is<UInt_t>() ||
            (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_int_or_uint());
 }
 
 bool Type::is_float() const {
-    return this->is<Float_t>() ||
-           (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_float());
+    return this->is<Float_t>() || (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_float());
 }
 
 bool Type::is_bool() const {
-    return this->is<Bool_t>() ||
-           (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_bool());
+    return this->is<Bool_t>() || (this->is<Vector_t>() && this->as<Vector_t>()->etype.is_bool());
 }
 
 bool Type::is_scalar() const {
     // TODO: what counts as scalar?
-    return this->is<Int_t>() ||
-           this->is<UInt_t>() ||
-           this->is<Float_t>() ||
-           this->is<Bool_t>();
+    return this->is<Int_t>() || this->is<UInt_t>() || this->is<Float_t>() || this->is<Bool_t>();
 }
 
 bool Type::is_vector() const {
@@ -131,7 +122,8 @@ Type UInt_t::make(uint32_t bits) {
 }
 
 Type Float_t::make(uint32_t bits) {
-    internal_assert(bits == 16 || bits == 32 || bits == 64) << "Unsupported bitwidth in Float_t: " << bits;
+    internal_assert(bits == 16 || bits == 32 || bits == 64)
+        << "Unsupported bitwidth in Float_t: " << bits;
     Float_t *node = new Float_t;
     node->bits = bits;
     return node;
@@ -159,7 +151,8 @@ Type Vector_t::make(Type etype, uint32_t lanes) {
 
 Type Struct_t::make(std::string name, Struct_t::Map fields) {
     internal_assert(!name.empty()) << "Struct_t::make recieved undefined name";
-    internal_assert(std::all_of(fields.cbegin(), fields.cend(), [](const auto &p) { return p.second.defined(); }))
+    internal_assert(std::all_of(fields.cbegin(), fields.cend(),
+                                [](const auto &p) { return p.second.defined(); }))
         << "Struct_t::make recieved undefined field type in definition of " << name;
     Struct_t *node = new Struct_t;
     node->name = std::move(name);
@@ -169,10 +162,12 @@ Type Struct_t::make(std::string name, Struct_t::Map fields) {
 
 Type Struct_t::make(std::string name, Struct_t::Map fields, std::map<std::string, Expr> defaults) {
     internal_assert(!name.empty()) << "Struct_t::make recieved undefined name";
-    internal_assert(std::all_of(fields.cbegin(), fields.cend(), [](const auto &p) { return p.second.defined(); }))
+    internal_assert(std::all_of(fields.cbegin(), fields.cend(),
+                                [](const auto &p) { return p.second.defined(); }))
         << "Struct_t::make recieved undefined field type in definition of " << name;
-    internal_assert(std::all_of(defaults.cbegin(), defaults.cend(), [](const auto &p) { return p.second.defined() && p.second.type().defined(); }))
-        << "Struct_t::make recieved undefined default expression";
+    internal_assert(std::all_of(defaults.cbegin(), defaults.cend(), [](const auto &p) {
+        return p.second.defined() && p.second.type().defined();
+    })) << "Struct_t::make recieved undefined default expression";
     Struct_t *node = new Struct_t;
     node->name = std::move(name);
     node->fields = std::move(fields);
@@ -181,8 +176,9 @@ Type Struct_t::make(std::string name, Struct_t::Map fields, std::map<std::string
 }
 
 Type Tuple_t::make(std::vector<Type> etypes) {
-    internal_assert(std::all_of(etypes.cbegin(), etypes.cend(), [](const Type &t) { return t.defined(); }))
-        << "Tuple_t::make recieved undefined type";
+    internal_assert(std::all_of(etypes.cbegin(), etypes.cend(), [](const Type &t) {
+        return t.defined();
+    })) << "Tuple_t::make recieved undefined type";
     Tuple_t *node = new Tuple_t;
     node->etypes = std::move(etypes);
     return node;
@@ -204,8 +200,9 @@ Type Set_t::make(Type etype) {
 
 Type Function_t::make(Type ret_type, std::vector<Type> arg_types) {
     internal_assert(ret_type.defined()) << "Function_t::make received undefined ret_type";
-    internal_assert(std::all_of(arg_types.cbegin(), arg_types.cend(), [](const Type &t) { return t.defined(); }))
-        << "Function_t::make received undefined arg_type";
+    internal_assert(std::all_of(arg_types.cbegin(), arg_types.cend(), [](const Type &t) {
+        return t.defined();
+    })) << "Function_t::make received undefined arg_type";
     Function_t *node = new Function_t;
     node->ret_type = std::move(ret_type);
     node->arg_types = std::move(arg_types);
@@ -215,7 +212,7 @@ Type Function_t::make(Type ret_type, std::vector<Type> arg_types) {
 Type get_field_type(const Type &struct_type, const std::string &field) {
     if (const Struct_t *as_struct = struct_type.as<Struct_t>()) {
         Type etype;
-        for (const auto& [key, value] : as_struct->fields) {
+        for (const auto &[key, value] : as_struct->fields) {
             if (key == field) {
                 return value;
             }
@@ -225,16 +222,15 @@ Type get_field_type(const Type &struct_type, const std::string &field) {
     } else if (const Vector_t *as_vec = struct_type.as<Vector_t>()) {
         internal_assert((field == "x" && as_vec->lanes > 0) ||
                         (field == "y" && as_vec->lanes > 1) ||
-                        (field == "z" && as_vec->lanes > 2) ||
-                        (field == "w" && as_vec->lanes > 3)) << "Vector access of bad field: " << field << " of type: " << struct_type;
+                        (field == "z" && as_vec->lanes > 2) || (field == "w" && as_vec->lanes > 3))
+            << "Vector access of bad field: " << field << " of type: " << struct_type;
         return as_vec->etype;
     } else {
-        internal_error << "Failed to find field: " << field << " in non-(struct | vec) type: " << struct_type;
+        internal_error << "Failed to find field: " << field
+                       << " in non-(struct | vec) type: " << struct_type;
         return ir::Type();
     }
 }
 
-
-
-}  // namespace ir
-}  // namespace bonsai
+} // namespace ir
+} // namespace bonsai

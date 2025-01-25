@@ -21,5 +21,5 @@ bool type_enforcement_enabled() {
     return TYPE_ENFORCMENT;
 }
 
-}  // namespace ir
-}  // namespace bonsai
+} // namespace ir
+} // namespace bonsai

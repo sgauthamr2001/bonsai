@@ -20,7 +20,8 @@ void jit(const ir::Program &program, CodeGen_LLVM *gen) {
     // TODO: optimize module for JIT->getTargetTriple() ?
 
     // internal_assert(JIT->getTargetTriple().str() == _module->getTargetTriple())
-    //     << "JIT and Module have different target triples: " << JIT->getTargetTriple().str() << " versus " << _module->getTargetTriple();
+    //     << "JIT and Module have different target triples: " << JIT->getTargetTriple().str() << "
+    //     versus " << _module->getTargetTriple();
 
     llvm::orc::ThreadSafeModule tsm(std::move(_module), std::move(_context));
     auto err = JIT->addIRModule(std::move(tsm));
@@ -28,7 +29,8 @@ void jit(const ir::Program &program, CodeGen_LLVM *gen) {
 
     auto mainFunc = JIT->lookup("main");
     if (!mainFunc) {
-        internal_error << "No main() function found, with error: " << llvm::toString(mainFunc.takeError());
+        internal_error << "No main() function found, with error: "
+                       << llvm::toString(mainFunc.takeError());
     }
 
     internal_assert(!mainFunc->isNull());
@@ -39,5 +41,5 @@ void jit(const ir::Program &program, CodeGen_LLVM *gen) {
     Main();
 }
 
-}  // namespace codegen
-}  // namespace bonsai
+} // namespace codegen
+} // namespace bonsai

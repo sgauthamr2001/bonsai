@@ -1,7 +1,7 @@
 #include "Utils.h"
 
-#include "IR/Printer.h"
 #include "IR/Equality.h"
+#include "IR/Printer.h"
 
 namespace bonsai {
 
@@ -47,10 +47,7 @@ bool is_const(const Expr &e) {
     } else if (const Build *b = e.as<Build>()) {
         return b->values.empty(); // default is constant!
     } else {
-        return e.is<IntImm>() ||
-               e.is<UIntImm>() ||
-               e.is<FloatImm>() ||
-               e.is<BoolImm>();
+        return e.is<IntImm>() || e.is<UIntImm>() || e.is<FloatImm>() || e.is<BoolImm>();
     }
 }
 
@@ -63,7 +60,8 @@ Expr make_one(const Type &t) {
 }
 
 Expr constant_cast(const Type &t, const Expr &e) {
-    internal_assert(t.defined() && e.defined()) << "received bad type conversion:" << e << " to " << t;
+    internal_assert(t.defined() && e.defined())
+        << "received bad type conversion:" << e << " to " << t;
     internal_assert(is_const(e)) << "expected constant, instead received: " << e;
     // TODO: can we have non-scalar constants? parser doesn't support that yet, but it should!
     // not sure how to assert that, since e shouldn't have a type right now.
@@ -108,17 +106,19 @@ Expr replace(const std::string &var_name, Expr repl, const Expr &orig) {
     struct Replacer : public Mutator {
         Replacer(const std::string &_var_name, Expr _repl)
             : var_name(_var_name), repl(std::move(_repl)) {}
-        private:
-            const std::string &var_name;
-            Expr repl;
-        public:
-            Expr visit(const Var *node) override {
-                if (node->name == var_name) {
-                    return repl;
-                } else {
-                    return node;
-                }
+
+      private:
+        const std::string &var_name;
+        Expr repl;
+
+      public:
+        Expr visit(const Var *node) override {
+            if (node->name == var_name) {
+                return repl;
+            } else {
+                return node;
             }
+        }
     };
 
     Replacer replacer(var_name, std::move(repl));
@@ -152,25 +152,26 @@ uint32_t vector_field_lane(const std::string &field) {
         return 2;
     } else if (field == "w") {
         return 3;
-    } 
+    }
     internal_error << "Cannot get lane for vector field: " << field;
     return -1;
 }
 
 double machine_epsilon(const Type &t) {
-    internal_assert(t.is_float()) << "eps takes only floating point template types, instead received: " << t;
+    internal_assert(t.is_float())
+        << "eps takes only floating point template types, instead received: " << t;
     switch (t.bits()) {
-        case 32: {
-            return std::numeric_limits<float>::epsilon() * 0.5;
-        }
-        case 64: {
-            return std::numeric_limits<double>::epsilon() * 0.5;
-        }
-        default: {
-            internal_error << "machine_epsilon() not supported for type: " << t;
-            return 0.0;
-        }
+    case 32: {
+        return std::numeric_limits<float>::epsilon() * 0.5;
+    }
+    case 64: {
+        return std::numeric_limits<double>::epsilon() * 0.5;
+    }
+    default: {
+        internal_error << "machine_epsilon() not supported for type: " << t;
+        return 0.0;
+    }
     }
 }
 
-}  // namespace bonsai
+} // namespace bonsai

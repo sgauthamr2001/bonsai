@@ -63,7 +63,9 @@ struct RewriteOptions : public ir::Mutator {
                 static const std::vector<ir::Expr> empty = {};
                 return ir::Build::make(std::move(new_type), empty);
             } else {
-                internal_assert(node->values.size() == 1) << "Error in lowering build of Option_t, expected one argument by received: " << node->values.size();
+                internal_assert(node->values.size() == 1)
+                    << "Error in lowering build of Option_t, expected one argument by received: "
+                    << node->values.size();
                 std::vector<ir::Expr> args = {node->values[0], ir::BoolImm::make(true)};
                 return ir::Build::make(std::move(new_type), std::move(args));
             }
@@ -86,7 +88,8 @@ struct RewriteOptions : public ir::Mutator {
         } else if (node->value.type().is<ir::Option_t>()) {
             ir::Expr deref = ir::Access::make("value", _node->value);
             internal_assert(ir::equals(_node->type, deref.type()))
-                << "Lowering of option access: " << node->value << " resulted in: " << _node->value << " which does not match cast type: " << deref.type();
+                << "Lowering of option access: " << node->value << " resulted in: " << _node->value
+                << " which does not match cast type: " << deref.type();
             return deref;
         } else {
             return expr;
@@ -122,7 +125,7 @@ bool contains_option(const ir::Type &type) {
     return true;
 }
 
-}  // namespace
+} // namespace
 
 ir::Program lower_option(const ir::Program &program) {
     ir::Program new_program;
@@ -142,17 +145,19 @@ ir::Program lower_option(const ir::Program &program) {
         std::vector<ir::Function::Argument> args(func->args.size());
         for (size_t i = 0; i < args.size(); i++) {
             const auto &arg = func->args[i];
-            args[i] = ir::Function::Argument{arg.name, lower_option(arg.type), lower_option(arg.default_value)};
+            args[i] = ir::Function::Argument{arg.name, lower_option(arg.type),
+                                             lower_option(arg.default_value)};
         }
         ir::Type ret_type = lower_option(func->ret_type);
         ir::Stmt body = lower_option(func->body);
 
-        new_program.funcs[f] = std::make_shared<ir::Function>(func->name, std::move(args), std::move(ret_type), std::move(body));
+        new_program.funcs[f] = std::make_shared<ir::Function>(func->name, std::move(args),
+                                                              std::move(ret_type), std::move(body));
     }
 
     new_program.main_body = lower_option(program.main_body);
     return new_program;
 }
 
-}  // namespace parser
-}  // namespace bonsai
+} // namespace lower
+} // namespace bonsai

@@ -18,14 +18,13 @@ namespace bonsai {
 
 /** A stack which can store one item very efficiently. Using this
  * instead of std::stack speeds up Scope substantially. */
-template<typename T>
-class SmallStack {
-private:
+template <typename T> class SmallStack {
+  private:
     T _top;
     std::vector<T> _rest;
     bool _empty = true;
 
-public:
+  public:
     SmallStack() = default;
 
     void pop() {
@@ -46,56 +45,38 @@ public:
         _empty = false;
     }
 
-    T top() const {
-        return _top;
-    }
+    T top() const { return _top; }
 
-    T &top_ref() {
-        return _top;
-    }
+    T &top_ref() { return _top; }
 
-    const T &top_ref() const {
-        return _top;
-    }
+    const T &top_ref() const { return _top; }
 
-    bool empty() const {
-        return _empty;
-    }
+    bool empty() const { return _empty; }
 
-    size_t size() const {
-        return _empty ? 0 : (_rest.size() + 1);
-    }
+    size_t size() const { return _empty ? 0 : (_rest.size() + 1); }
 };
 
-template<>
-class SmallStack<void> {
+template <> class SmallStack<void> {
     // A stack of voids. Voids are all the same, so just record how many voids are in the stack
     int counter = 0;
 
-public:
-    void pop() {
-        counter--;
-    }
-    void push() {
-        counter++;
-    }
-    bool empty() const {
-        return counter == 0;
-    }
+  public:
+    void pop() { counter--; }
+    void push() { counter++; }
+    bool empty() const { return counter == 0; }
 };
 
 /** A common pattern when traversing Halide IR is that you need to
  * keep track of stuff when you find a Let or a LetStmt, and that it
  * should hide previous values with the same name until you leave the
  * Let or LetStmt nodes This class helps with that. */
-template<typename T = void>
-class Scope {
-private:
+template <typename T = void> class Scope {
+  private:
     std::map<std::string, SmallStack<T>> table;
 
     const Scope<T> *containing_scope = nullptr;
 
-public:
+  public:
     Scope() = default;
     Scope(Scope &&that) noexcept = default;
     Scope &operator=(Scope &&that) noexcept = default;
@@ -108,9 +89,7 @@ public:
     /** Set the parent scope. If lookups fail in this scope, they
      * check the containing scope before returning an error. Caller is
      * responsible for managing the memory of the containing scope. */
-    void set_containing_scope(const Scope<T> *s) {
-        containing_scope = s;
-    }
+    void set_containing_scope(const Scope<T> *s) { containing_scope = s; }
 
     /** A const ref to an empty scope. Useful for default function
      * arguments, which would otherwise require a copy constructor
@@ -121,29 +100,27 @@ public:
     }
 
     /** Retrieve the value referred to by a name */
-    template<typename T2 = T,
-             typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
+    template <typename T2 = T,
+              typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
     T2 get(const std::string &name) const {
         typename std::map<std::string, SmallStack<T>>::const_iterator iter = table.find(name);
         if (iter == table.end() || iter->second.empty()) {
             if (containing_scope) {
                 return containing_scope->get(name);
             } else {
-                internal_error << "Name not in Scope: " << name << "\n"
-                               << *this << "\n";
+                internal_error << "Name not in Scope: " << name << "\n" << *this << "\n";
             }
         }
         return iter->second.top();
     }
 
     /** Return a reference to an entry. Does not consider the containing scope. */
-    template<typename T2 = T,
-             typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
+    template <typename T2 = T,
+              typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
     T2 &ref(const std::string &name) {
         typename std::map<std::string, SmallStack<T>>::iterator iter = table.find(name);
         if (iter == table.end() || iter->second.empty()) {
-            internal_error << "Name not in Scope: " << name << "\n"
-                           << *this << "\n";
+            internal_error << "Name not in Scope: " << name << "\n" << *this << "\n";
         }
         return iter->second.top_ref();
     }
@@ -174,14 +151,14 @@ public:
     /** Add a new (name, value) pair to the current scope. Hide old
      * values that have this name until we pop this name.
      */
-    template<typename T2 = T,
-             typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
+    template <typename T2 = T,
+              typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
     void push(const std::string &name, T2 &&value) {
         table[name].push(std::forward<T2>(value));
     }
 
-    template<typename T2 = T,
-             typename = typename std::enable_if<std::is_same<T2, void>::value>::type>
+    template <typename T2 = T,
+              typename = typename std::enable_if<std::is_same<T2, void>::value>::type>
     void push(const std::string &name) {
         table[name].push();
     }
@@ -203,43 +180,31 @@ public:
     class const_iterator {
         typename std::map<std::string, SmallStack<T>>::const_iterator iter;
 
-    public:
-        explicit const_iterator(const typename std::map<std::string, SmallStack<T>>::const_iterator &i)
-            : iter(i) {
-        }
+      public:
+        explicit const_iterator(
+            const typename std::map<std::string, SmallStack<T>>::const_iterator &i)
+            : iter(i) {}
 
         const_iterator() = default;
 
-        bool operator!=(const const_iterator &other) {
-            return iter != other.iter;
-        }
+        bool operator!=(const const_iterator &other) { return iter != other.iter; }
 
-        void operator++() {
-            ++iter;
-        }
+        void operator++() { ++iter; }
 
-        const std::string &name() {
-            return iter->first;
-        }
+        const std::string &name() { return iter->first; }
 
-        const SmallStack<T> &stack() {
-            return iter->second;
-        }
+        const SmallStack<T> &stack() { return iter->second; }
 
-        template<typename T2 = T,
-                 typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
+        template <typename T2 = T,
+                  typename = typename std::enable_if<!std::is_same<T2, void>::value>::type>
         const T2 &value() {
             return iter->second.top_ref();
         }
     };
 
-    const_iterator cbegin() const {
-        return const_iterator(table.begin());
-    }
+    const_iterator cbegin() const { return const_iterator(table.begin()); }
 
-    const_iterator cend() const {
-        return const_iterator(table.end());
-    }
+    const_iterator cend() const { return const_iterator(table.end()); }
 
     void swap(Scope<T> &other) {
         table.swap(other.table);
@@ -247,8 +212,7 @@ public:
     }
 };
 
-template<typename T>
-std::ostream &operator<<(std::ostream &stream, const Scope<T> &s) {
+template <typename T> std::ostream &operator<<(std::ostream &stream, const Scope<T> &s) {
     stream << "{\n";
     typename Scope<T>::const_iterator iter;
     for (iter = s.cbegin(); iter != s.cend(); ++iter) {
@@ -266,15 +230,13 @@ std::ostream &operator<<(std::ostream &stream, const Scope<T> &s) {
  * - the lifetime of this helper object
  * The "Scoped" in this class name refers to the latter, as it temporarily binds
  * a name within the scope of this helper's lifetime. */
-template<typename T = void>
-struct ScopedBinding {
+template <typename T = void> struct ScopedBinding {
     Scope<T> *scope = nullptr;
     std::string name;
 
     ScopedBinding() = default;
 
-    ScopedBinding(Scope<T> &s, const std::string &n, T value)
-        : scope(&s), name(n) {
+    ScopedBinding(Scope<T> &s, const std::string &n, T value) : scope(&s), name(n) {
         scope->push(name, std::move(value));
     }
 
@@ -285,9 +247,7 @@ struct ScopedBinding {
         }
     }
 
-    bool bound() const {
-        return scope != nullptr;
-    }
+    bool bound() const { return scope != nullptr; }
 
     ~ScopedBinding() {
         if (scope) {
@@ -297,9 +257,7 @@ struct ScopedBinding {
 
     // allow move but not copy
     ScopedBinding(const ScopedBinding &that) = delete;
-    ScopedBinding(ScopedBinding &&that) noexcept
-        : scope(that.scope),
-          name(std::move(that.name)) {
+    ScopedBinding(ScopedBinding &&that) noexcept : scope(that.scope), name(std::move(that.name)) {
         // The move constructor must null out scope, so we don't try to pop it
         that.scope = nullptr;
     }
@@ -308,14 +266,10 @@ struct ScopedBinding {
     void operator=(ScopedBinding &&that) = delete;
 };
 
-template<>
-struct ScopedBinding<void> {
+template <> struct ScopedBinding<void> {
     Scope<> *scope;
     std::string name;
-    ScopedBinding(Scope<> &s, const std::string &n)
-        : scope(&s), name(n) {
-        scope->push(name);
-    }
+    ScopedBinding(Scope<> &s, const std::string &n) : scope(&s), name(n) { scope->push(name); }
     ScopedBinding(bool condition, Scope<> &s, const std::string &n)
         : scope(condition ? &s : nullptr), name(n) {
         if (condition) {
@@ -330,9 +284,7 @@ struct ScopedBinding<void> {
 
     // allow move but not copy
     ScopedBinding(const ScopedBinding &that) = delete;
-    ScopedBinding(ScopedBinding &&that) noexcept
-        : scope(that.scope),
-          name(std::move(that.name)) {
+    ScopedBinding(ScopedBinding &&that) noexcept : scope(that.scope), name(std::move(that.name)) {
         // The move constructor must null out scope, so we don't try to pop it
         that.scope = nullptr;
     }
@@ -343,28 +295,18 @@ struct ScopedBinding<void> {
 
 /** Helper class for saving/restoring variable values on the stack, to allow
  * for early-exit that preserves correctness */
-template<typename T>
-struct ScopedValue {
+template <typename T> struct ScopedValue {
     T &var;
     T old_value;
     /** Preserve the old value, restored at dtor time */
-    ScopedValue(T &var)
-        : var(var), old_value(var) {
-    }
+    ScopedValue(T &var) : var(var), old_value(var) {}
     /** Preserve the old value, then set the var to a new value. */
-    ScopedValue(T &var, T new_value)
-        : var(var), old_value(var) {
-        var = new_value;
-    }
-    ~ScopedValue() {
-        var = old_value;
-    }
-    operator T() const {
-        return old_value;
-    }
+    ScopedValue(T &var, T new_value) : var(var), old_value(var) { var = new_value; }
+    ~ScopedValue() { var = old_value; }
+    operator T() const { return old_value; }
     // allow move but not copy
     ScopedValue(const ScopedValue &that) = delete;
     ScopedValue(ScopedValue &&that) noexcept = default;
 };
 
-}  // namespace bonsai
+} // namespace bonsai

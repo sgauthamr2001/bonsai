@@ -2,14 +2,14 @@
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
-#include <llvm/TargetParser/Triple.h>
-#include <llvm/TargetParser/Host.h>
 #include <llvm/MC/TargetRegistry.h>
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
-#include <llvm/Passes/PassBuilder.h>
+#include <llvm/TargetParser/Host.h>
+#include <llvm/TargetParser/Triple.h>
 // #include <llvm/Passes/PassManager.h>
 #include <llvm/IR/LegacyPassManager.h>
 
@@ -22,7 +22,8 @@ namespace codegen {
 
 namespace {
 
-void emit_file(std::unique_ptr<llvm::Module> _module, std::unique_ptr<llvm::raw_fd_ostream> &out, llvm::CodeGenFileType file_type) {
+void emit_file(std::unique_ptr<llvm::Module> _module, std::unique_ptr<llvm::raw_fd_ostream> &out,
+               llvm::CodeGenFileType file_type) {
     std::string target_triple = llvm::sys::getDefaultTargetTriple();
     _module->setTargetTriple(target_triple);
 
@@ -32,7 +33,7 @@ void emit_file(std::unique_ptr<llvm::Module> _module, std::unique_ptr<llvm::raw_
         internal_error << "Error: " << Error;
     }
 
-        // Create the target machine
+    // Create the target machine
     llvm::TargetOptions Opts;
     llvm::TargetMachine *target_machine = target->createTargetMachine(
         target_triple, "generic", "", Opts, std::optional<llvm::Reloc::Model>());
@@ -59,7 +60,8 @@ void emit_file(std::unique_ptr<llvm::Module> _module, std::unique_ptr<llvm::raw_
     // https://groups.google.com/g/llvm-dev/c/HoS07gXx0p8
     llvm::legacy::PassManager pass_manager;
 
-    pass_manager.add(new llvm::TargetLibraryInfoWrapperPass(llvm::Triple(_module->getTargetTriple())));
+    pass_manager.add(
+        new llvm::TargetLibraryInfoWrapperPass(llvm::Triple(_module->getTargetTriple())));
 
     // Make sure things marked as always-inline get inlined
     pass_manager.add(llvm::createAlwaysInlinerLegacyPass());
@@ -77,7 +79,7 @@ void emit_file(std::unique_ptr<llvm::Module> _module, std::unique_ptr<llvm::raw_
     pass_manager.run(*_module);
 }
 
-}
+} // namespace
 
 void to_asm(const std::string &filename, const ir::Program &program, CodeGen_LLVM *gen) {
     auto _module = gen->compile_program(program);
@@ -87,5 +89,5 @@ void to_asm(const std::string &filename, const ir::Program &program, CodeGen_LLV
     emit_file(std::move(_module), out, llvm::CodeGenFileType::AssemblyFile);
 }
 
-}  // namespace codegen
-}  // namespace bonsai
+} // namespace codegen
+} // namespace bonsai

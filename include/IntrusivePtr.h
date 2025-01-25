@@ -22,9 +22,8 @@ namespace bonsai {
  * raw pointers to concrete IRNodes and Expr's interchangeably, this
  * is a useful property.
  */
-template<typename T>
-struct IntrusivePtr {
-private:
+template <typename T> struct IntrusivePtr {
+  private:
     void incref(T *p) {
         if (p) {
             ref_count(p).increment();
@@ -45,48 +44,31 @@ private:
         }
     }
 
-protected:
+  protected:
     T *ptr = nullptr;
 
-public:
+  public:
     /** Access the raw pointer in a variety of ways.
      * Note that a "const IntrusivePtr<T>" is not the same thing as an
      * IntrusivePtr<const T>. So the methods that return the ptr are
      * const, despite not adding an extra const to T. */
     // @{
-    T *get() const {
-        return ptr;
-    }
+    T *get() const { return ptr; }
 
-    T &operator*() const {
-        return *ptr;
-    }
+    T &operator*() const { return *ptr; }
 
-    T *operator->() const {
-        return ptr;
-    }
+    T *operator->() const { return ptr; }
     // @}
 
-    ~IntrusivePtr() {
-        decref(ptr);
-    }
+    ~IntrusivePtr() { decref(ptr); }
 
     IntrusivePtr() = default;
 
-    IntrusivePtr(T *p)
-        : ptr(p) {
-        incref(ptr);
-    }
+    IntrusivePtr(T *p) : ptr(p) { incref(ptr); }
 
-    IntrusivePtr(const IntrusivePtr<T> &other) noexcept
-        : ptr(other.ptr) {
-        incref(ptr);
-    }
+    IntrusivePtr(const IntrusivePtr<T> &other) noexcept : ptr(other.ptr) { incref(ptr); }
 
-    IntrusivePtr(IntrusivePtr<T> &&other) noexcept
-        : ptr(other.ptr) {
-        other.ptr = nullptr;
-    }
+    IntrusivePtr(IntrusivePtr<T> &&other) noexcept : ptr(other.ptr) { other.ptr = nullptr; }
 
     IntrusivePtr<T> &operator=(const IntrusivePtr<T> &other) {
         // Same-ptr but different-this happens frequently enough
@@ -110,20 +92,13 @@ public:
     }
 
     /* Handles can be null. This checks that. */
-    bool defined() const {
-        return ptr != nullptr;
-    }
+    bool defined() const { return ptr != nullptr; }
 
     /* Check if two handles point to the same ptr. This is
      * equality of reference, not equality of value. */
-    bool same_as(const IntrusivePtr &other) const {
-        return ptr == other.ptr;
-    }
+    bool same_as(const IntrusivePtr &other) const { return ptr == other.ptr; }
 
-    bool operator<(const IntrusivePtr<T> &other) const {
-        return ptr < other.ptr;
-    }
+    bool operator<(const IntrusivePtr<T> &other) const { return ptr < other.ptr; }
 };
 
-}  // namespace bonsai
-
+} // namespace bonsai

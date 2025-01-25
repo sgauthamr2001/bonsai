@@ -8,5 +8,5 @@ namespace codegen {
 
 void to_asm(const std::string &filename, const ir::Program &program, CodeGen_LLVM *gen);
 
-}  // namespace codegen
-}  // namespace bonsai
+} // namespace codegen
+} // namespace bonsai

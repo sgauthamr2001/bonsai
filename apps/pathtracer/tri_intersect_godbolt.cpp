@@ -6,8 +6,8 @@
 #include <optional>
 
 typedef float Float;
-#define PBRT_CPU_GPU 
-#define DCHECK(...) 
+#define PBRT_CPU_GPU
+#define DCHECK(...)
 
 struct TriangleIntersection {
     Float b0, b1, b2;
@@ -15,16 +15,11 @@ struct TriangleIntersection {
     // std::string ToString() const;
 };
 
-template <typename T>
-class Vector2;
-template <typename T>
-class Vector3;
-template <typename T>
-class Point3;
-template <typename T>
-class Point2;
-template <typename T>
-class Normal3;
+template <typename T> class Vector2;
+template <typename T> class Vector3;
+template <typename T> class Point3;
+template <typename T> class Point2;
+template <typename T> class Normal3;
 using Point2f = Point2<Float>;
 using Point2i = Point2<int>;
 using Point3f = Point3<Float>;
@@ -33,8 +28,7 @@ using Vector2i = Vector2<int>;
 using Vector3f = Vector3<Float>;
 
 template <typename T>
-inline PBRT_CPU_GPU typename std::enable_if_t<std::is_floating_point_v<T>, bool> IsNaN(
-    T v) {
+inline PBRT_CPU_GPU typename std::enable_if_t<std::is_floating_point_v<T>, bool> IsNaN(T v) {
 #ifdef PBRT_IS_GPU_CODE
     return isnan(v);
 #else
@@ -42,8 +36,7 @@ inline PBRT_CPU_GPU typename std::enable_if_t<std::is_floating_point_v<T>, bool>
 #endif
 }
 
-template <template <typename> class Child, typename T>
-class Tuple3 {
+template <template <typename> class Child, typename T> class Tuple3 {
   public:
     // Tuple3 Public Methods
     Tuple3() = default;
@@ -102,8 +95,7 @@ class Tuple3 {
     }
 #endif
 
-    template <typename U>
-    PBRT_CPU_GPU Child<T> &operator+=(Child<U> c) {
+    template <typename U> PBRT_CPU_GPU Child<T> &operator+=(Child<U> c) {
         DCHECK(!c.HasNaN());
         x += c.x;
         y += c.y;
@@ -116,8 +108,7 @@ class Tuple3 {
         DCHECK(!c.HasNaN());
         return {x - c.x, y - c.y, z - c.z};
     }
-    template <typename U>
-    PBRT_CPU_GPU Child<T> &operator-=(Child<U> c) {
+    template <typename U> PBRT_CPU_GPU Child<T> &operator-=(Child<U> c) {
         DCHECK(!c.HasNaN());
         x -= c.x;
         y -= c.y;
@@ -130,12 +121,10 @@ class Tuple3 {
     PBRT_CPU_GPU
     bool operator!=(Child<T> c) const { return x != c.x || y != c.y || z != c.z; }
 
-    template <typename U>
-    PBRT_CPU_GPU auto operator*(U s) const -> Child<decltype(T{} * U{})> {
+    template <typename U> PBRT_CPU_GPU auto operator*(U s) const -> Child<decltype(T{} * U{})> {
         return {s * x, s * y, s * z};
     }
-    template <typename U>
-    PBRT_CPU_GPU Child<T> &operator*=(U s) {
+    template <typename U> PBRT_CPU_GPU Child<T> &operator*=(U s) {
         DCHECK(!IsNaN(s));
         x *= s;
         y *= s;
@@ -143,13 +132,11 @@ class Tuple3 {
         return static_cast<Child<T> &>(*this);
     }
 
-    template <typename U>
-    PBRT_CPU_GPU auto operator/(U d) const -> Child<decltype(T{} / U{})> {
+    template <typename U> PBRT_CPU_GPU auto operator/(U d) const -> Child<decltype(T{} / U{})> {
         DCHECK_NE(d, 0);
         return {x / d, y / d, z / d};
     }
-    template <typename U>
-    PBRT_CPU_GPU Child<T> &operator/=(U d) {
+    template <typename U> PBRT_CPU_GPU Child<T> &operator/=(U d) {
         DCHECK_NE(d, 0);
         x /= d;
         y /= d;
@@ -165,8 +152,7 @@ class Tuple3 {
     T x{}, y{}, z{};
 };
 
-template <typename T>
-class Point3 : public Tuple3<Point3, T> {
+template <typename T> class Point3 : public Tuple3<Point3, T> {
   public:
     // Point3 Public Methods
     using Tuple3<Point3, T>::x;
@@ -189,19 +175,16 @@ class Point3 : public Tuple3<Point3, T> {
     Point3<T> operator-() const { return {-x, -y, -z}; }
 
     template <typename U>
-    PBRT_CPU_GPU explicit Point3(Point3<U> p)
-        : Tuple3<Point3, T>(T(p.x), T(p.y), T(p.z)) {}
+    PBRT_CPU_GPU explicit Point3(Point3<U> p) : Tuple3<Point3, T>(T(p.x), T(p.y), T(p.z)) {}
     template <typename U>
-    PBRT_CPU_GPU explicit Point3(Vector3<U> v)
-        : Tuple3<Point3, T>(T(v.x), T(v.y), T(v.z)) {}
+    PBRT_CPU_GPU explicit Point3(Vector3<U> v) : Tuple3<Point3, T>(T(v.x), T(v.y), T(v.z)) {}
 
     template <typename U>
     PBRT_CPU_GPU auto operator+(Vector3<U> v) const -> Point3<decltype(T{} + U{})> {
         DCHECK(!v.HasNaN());
         return {x + v.x, y + v.y, z + v.z};
     }
-    template <typename U>
-    PBRT_CPU_GPU Point3<T> &operator+=(Vector3<U> v) {
+    template <typename U> PBRT_CPU_GPU Point3<T> &operator+=(Vector3<U> v) {
         DCHECK(!v.HasNaN());
         x += v.x;
         y += v.y;
@@ -214,8 +197,7 @@ class Point3 : public Tuple3<Point3, T> {
         DCHECK(!v.HasNaN());
         return {x - v.x, y - v.y, z - v.z};
     }
-    template <typename U>
-    PBRT_CPU_GPU Point3<T> &operator-=(Vector3<U> v) {
+    template <typename U> PBRT_CPU_GPU Point3<T> &operator-=(Vector3<U> v) {
         DCHECK(!v.HasNaN());
         x -= v.x;
         y -= v.y;
@@ -230,8 +212,7 @@ class Point3 : public Tuple3<Point3, T> {
     }
 };
 
-template <typename T>
-class Vector3 : public Tuple3<Vector3, T> {
+template <typename T> class Vector3 : public Tuple3<Vector3, T> {
   public:
     // Vector3 Public Methods
     using Tuple3<Vector3, T>::x;
@@ -243,11 +224,9 @@ class Vector3 : public Tuple3<Vector3, T> {
     Vector3(T x, T y, T z) : Tuple3<Vector3, T>(x, y, z) {}
 
     template <typename U>
-    PBRT_CPU_GPU explicit Vector3(Vector3<U> v)
-        : Tuple3<Vector3, T>(T(v.x), T(v.y), T(v.z)) {}
+    PBRT_CPU_GPU explicit Vector3(Vector3<U> v) : Tuple3<Vector3, T>(T(v.x), T(v.y), T(v.z)) {}
 
-    template <typename U>
-    PBRT_CPU_GPU explicit Vector3(Point3<U> p);
+    template <typename U> PBRT_CPU_GPU explicit Vector3(Point3<U> p);
     // template <typename U>
     // PBRT_CPU_GPU explicit Vector3(Normal3<U> n);
 };
@@ -256,10 +235,6 @@ class Vector3 : public Tuple3<Vector3, T> {
 template <typename T>
 template <typename U>
 Vector3<T>::Vector3(Point3<U> p) : Tuple3<Vector3, T>(T(p.x), T(p.y), T(p.z)) {}
-
-
-
-
 
 class Ray {
   public:
@@ -274,8 +249,7 @@ class Ray {
 
     Ray() = default;
     // PBRT_CPU_GPU
-    Ray(Point3f o, Vector3f d, Float time = 0.f)
-        : o(o), d(d), time(time) {}
+    Ray(Point3f o, Vector3f d, Float time = 0.f) : o(o), d(d), time(time) {}
 
     // Ray Public Members
     Point3f o;
@@ -288,7 +262,6 @@ PBRT_CPU_GPU inline float FMA(float a, float b, float c) {
     return std::fma(a, b, c);
 }
 
-
 template <typename Ta, typename Tb, typename Tc, typename Td>
 PBRT_CPU_GPU inline auto DifferenceOfProducts(Ta a, Tb b, Tc c, Td d) {
     auto cd = c * d;
@@ -297,26 +270,21 @@ PBRT_CPU_GPU inline auto DifferenceOfProducts(Ta a, Tb b, Tc c, Td d) {
     return differenceOfProducts + error;
 }
 
-template <typename T>
-PBRT_CPU_GPU inline Vector3<T> Cross(Vector3<T> v, Vector3<T> w) {
+template <typename T> PBRT_CPU_GPU inline Vector3<T> Cross(Vector3<T> v, Vector3<T> w) {
     DCHECK(!v.HasNaN() && !w.HasNaN());
-    return {DifferenceOfProducts(v.y, w.z, v.z, w.y),
-            DifferenceOfProducts(v.z, w.x, v.x, w.z),
+    return {DifferenceOfProducts(v.y, w.z, v.z, w.y), DifferenceOfProducts(v.z, w.x, v.x, w.z),
             DifferenceOfProducts(v.x, w.y, v.y, w.x)};
 }
 
-template <typename T>
-PBRT_CPU_GPU inline constexpr T Sqr(T v) {
+template <typename T> PBRT_CPU_GPU inline constexpr T Sqr(T v) {
     return v * v;
 }
 
-template <typename T>
-PBRT_CPU_GPU inline T LengthSquared(Vector3<T> v) {
+template <typename T> PBRT_CPU_GPU inline T LengthSquared(Vector3<T> v) {
     return Sqr(v.x) + Sqr(v.y) + Sqr(v.z);
 }
 
-template <template <class> class C, typename T>
-PBRT_CPU_GPU inline C<T> Abs(Tuple3<C, T> t) {
+template <template <class> class C, typename T> PBRT_CPU_GPU inline C<T> Abs(Tuple3<C, T> t) {
     using std::abs;
     return {abs(t.x), abs(t.y), abs(t.z)};
 }
@@ -342,9 +310,8 @@ inline constexpr Float gamma(int n) {
     return (n * MachineEpsilon) / (1 - n * MachineEpsilon);
 }
 
-std::optional<TriangleIntersection> IntersectTriangle(const Ray &ray, Float tMax,
-                                                       Point3f p0, Point3f p1,
-                                                       Point3f p2) {
+std::optional<TriangleIntersection> IntersectTriangle(const Ray &ray, Float tMax, Point3f p0,
+                                                      Point3f p1, Point3f p2) {
     // Return no intersection if triangle is degenerate
     if (LengthSquared(Cross(p2 - p0, p1 - p0)) == 0)
         return {};

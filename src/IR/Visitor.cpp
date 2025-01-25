@@ -9,9 +9,8 @@ namespace ir {
 
 namespace {
 
-template<typename T>
-void visit_list(Visitor *v, const std::vector<T> nodes) {
-    for (const auto& node : nodes) {
+template <typename T> void visit_list(Visitor *v, const std::vector<T> nodes) {
+    for (const auto &node : nodes) {
         node.accept(v);
     }
 }
@@ -30,19 +29,15 @@ void visit_writeloc(Visitor *v, const WriteLoc &loc) {
         }
     }
 }
-}
+} // namespace
 
-void Visitor::visit(const Int_t *) {
-}
+void Visitor::visit(const Int_t *) {}
 
-void Visitor::visit(const UInt_t *) {
-}
+void Visitor::visit(const UInt_t *) {}
 
-void Visitor::visit(const Float_t *) {
-}
+void Visitor::visit(const Float_t *) {}
 
-void Visitor::visit(const Bool_t *) {
-}
+void Visitor::visit(const Bool_t *) {}
 
 void Visitor::visit(const Ptr_t *node) {
     node->etype.accept(this);
@@ -53,7 +48,7 @@ void Visitor::visit(const Vector_t *node) {
 }
 
 void Visitor::visit(const Struct_t *node) {
-    for (const auto& [_, value] : node->fields) {
+    for (const auto &[_, value] : node->fields) {
         value.accept(this);
     }
 }
@@ -75,21 +70,15 @@ void Visitor::visit(const Function_t *node) {
     visit_list(this, node->arg_types);
 }
 
+void Visitor::visit(const IntImm *) {}
 
-void Visitor::visit(const IntImm *) {
-}
+void Visitor::visit(const UIntImm *) {}
 
-void Visitor::visit(const UIntImm *) {
-}
+void Visitor::visit(const FloatImm *) {}
 
-void Visitor::visit(const FloatImm *) {
-}
+void Visitor::visit(const BoolImm *) {}
 
-void Visitor::visit(const BoolImm *) {
-}
-
-void Visitor::visit(const Var *) {
-}
+void Visitor::visit(const Var *) {}
 
 void Visitor::visit(const BinOp *node) {
     node->a.accept(this);
@@ -208,5 +197,5 @@ void Visitor::visit(const Accumulate *node) {
     // node->body.accept(this);
 }
 
-}  // namespace ir
-}  // namespace bonsai
+} // namespace ir
+} // namespace bonsai

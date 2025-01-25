@@ -23,15 +23,14 @@
 #include <llvm/Transforms/Scalar/Reassociate.h>
 #include <llvm/Transforms/Scalar/SimplifyCFG.h>
 
-
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
-#include <llvm/TargetParser/Triple.h>
 #include <llvm/TargetParser/Host.h>
+#include <llvm/TargetParser/Triple.h>
 
 #include <llvm/Support/CodeGen.h>
-#include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include "IR/Analysis.h"
 #include "IR/Expr.h"
@@ -44,7 +43,6 @@
 #include "Utils.h"
 
 #include <sstream>
-
 
 namespace bonsai {
 
@@ -59,26 +57,25 @@ CodeGen_LLVM::CodeGen_LLVM() {
 void CodeGen_LLVM::init_llvm() {
     static std::once_flag init_llvm_once;
     std::call_once(init_llvm_once, []() {
-
         llvm::InitializeNativeTarget();
         llvm::InitializeNativeTargetAsmPrinter();
         llvm::InitializeNativeTargetAsmParser();
 
-    // TODO: allow these.
-// #define LLVM_TARGET(target) \
+        // TODO: allow these.
+        // #define LLVM_TARGET(target) \
 //     Initialize##target##Target();
-// #include <llvm/Config/Targets.def>
-// #undef LLVM_TARGET
+        // #include <llvm/Config/Targets.def>
+        // #undef LLVM_TARGET
 
-// #define LLVM_ASM_PARSER(target) \
+        // #define LLVM_ASM_PARSER(target) \
 //     Initialize##target##AsmParser();
-// #include <llvm/Config/AsmParsers.def>
-// #undef LLVM_ASM_PARSER
+        // #include <llvm/Config/AsmParsers.def>
+        // #undef LLVM_ASM_PARSER
 
-// #define LLVM_ASM_PRINTER(target) \
+        // #define LLVM_ASM_PRINTER(target) \
 //     Initialize##target##AsmPrinter();
-// #include <llvm/Config/AsmPrinters.def>
-// #undef LLVM_ASM_PRINTER
+        // #include <llvm/Config/AsmPrinters.def>
+        // #undef LLVM_ASM_PRINTER
     });
 }
 
@@ -145,7 +142,8 @@ llvm::Function *CodeGen_LLVM::declare_function(const Function &func) {
     }
 
     llvm::FunctionType *ftype = llvm::FunctionType::get(ret_type, arg_types, /* isVarArg */ false);
-    return llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, func.name, module.get());
+    return llvm::Function::Create(ftype, llvm::GlobalValue::ExternalLinkage, func.name,
+                                  module.get());
 }
 
 void CodeGen_LLVM::compile_function(const Function &func, llvm::Function *function) {
@@ -165,7 +163,8 @@ void CodeGen_LLVM::compile_function(const Function &func, llvm::Function *functi
     }
 
     // Add entry point.
-    llvm::BasicBlock *entry_bb = llvm::BasicBlock::Create(module->getContext(), func.name + "_entry", function);
+    llvm::BasicBlock *entry_bb =
+        llvm::BasicBlock::Create(module->getContext(), func.name + "_entry", function);
     llvm::IRBuilderBase::InsertPoint here = builder->saveIP();
     builder->SetInsertPoint(entry_bb);
     codegen_stmt(func.body);
@@ -202,7 +201,8 @@ std::unique_ptr<llvm::Module> CodeGen_LLVM::compile_program(const Program &progr
         this->compile_function(*func, func_map[fname]);
     }
 
-    // TODO: now compile main function from program.main_body with arguments defined by program.externs
+    // TODO: now compile main function from program.main_body with arguments defined by
+    // program.externs
 
     frames.pop_frame();
 
@@ -222,7 +222,8 @@ std::unique_ptr<llvm::TargetMachine> make_target_machine(const llvm::Module &mod
 
     std::string targetTriple = llvm::sys::getDefaultTargetTriple();
 
-    const llvm::Target *llvm_target = llvm::TargetRegistry::lookupTarget(targetTriple, error_string);
+    const llvm::Target *llvm_target =
+        llvm::TargetRegistry::lookupTarget(targetTriple, error_string);
     if (!llvm_target) {
         std::cout << error_string << "\n";
         llvm::TargetRegistry::printRegisteredTargetsForVersion(llvm::outs());
@@ -233,7 +234,7 @@ std::unique_ptr<llvm::TargetMachine> make_target_machine(const llvm::Module &mod
     llvm::TargetOptions options;
 
     // TODO: set options?
-    options.AllowFPOpFusion =  llvm::FPOpFusion::Fast;
+    options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
     options.UnsafeFPMath = true;
     options.NoInfsFPMath = true;
     options.NoNaNsFPMath = true;
@@ -246,13 +247,12 @@ std::unique_ptr<llvm::TargetMachine> make_target_machine(const llvm::Module &mod
     // get_md_bool(module.getModuleFlag("bonsai_use_large_code_model"), use_large_code_model);
 
     auto *tm = llvm_target->createTargetMachine(module.getTargetTriple(),
-                                                /*CPU target=*/"", /*Features=*/"",
-                                                options,
+                                                /*CPU target=*/"", /*Features=*/"", options,
                                                 use_pic ? llvm::Reloc::PIC_ : llvm::Reloc::Static,
-                                                use_large_code_model ? llvm::CodeModel::Large : llvm::CodeModel::Small,
+                                                use_large_code_model ? llvm::CodeModel::Large
+                                                                     : llvm::CodeModel::Small,
                                                 llvm::CodeGenOptLevel::Aggressive);
     return std::unique_ptr<llvm::TargetMachine>(tm);
-
 }
 
 void CodeGen_LLVM::optimize_module() {
@@ -267,7 +267,7 @@ void CodeGen_LLVM::optimize_module() {
     llvm::PipelineTuningOptions pto;
     pto.LoopInterleaving = do_loop_opt;
     pto.LoopVectorization = do_loop_opt;
-    pto.SLPVectorization = true;  // Note: SLP vectorization has no analogue in the scheduling model
+    pto.SLPVectorization = true; // Note: SLP vectorization has no analogue in the scheduling model
     pto.LoopUnrolling = do_loop_opt;
 
     llvm::PassBuilder pb(tm.get(), pto);
@@ -304,17 +304,15 @@ void CodeGen_LLVM::optimize_module() {
     mpm.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
 
     if (tm->isPositionIndependent()) {
-        // Add a pass that converts lookup tables to relative lookup tables to make them PIC-friendly.
-        // See https://bugs.llvm.org/show_bug.cgi?id=45244
+        // Add a pass that converts lookup tables to relative lookup tables to make them
+        // PIC-friendly. See https://bugs.llvm.org/show_bug.cgi?id=45244
         pb.registerOptimizerLastEPCallback(
 #if LLVM_VERSION >= 200
             [&](ModulePassManager &mpm, OptimizationLevel, ThinOrFullLTOPhase)
 #else
             [&](llvm::ModulePassManager &mpm, OptimizationLevel)
 #endif
-            {
-                mpm.addPass(llvm::RelLookupTableConverterPass());
-            });
+            { mpm.addPass(llvm::RelLookupTableConverterPass()); });
     }
 
     // get_target().has_feature(Target::SanitizerCoverage)
@@ -331,7 +329,7 @@ void CodeGen_LLVM::optimize_module() {
                 sanitizercoverage_options.PCTable = true;
                 // Due to TLS differences, stack depth tracking is only enabled on Linux
                 // if (get_target().os == Target::OS::Linux) {
-                    // sanitizercoverage_options.StackDepth = true;
+                // sanitizercoverage_options.StackDepth = true;
                 // }
                 mpm.addPass(llvm::SanitizerCoveragePass(sanitizercoverage_options));
             });
@@ -342,13 +340,13 @@ void CodeGen_LLVM::optimize_module() {
         // Nothing, ASanGlobalsMetadataAnalysis no longer exists
 
         pb.registerPipelineStartEPCallback([](llvm::ModulePassManager &mpm, OptimizationLevel) {
-            llvm::AddressSanitizerOptions asan_options;  // default values are good...
-            asan_options.UseAfterScope = true;     // ...except this one
+            llvm::AddressSanitizerOptions asan_options; // default values are good...
+            asan_options.UseAfterScope = true;          // ...except this one
             constexpr bool use_global_gc = false;
             constexpr bool use_odr_indicator = true;
             constexpr auto destructor_kind = llvm::AsanDtorKind::Global;
-            mpm.addPass(llvm::AddressSanitizerPass(
-                asan_options, use_global_gc, use_odr_indicator, destructor_kind));
+            mpm.addPass(llvm::AddressSanitizerPass(asan_options, use_global_gc, use_odr_indicator,
+                                                   destructor_kind));
         });
     }
 
@@ -359,8 +357,7 @@ void CodeGen_LLVM::optimize_module() {
     if (false) {
         pb.registerOptimizerLastEPCallback(
             [](llvm::ModulePassManager &mpm, OptimizationLevel level) {
-                mpm.addPass(
-                    llvm::createModuleToFunctionPassAdaptor(llvm::ThreadSanitizerPass()));
+                mpm.addPass(llvm::createModuleToFunctionPassAdaptor(llvm::ThreadSanitizerPass()));
             });
     }
 
@@ -375,9 +372,11 @@ void CodeGen_LLVM::optimize_module() {
             // Do not annotate any of Halide's low-level synchronization code as it has
             // tsan interface calls to mark its behavior and is much faster if
             // it is not analyzed instruction by instruction.
-            // if (!(function.getName().startswith("_ZN6Halide7Runtime8Internal15Synchronization") ||
+            // if (!(function.getName().startswith("_ZN6Halide7Runtime8Internal15Synchronization")
+            // ||
             //       // TODO: this is a benign data race that re-initializes the detected features;
-            //       // we should really fix it properly inside the implementation, rather than disabling
+            //       // we should really fix it properly inside the implementation, rather than
+            //       disabling
             //       // it here as a band-aid.
             //       function.getName().startswith("halide_default_can_use_target_features") ||
             //       function.getName().startswith("halide_mutex_") ||
@@ -394,7 +393,8 @@ void CodeGen_LLVM::optimize_module() {
     mpm = pb.buildPerModuleDefaultPipeline(level, debug_pass_manager);
     mpm.run(*module, mam);
 
-    internal_assert(!llvm::verifyModule(*module, &llvm::errs())) << "Compilation resulted in an invalid module";
+    internal_assert(!llvm::verifyModule(*module, &llvm::errs()))
+        << "Compilation resulted in an invalid module";
 }
 
 void CodeGen_LLVM::visit(const Int_t *node) {
@@ -412,20 +412,21 @@ void CodeGen_LLVM::visit(const Bool_t *node) {
 
 void CodeGen_LLVM::visit(const Float_t *node) {
     switch (node->bits) {
-        // TODO: I need f8 on GPUs.
-        // do we ever need it on CPUs?
-        case 16:
-            // assumes we're not deeling with bfloat
-            type = llvm::Type::getHalfTy(*context);
-            return;
-        case 32:
-            type = llvm::Type::getFloatTy(*context);
-            return;
-        case 64:
-            type = llvm::Type::getDoubleTy(*context);
-            return;
-        default:
-            internal_error << "There is no llvm type matching this floating-point bit width: " << Type(node);
+    // TODO: I need f8 on GPUs.
+    // do we ever need it on CPUs?
+    case 16:
+        // assumes we're not deeling with bfloat
+        type = llvm::Type::getHalfTy(*context);
+        return;
+    case 32:
+        type = llvm::Type::getFloatTy(*context);
+        return;
+    case 64:
+        type = llvm::Type::getDoubleTy(*context);
+        return;
+    default:
+        internal_error << "There is no llvm type matching this floating-point bit width: "
+                       << Type(node);
     }
 }
 
@@ -501,148 +502,148 @@ void CodeGen_LLVM::visit(const BinOp *node) {
     // TODO: predications?
     if (node->a.type().is_float()) {
         switch (node->op) {
-            case BinOp::Add: {
-                value = builder->CreateFAdd(a, b);
-                return;
-            }
-            case BinOp::Mul: {
-                value = builder->CreateFMul(a, b);
-                return;
-            }
-            case BinOp::Div: {
-                value = builder->CreateFDiv(a, b);
-                return;
-            }
-            case BinOp::Sub: {
-                value = builder->CreateFSub(a, b);
-                return;
-            }
-            case BinOp::Le: {
-                value = builder->CreateFCmpOLE(a, b);
-                return;
-            }
-            case BinOp::Lt: {
-                value = builder->CreateFCmpOLT(a, b);
-                return;
-            }
-            case BinOp::Eq: {
-                value = builder->CreateFCmpOEQ(a, b);
-                return;
-            }
-            default:  {
-                internal_error << "Unimplemented BinOp lowering for float: " << Expr(node);
-            }
+        case BinOp::Add: {
+            value = builder->CreateFAdd(a, b);
+            return;
+        }
+        case BinOp::Mul: {
+            value = builder->CreateFMul(a, b);
+            return;
+        }
+        case BinOp::Div: {
+            value = builder->CreateFDiv(a, b);
+            return;
+        }
+        case BinOp::Sub: {
+            value = builder->CreateFSub(a, b);
+            return;
+        }
+        case BinOp::Le: {
+            value = builder->CreateFCmpOLE(a, b);
+            return;
+        }
+        case BinOp::Lt: {
+            value = builder->CreateFCmpOLT(a, b);
+            return;
+        }
+        case BinOp::Eq: {
+            value = builder->CreateFCmpOEQ(a, b);
+            return;
+        }
+        default: {
+            internal_error << "Unimplemented BinOp lowering for float: " << Expr(node);
+        }
         }
     } else if (node->a.type().is_int()) {
         // TODO: do we ever want NSW?
         switch (node->op) {
-            case BinOp::Add: {
-                value = builder->CreateAdd(a, b);
-                return;
-            }
-            case BinOp::Mul: {
-                value = builder->CreateMul(a, b);
-                return;
-            }
-            case BinOp::Div: {
-                // TODO: is this the correct behavior we want?
-                value = builder->CreateSDiv(a, b);
-                return;
-            }
-            case BinOp::Sub: {
-                value = builder->CreateSub(a, b);
-                return;
-            }
-            case BinOp::Mod: {
-                // signed remainder
-                value = builder->CreateSRem(a, b);
-                return;
-            }
-            case BinOp::Le: {
-                // unsigned comparison
-                value = builder->CreateICmpSLE(a, b);
-                return;
-            }
-            case BinOp::Lt: {
-                // signed comparison
-                value = builder->CreateICmpSLT(a, b);
-                return;
-            }
-            case BinOp::Eq: {
-                value = builder->CreateICmpEQ(a, b);
-                return;
-            }
-            case BinOp::Neq: {
-                value = builder->CreateICmpNE(a, b);
-                return;
-            }
-            default:  {
-                internal_error << "Unimplemented BinOp lowering for signed integer: " << Expr(node);
-            }
+        case BinOp::Add: {
+            value = builder->CreateAdd(a, b);
+            return;
+        }
+        case BinOp::Mul: {
+            value = builder->CreateMul(a, b);
+            return;
+        }
+        case BinOp::Div: {
+            // TODO: is this the correct behavior we want?
+            value = builder->CreateSDiv(a, b);
+            return;
+        }
+        case BinOp::Sub: {
+            value = builder->CreateSub(a, b);
+            return;
+        }
+        case BinOp::Mod: {
+            // signed remainder
+            value = builder->CreateSRem(a, b);
+            return;
+        }
+        case BinOp::Le: {
+            // unsigned comparison
+            value = builder->CreateICmpSLE(a, b);
+            return;
+        }
+        case BinOp::Lt: {
+            // signed comparison
+            value = builder->CreateICmpSLT(a, b);
+            return;
+        }
+        case BinOp::Eq: {
+            value = builder->CreateICmpEQ(a, b);
+            return;
+        }
+        case BinOp::Neq: {
+            value = builder->CreateICmpNE(a, b);
+            return;
+        }
+        default: {
+            internal_error << "Unimplemented BinOp lowering for signed integer: " << Expr(node);
+        }
         }
     } else if (node->a.type().is_uint()) {
         switch (node->op) {
-            case BinOp::Add: {
-                value = builder->CreateAdd(a, b);
-                return;
-            }
-            case BinOp::Mul: {
-                value = builder->CreateMul(a, b);
-                return;
-            }
-            case BinOp::Div: {
-                // Use unsigned division for unsigned integers
-                value = builder->CreateUDiv(a, b);
-                return;
-            }
-            case BinOp::Sub: {
-                value = builder->CreateSub(a, b);
-                return;
-            }
-            case BinOp::Mod: {
-                // unsigned remainder
-                value = builder->CreateURem(a, b);
-                return;
-            }
-            case BinOp::Le: {
-                // Unsigned less-than-or-equal comparison
-                value = builder->CreateICmpULE(a, b);
-                return;
-            }
-            case BinOp::Lt: {
-                // Unsigned less-than comparison
-                value = builder->CreateICmpULT(a, b);
-                return;
-            }
-            case BinOp::Eq: {
-                value = builder->CreateICmpEQ(a, b);
-                return;
-            }
-            case BinOp::Neq: {
-                value = builder->CreateICmpNE(a, b);
-                return;
-            }
-            default: {
-                internal_error << "Unimplemented BinOp lowering for unsigned integer: " << Expr(node);
-            }
+        case BinOp::Add: {
+            value = builder->CreateAdd(a, b);
+            return;
+        }
+        case BinOp::Mul: {
+            value = builder->CreateMul(a, b);
+            return;
+        }
+        case BinOp::Div: {
+            // Use unsigned division for unsigned integers
+            value = builder->CreateUDiv(a, b);
+            return;
+        }
+        case BinOp::Sub: {
+            value = builder->CreateSub(a, b);
+            return;
+        }
+        case BinOp::Mod: {
+            // unsigned remainder
+            value = builder->CreateURem(a, b);
+            return;
+        }
+        case BinOp::Le: {
+            // Unsigned less-than-or-equal comparison
+            value = builder->CreateICmpULE(a, b);
+            return;
+        }
+        case BinOp::Lt: {
+            // Unsigned less-than comparison
+            value = builder->CreateICmpULT(a, b);
+            return;
+        }
+        case BinOp::Eq: {
+            value = builder->CreateICmpEQ(a, b);
+            return;
+        }
+        case BinOp::Neq: {
+            value = builder->CreateICmpNE(a, b);
+            return;
+        }
+        default: {
+            internal_error << "Unimplemented BinOp lowering for unsigned integer: " << Expr(node);
+        }
         }
     } else if (node->a.type().is_bool()) {
         switch (node->op) {
-            case BinOp::And: {
-                value = builder->CreateAnd(a, b);
-                return;
-            }
-            case BinOp::Or: {
-                value = builder->CreateOr(a, b);
-                return;
-            }
-            case BinOp::Xor: {
-                value = builder->CreateXor(a, b);
-                return;
-            }
-            default: {
-                internal_error << "Unimplemented BinOp lowering for boolean: " << Expr(node);
-            }
+        case BinOp::And: {
+            value = builder->CreateAnd(a, b);
+            return;
+        }
+        case BinOp::Or: {
+            value = builder->CreateOr(a, b);
+            return;
+        }
+        case BinOp::Xor: {
+            value = builder->CreateXor(a, b);
+            return;
+        }
+        default: {
+            internal_error << "Unimplemented BinOp lowering for boolean: " << Expr(node);
+        }
         }
     }
 
@@ -654,22 +655,22 @@ void CodeGen_LLVM::visit(const UnOp *node) {
     llvm::Value *a = codegen_expr(node->a);
 
     switch (node->op) {
-        case UnOp::Neg: {
-            if (node->type.is_float()) {
-                value = builder->CreateFNeg(a);
-            } else {
-                internal_assert(node->type.is_int_or_uint());
-                llvm::Type *itype = a->getType();
-                llvm::Constant *_0 = llvm::ConstantInt::get(itype, 0);
-                value = builder->CreateSub(_0, a);
-            }
-            return;
+    case UnOp::Neg: {
+        if (node->type.is_float()) {
+            value = builder->CreateFNeg(a);
+        } else {
+            internal_assert(node->type.is_int_or_uint());
+            llvm::Type *itype = a->getType();
+            llvm::Constant *_0 = llvm::ConstantInt::get(itype, 0);
+            value = builder->CreateSub(_0, a);
         }
-        case UnOp::Not: {
-            internal_assert(node->type.is_bool());
-            value = builder->CreateNot(a);
-            return;
-        }
+        return;
+    }
+    case UnOp::Not: {
+        internal_assert(node->type.is_bool());
+        value = builder->CreateNot(a);
+        return;
+    }
     }
 
     internal_error << "Cannot codegen UnOp: " << Expr(node);
@@ -681,8 +682,10 @@ void CodeGen_LLVM::visit(const Select *node) {
     llvm::Value *fvalue = codegen_expr(node->fvalue);
     if (tvalue->getType()->isVectorTy()) {
         // TODO: handle broadcasting!
-        internal_assert(cond->getType()->isVectorTy()) << "Select lowering failure: " << ir::Expr(node);
-        internal_assert(fvalue->getType()->isVectorTy()) << "Select lowering failure: " << ir::Expr(node);
+        internal_assert(cond->getType()->isVectorTy())
+            << "Select lowering failure: " << ir::Expr(node);
+        internal_assert(fvalue->getType()->isVectorTy())
+            << "Select lowering failure: " << ir::Expr(node);
     }
     // TODO: try Vector Predication Intrinsics!
     // https://llvm.org/docs/LangRef.html#vector-predication-intrinsics
@@ -729,7 +732,8 @@ void CodeGen_LLVM::visit(const Broadcast *node) {
 }
 
 void CodeGen_LLVM::visit(const VectorReduce *node) {
-    internal_assert(node->type.is_scalar()) << "Cannot codegen 2+ dimensional VectorReduce: " << Expr(node);
+    internal_assert(node->type.is_scalar())
+        << "Cannot codegen 2+ dimensional VectorReduce: " << Expr(node);
     // TODO: upgrade type for arithmetic?
 
     llvm::Value *v = codegen_expr(node->value);
@@ -766,12 +770,14 @@ void CodeGen_LLVM::visit(const VectorReduce *node) {
     case VectorReduce::Min:
         // TODO: handle unsigned eventually!
         // TODO: what is the difference between fmin and fminimum?
-        intrin = node->type.is_float() ? llvm::Intrinsic::vector_reduce_fmin : llvm::Intrinsic::vector_reduce_smin;
+        intrin = node->type.is_float() ? llvm::Intrinsic::vector_reduce_fmin
+                                       : llvm::Intrinsic::vector_reduce_smin;
         break;
     case VectorReduce::Max:
         // TODO: handle unsigned eventually!
         // TODO: what is the difference between fmax and fmaximum?
-        intrin = node->type.is_float() ? llvm::Intrinsic::vector_reduce_fmax : llvm::Intrinsic::vector_reduce_smax;
+        intrin = node->type.is_float() ? llvm::Intrinsic::vector_reduce_fmax
+                                       : llvm::Intrinsic::vector_reduce_smax;
         break;
     case VectorReduce::Idxmax:
         // TODO: on x86 lower to phminposuw
@@ -850,59 +856,63 @@ void CodeGen_LLVM::visit(const Extract *node) {
 void CodeGen_LLVM::visit(const Intrinsic *node) {
     llvm::Intrinsic::IndependentIntrinsics intrin;
     switch (node->op) {
-        case Intrinsic::abs: {
-            intrin = node->args[0].type().is_float() ? llvm::Intrinsic::fabs : llvm::Intrinsic::abs;
-            break;
+    case Intrinsic::abs: {
+        intrin = node->args[0].type().is_float() ? llvm::Intrinsic::fabs : llvm::Intrinsic::abs;
+        break;
+    }
+    case Intrinsic::cos: {
+        intrin = llvm::Intrinsic::cos;
+        break;
+    }
+    case Intrinsic::cross: {
+        Expr expr = lower::cross_product(node->args[0], node->args[1]);
+        value = codegen_expr(expr);
+        return;
+    }
+    case Intrinsic::fma: {
+        intrin = llvm::Intrinsic::fma;
+        break;
+    }
+    case Intrinsic::max: {
+        if (node->args[0].type().is_int()) {
+            intrin = llvm::Intrinsic::smax;
+        } else if (node->args[0].type().is_uint()) {
+            intrin = llvm::Intrinsic::umax;
+        } else {
+            internal_assert(node->args[0].type().is_float())
+                << "Cannot lower max of type: " << node->args[0].type();
+            // Follows the IEEE-754 semantics for maxNum except for the handling of signaling NaNs.
+            // This matches the behavior of libm’s fmax.
+            // https://llvm.org/docs/LangRef.html#llvm-maxnum-intrinsic
+            // intrin = llvm::Intrinsic::maxnum;
+            internal_error << "TODO: figure out fmax codegen: " << Expr(node);
         }
-        case Intrinsic::cos: {
-            intrin = llvm::Intrinsic::cos;
-            break;
+        break;
+    }
+    case Intrinsic::min: {
+        if (node->args[0].type().is_int()) {
+            intrin = llvm::Intrinsic::smin;
+        } else if (node->args[0].type().is_uint()) {
+            intrin = llvm::Intrinsic::umin;
+        } else {
+            internal_assert(node->args[0].type().is_float())
+                << "Cannot lower min of type: " << node->args[0].type();
+            // Follows the IEEE-754 semantics for minNum, except for handling of signaling NaNs.
+            // This match’s the behavior of libm’s fmin.
+            // https://llvm.org/docs/LangRef.html#llvm-minnum-intrinsic
+            // intrin = llvm::Intrinsic::minnum;
+            internal_error << "TODO: figure out fmin codegen: " << Expr(node);
         }
-        case Intrinsic::cross: {
-            Expr expr = lower::cross_product(node->args[0], node->args[1]);
-            value = codegen_expr(expr);
-            return;
-        }
-        case Intrinsic::fma: {
-            intrin = llvm::Intrinsic::fma;
-            break;
-        }
-        case Intrinsic::max: {
-            if (node->args[0].type().is_int()) {
-                intrin = llvm::Intrinsic::smax;
-            } else if (node->args[0].type().is_uint()) {
-                intrin = llvm::Intrinsic::umax;
-            } else {
-                internal_assert(node->args[0].type().is_float()) << "Cannot lower max of type: " << node->args[0].type();
-                // Follows the IEEE-754 semantics for maxNum except for the handling of signaling NaNs. This matches the behavior of libm’s fmax.
-                // https://llvm.org/docs/LangRef.html#llvm-maxnum-intrinsic
-                // intrin = llvm::Intrinsic::maxnum;
-                internal_error << "TODO: figure out fmax codegen: " << Expr(node);
-            }
-            break;
-        }
-        case Intrinsic::min: {
-            if (node->args[0].type().is_int()) {
-                intrin = llvm::Intrinsic::smin;
-            } else if (node->args[0].type().is_uint()) {
-                intrin = llvm::Intrinsic::umin;
-            } else {
-                internal_assert(node->args[0].type().is_float()) << "Cannot lower min of type: " << node->args[0].type();
-                // Follows the IEEE-754 semantics for minNum, except for handling of signaling NaNs. This match’s the behavior of libm’s fmin.
-                // https://llvm.org/docs/LangRef.html#llvm-minnum-intrinsic
-                // intrin = llvm::Intrinsic::minnum;
-                internal_error << "TODO: figure out fmin codegen: " << Expr(node);
-            }
-            break;
-        }
-        case Intrinsic::sin: {
-            intrin = llvm::Intrinsic::sin;
-            break;
-        }
-        case Intrinsic::sqrt: {
-            intrin = llvm::Intrinsic::sqrt;
-            break;
-        }
+        break;
+    }
+    case Intrinsic::sin: {
+        intrin = llvm::Intrinsic::sin;
+        break;
+    }
+    case Intrinsic::sqrt: {
+        intrin = llvm::Intrinsic::sqrt;
+        break;
+    }
     }
     std::vector<llvm::Value *> args(node->args.size());
     for (size_t i = 0; i < args.size(); i++) {
@@ -965,7 +975,8 @@ void CodeGen_LLVM::visit(const Build *node) {
         return;
     } else if (build_type->isStructTy()) {
         internal_assert(node->type.is<Struct_t>());
-        internal_assert(values.empty() || (values.size() == node->type.as<Struct_t>()->fields.size()))
+        internal_assert(values.empty() ||
+                        (values.size() == node->type.as<Struct_t>()->fields.size()))
             << "TODO: implement partial build codegen for: " << Expr(node);
         const auto &defaults = node->type.as<Struct_t>()->defaults;
         const auto &fields = node->type.as<Struct_t>()->fields;
@@ -973,7 +984,8 @@ void CodeGen_LLVM::visit(const Build *node) {
             value = llvm::Constant::getNullValue(build_type);
             return;
         } else if (values.empty()) {
-            // Is order of codegen important? Default values must be constants (w/o side effects), so I think no?
+            // Is order of codegen important? Default values must be constants (w/o side effects),
+            // so I think no?
             std::vector<std::pair<size_t, llvm::Value *>> inserts;
             for (const auto &[field, _value] : defaults) {
                 size_t idx = find_struct_index(field, fields);
@@ -986,7 +998,8 @@ void CodeGen_LLVM::visit(const Build *node) {
             value = llvm::Constant::getNullValue(build_type);
 
             // Sort on insertion order.
-            std::sort(inserts.begin(), inserts.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
+            std::sort(inserts.begin(), inserts.end(),
+                      [](const auto &a, const auto &b) { return a.first < b.first; });
             for (const auto &[idx, _value] : inserts) {
                 internal_assert(_value);
                 value = builder->CreateInsertValue(value, _value, idx);
@@ -1008,11 +1021,13 @@ void CodeGen_LLVM::visit(const Build *node) {
 void CodeGen_LLVM::visit(const Access *node) {
     llvm::Value *_struct = codegen_expr(node->value);
     if (_struct->getType()->isStructTy()) {
-        const size_t idx = find_struct_index(node->field, node->value.type().as<Struct_t>()->fields);
+        const size_t idx =
+            find_struct_index(node->field, node->value.type().as<Struct_t>()->fields);
         value = builder->CreateExtractValue(_struct, idx);
         return;
     }
-    internal_error << "Lowering of an Access's value did not result in a struct type: " << Expr(node);
+    internal_error << "Lowering of an Access's value did not result in a struct type: "
+                   << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const Return *node) {
@@ -1031,7 +1046,8 @@ void CodeGen_LLVM::visit(const Store *node) {
         // Scalar
         llvm::Value *ptr = codegen_buffer_pointer(node->name, value_type, node->index);
         // TODO: handle booleans better.
-        llvm::StoreInst *store = builder->CreateAlignedStore(expr, ptr, llvm::Align(value_type.bytes()));
+        llvm::StoreInst *store =
+            builder->CreateAlignedStore(expr, ptr, llvm::Align(value_type.bytes()));
         // TODO: fix this, add type-based metadata to all stores to allow reordering!
         // annotate_store(store, op->index);
         add_tbaa_metadata(store, node->name, node->index);
@@ -1044,10 +1060,13 @@ void CodeGen_LLVM::visit(const Store *node) {
         if (is_dense) {
             // Generate native vector store(s).
             // TODO: do manual splitting into native vector stores.
-            llvm::Value *base_ptr = codegen_buffer_pointer(node->name, value_type.element_of(), ramp->base);
-            llvm::Value *vec_ptr = builder->CreateBitCast(base_ptr, llvm::PointerType::getUnqual(expr->getType()));
+            llvm::Value *base_ptr =
+                codegen_buffer_pointer(node->name, value_type.element_of(), ramp->base);
+            llvm::Value *vec_ptr =
+                builder->CreateBitCast(base_ptr, llvm::PointerType::getUnqual(expr->getType()));
             // TODO: is this always aligned? figure out alignment stuff.
-            llvm::StoreInst *store = builder->CreateAlignedStore(expr, vec_ptr, llvm::Align(alignment));
+            llvm::StoreInst *store =
+                builder->CreateAlignedStore(expr, vec_ptr, llvm::Align(alignment));
             add_tbaa_metadata(store, node->name, node->index);
         } else if (ramp) {
             // Generate strided stores.
@@ -1062,10 +1081,8 @@ void CodeGen_LLVM::visit(const Store *node) {
                 llvm::Value *v = builder->CreateExtractElement(expr, lane);
                 if (const_stride) {
                     // Use a constant offset from the base pointer
-                    llvm::Value *p =
-                        builder->CreateConstInBoundsGEP1_32(
-                            load_type, ptr,
-                            const_stride->value * i);
+                    llvm::Value *p = builder->CreateConstInBoundsGEP1_32(load_type, ptr,
+                                                                         const_stride->value * i);
                     llvm::StoreInst *store = builder->CreateStore(v, p);
                     // annotate_store(store, op->index);
                     add_tbaa_metadata(store, node->name, node->index);
@@ -1117,9 +1134,7 @@ void CodeGen_LLVM::visit(const IfElse *node) {
     bool needs_after_bb = false;
     do {
         bool returns = always_returns(next_if->then_body);
-        blocks.emplace_back(next_if->cond,
-                            next_if->then_body,
-                            returns);
+        blocks.emplace_back(next_if->cond, next_if->then_body, returns);
         needs_after_bb = needs_after_bb || !returns;
         final_else = next_if->else_body;
         next_if = final_else.defined() ? final_else.as<IfElse>() : nullptr;
@@ -1130,7 +1145,8 @@ void CodeGen_LLVM::visit(const IfElse *node) {
     // TODO: we will support a switch statement, make sure to use Halide's codegen for it!
 
     internal_assert(current_function);
-    llvm::BasicBlock *after_bb = needs_after_bb ? llvm::BasicBlock::Create(*context, "after_bb", current_function) : nullptr;
+    llvm::BasicBlock *after_bb =
+        needs_after_bb ? llvm::BasicBlock::Create(*context, "after_bb", current_function) : nullptr;
 
     for (const auto &p : blocks) {
         llvm::BasicBlock *then_bb = llvm::BasicBlock::Create(*context, "then_bb", current_function);
@@ -1141,7 +1157,7 @@ void CodeGen_LLVM::visit(const IfElse *node) {
         if (!p.returns) {
             builder->CreateBr(after_bb);
         }
-        builder->SetInsertPoint(next_bb); 
+        builder->SetInsertPoint(next_bb);
     }
 
     if (final_else.defined()) {
@@ -1163,7 +1179,8 @@ void CodeGen_LLVM::visit(const Assign *node) {
     // internal_error << "TODO: implement codegen for assign: " << Stmt(node);
 
     llvm::Value *loc = codegen_write_loc(node->loc);
-    internal_assert(loc) << "Failed to codegen LLVM ptr for: " << node->loc << " in assignment: " << ir::Stmt(node);
+    internal_assert(loc) << "Failed to codegen LLVM ptr for: " << node->loc
+                         << " in assignment: " << ir::Stmt(node);
 
     llvm::Value *_value = codegen_expr(node->value);
 
@@ -1179,31 +1196,32 @@ void CodeGen_LLVM::visit(const Accumulate *node) {
     llvm::Value *acc = nullptr;
 
     switch (node->op) {
-        case Accumulate::Add: {
-            if (node->value.type().is_float()) {
-                acc = builder->CreateFAdd(current, _value);
-            } else {
-                acc = builder->CreateAdd(current, _value);
-            }
-            break;
+    case Accumulate::Add: {
+        if (node->value.type().is_float()) {
+            acc = builder->CreateFAdd(current, _value);
+        } else {
+            acc = builder->CreateAdd(current, _value);
         }
-        case Accumulate::Mul: {
-            if (node->value.type().is_float()) {
-                acc = builder->CreateFMul(current, _value);
-            } else {
-                acc = builder->CreateMul(current, _value);
-            }
-            break;
+        break;
+    }
+    case Accumulate::Mul: {
+        if (node->value.type().is_float()) {
+            acc = builder->CreateFMul(current, _value);
+        } else {
+            acc = builder->CreateMul(current, _value);
         }
-        default: {
-            internal_error << "TODO: implement codegen for accumulate: " << Stmt(node);
-        }
+        break;
+    }
+    default: {
+        internal_error << "TODO: implement codegen for accumulate: " << Stmt(node);
+    }
     }
 
     builder->CreateStore(acc, loc);
 }
 
-void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer, const Expr &index) {
+void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string &buffer,
+                                     const Expr &index) {
 
     // Get the unique name for the block of memory this allocate node
     // is using.
@@ -1274,21 +1292,22 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, const std::string 
 }
 
 void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> structs) {
-    internal_assert(struct_types.empty()) << "declare_struct_types called with non-empty struct_types!";
+    internal_assert(struct_types.empty())
+        << "declare_struct_types called with non-empty struct_types!";
 
     // TODO: does this handle recursive types properly?
     // First insert empty StructTypes into struct_types, to handle
     // weird ordering on types.
     // TODO: maybe make sure there's never an infinitely-recursive type?
-    for (const auto& _struct : structs) {
+    for (const auto &_struct : structs) {
         struct_types[_struct->name] = llvm::StructType::create(*context, _struct->name);
         // llvm::errs() << "created: " << *struct_types[_struct->name] << "\n";
     }
     // Now build bodies, possibly referencing other struct types.
-    for (const auto& _struct : structs) {
+    for (const auto &_struct : structs) {
         std::vector<llvm::Type *> types(_struct->fields.size());
         size_t i = 0;
-        for (const auto& [key, value] : _struct->fields) {
+        for (const auto &[key, value] : _struct->fields) {
             types[i++] = codegen_type(value);
         }
         struct_types[_struct->name]->setBody(types);
@@ -1296,8 +1315,8 @@ void CodeGen_LLVM::declare_struct_types(const std::vector<const Struct_t *> stru
     }
 }
 
-
-llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, llvm::Value *idx) {
+llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type,
+                                                  llvm::Value *idx) {
     llvm::DataLayout d(module.get());
     auto [base_addr, _] = frames.from_frames(buffer);
     // llvm::Value *base_addr = frames.from_frames(buffer);
@@ -1306,7 +1325,7 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, con
     llvm::Type *load_type = codegen_type(type);
     unsigned address_space = base_addr->getType()->getPointerAddressSpace();
     llvm::Type *pointer_load_type = load_type->getPointerTo(address_space);
-    
+
     // TODO: This can likely be removed once opaque pointers are default
     // in all supported LLVM versions.
     base_addr = builder->CreatePointerCast(base_addr, pointer_load_type);
@@ -1324,10 +1343,12 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, con
     // Promote index to 64-bit on targets that use 64-bit pointers.
     if (d.getPointerSize() == 8) {
         llvm::Type *index_type = idx->getType();
-        llvm::Type *desired_index_type = llvm::Type::getInt64Ty(*context); // TODO: cache this like Halide does.
+        llvm::Type *desired_index_type =
+            llvm::Type::getInt64Ty(*context); // TODO: cache this like Halide does.
         if (llvm::isa<llvm::VectorType>(index_type)) {
-            desired_index_type = llvm::VectorType::get(desired_index_type,
-                                                 llvm::dyn_cast<llvm::VectorType>(index_type)->getElementCount());
+            desired_index_type = llvm::VectorType::get(
+                desired_index_type,
+                llvm::dyn_cast<llvm::VectorType>(index_type)->getElementCount());
         }
         // TODO: is isSigned always true for us?
         idx = builder->CreateIntCast(idx, desired_index_type, /* isSigned */ true);
@@ -1336,7 +1357,8 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, con
     return builder->CreateInBoundsGEP(load_type, base_addr, idx);
 }
 
-llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type, const Expr &idx) {
+llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer, const Type &type,
+                                                  const Expr &idx) {
     llvm::Value *offset = idx.defined() ? codegen_expr(idx) : nullptr;
     return codegen_buffer_pointer(buffer, type, offset);
 }
@@ -1397,7 +1419,8 @@ llvm::Value *CodeGen_LLVM::codegen_write_loc(const ir::WriteLoc &loc) {
 
     for (const auto &value : loc.accesses) {
         if (std::holds_alternative<std::string>(value)) {
-            internal_error << "TODO: implement field write access: " << std::get<std::string>(value) << " in loc: " << loc;
+            internal_error << "TODO: implement field write access: " << std::get<std::string>(value)
+                           << " in loc: " << loc;
         } else {
             Expr idx = std::get<Expr>(value);
             llvm::Value *_idx = codegen_expr(idx);
@@ -1408,14 +1431,16 @@ llvm::Value *CodeGen_LLVM::codegen_write_loc(const ir::WriteLoc &loc) {
     }
     // llvm::errs() << *base << "\n";
     // llvm::errs() << *ptr << "\n";
-    // internal_assert(loc.accesses.empty()) << "TODO: implement codegen writeloc for accesses: " << loc;
+    // internal_assert(loc.accesses.empty()) << "TODO: implement codegen writeloc for accesses: " <<
+    // loc;
     return ptr;
 }
 
 std::unique_ptr<llvm::raw_fd_ostream> make_raw_fd_ostream(const std::string &filename) {
     std::string error_string;
     std::error_code err;
-    std::unique_ptr<llvm::raw_fd_ostream> raw_out(new llvm::raw_fd_ostream(filename, err, llvm::sys::fs::OF_None));
+    std::unique_ptr<llvm::raw_fd_ostream> raw_out(
+        new llvm::raw_fd_ostream(filename, err, llvm::sys::fs::OF_None));
     if (err) {
         error_string = err.message();
     }
@@ -1424,6 +1449,5 @@ std::unique_ptr<llvm::raw_fd_ostream> make_raw_fd_ostream(const std::string &fil
 
     return raw_out;
 }
-
 
 } //  namespace bonsai

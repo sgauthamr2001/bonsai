@@ -1,10 +1,10 @@
 #pragma once
 
-#include "IntrusivePtr.h"
 #include "IRHandle.h"
 #include "IRNode.h"
-#include "Visitor.h"
+#include "IntrusivePtr.h"
 #include "Mutator.h"
+#include "Visitor.h"
 
 #include <map>
 #include <string>
@@ -32,38 +32,27 @@ using IRTypeNode = IRNode<Type, IRTypeEnum>;
 
 /* This is necessary to get mutate() to work properly... */
 struct BaseTypeNode : public IRTypeNode {
-    BaseTypeNode(IRTypeEnum t)
-        : IRTypeNode(t) {
-    }
+    BaseTypeNode(IRTypeEnum t) : IRTypeNode(t) {}
     virtual Type mutate_type(Mutator *m) const = 0;
 };
 
-
-template<typename T>
-struct TypeNode : public BaseTypeNode {
-    void accept(Visitor *v) const override {
-        return v->visit((const T*)this);
-    }
+template <typename T> struct TypeNode : public BaseTypeNode {
+    void accept(Visitor *v) const override { return v->visit((const T *)this); }
     Type mutate_type(Mutator *m) const override;
     TypeNode() : BaseTypeNode(T::_node_type) {}
     ~TypeNode() override = default;
 };
-
 
 struct Type : public IRHandle<IRTypeNode> {
     /** Make an undefined type */
     Type() = default;
 
     /** Make a type from a concrete type node pointer (e.g. Int_t) */
-    Type(const IRTypeNode *n)
-        : IRHandle<IRTypeNode>(n) {
-    }
+    Type(const IRTypeNode *n) : IRHandle<IRTypeNode>(n) {}
 
     /** Override get() to return a BaseExprNode * instead of an IRNode.
      *  This is necessary to get mutate() to work properly. **/
-    const BaseTypeNode *get() const {
-        return (const BaseTypeNode *)ptr;
-    }
+    const BaseTypeNode *get() const { return (const BaseTypeNode *)ptr; }
 
     uint32_t bits() const;
     uint32_t bytes() const {
@@ -91,9 +80,8 @@ struct Type : public IRHandle<IRTypeNode> {
     // TODO: implement copy/move semantics!
 };
 
-template<typename T>
-Type TypeNode<T>::mutate_type(Mutator *m) const {
-    return m->visit((const T*)this);
+template <typename T> Type TypeNode<T>::mutate_type(Mutator *m) const {
+    return m->visit((const T *)this);
 }
 
 struct Int_t : TypeNode<Int_t> {
@@ -193,20 +181,17 @@ struct Function_t : TypeNode<Function_t> {
 
 // TODO: List_t, Tensor_t
 
-
 // Useful helper function
 Type get_field_type(const Type &struct_type, const std::string &field);
 
-}  // namespace ir
+} // namespace ir
 
-template<>
-inline RefCount &ref_count<ir::IRTypeNode>(const ir::IRTypeNode *t) noexcept {
+template <> inline RefCount &ref_count<ir::IRTypeNode>(const ir::IRTypeNode *t) noexcept {
     return t->ref_count;
 }
 
-template<>
-inline void destroy<ir::IRTypeNode>(const ir::IRTypeNode *t) {
+template <> inline void destroy<ir::IRTypeNode>(const ir::IRTypeNode *t) {
     delete t;
 }
 
-}  // namespace bonsai
+} // namespace bonsai

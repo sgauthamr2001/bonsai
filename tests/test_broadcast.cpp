@@ -1,9 +1,9 @@
+#include "CodeGen/CodeGen_LLVM.h"
 #include "IR/Expr.h"
+#include "IR/Printer.h"
 #include "IR/Stmt.h"
 #include "IR/Type.h"
 #include "IR/TypeEnforcement.h"
-#include "IR/Printer.h"
-#include "CodeGen/CodeGen_LLVM.h"
 
 #include <iostream>
 
@@ -19,7 +19,6 @@ void test_broadcast() {
     Expr ap1 = BinOp::make(BinOp::Div, _1, a);
     std::cout << ap1 << std::endl;
 }
-
 
 int main(void) {
     test_broadcast();

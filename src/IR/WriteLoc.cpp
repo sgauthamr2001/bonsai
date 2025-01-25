@@ -15,8 +15,8 @@ void WriteLoc::add_struct_access(const std::string &field) {
     if (infer_types) {
         ir::Type _type = get_field_type(type, field);
         internal_assert(_type.defined())
-            << "Write location type inference produced undefined type: "
-            << _type << " from field access " << field << " of type " << type;
+            << "Write location type inference produced undefined type: " << _type
+            << " from field access " << field << " of type " << type;
         type = std::move(_type);
     }
 }
@@ -32,18 +32,22 @@ void WriteLoc::add_index_access(const Expr &index) {
     // that the current type must be a vector...
     const bool infer_types = type_enforcement_enabled() || type.defined();
     if (infer_types) {
-        internal_assert(type.is<Vector_t>()) << "Write location of non-vector received index: " << index << " but has type: " << type;
+        internal_assert(type.is<Vector_t>())
+            << "Write location of non-vector received index: " << index
+            << " but has type: " << type;
         ir::Type _type = type.element_of();
         internal_assert(_type.defined())
-            << "Write location type inference produced undefined type: "
-            << _type << " from index " << index << " of type " << type;
+            << "Write location type inference produced undefined type: " << _type << " from index "
+            << index << " of type " << type;
         type = std::move(_type);
     }
 }
 
 WriteLoc WriteLoc::rebuild_with_base_type(Type _type) const {
-    internal_assert(_type.defined()) << "Write location rebuild triggered with undefined type for base: " << base;
-    internal_assert(type_enforcement_enabled()) << "Write location rebuild triggered without type enforcement enabled";
+    internal_assert(_type.defined())
+        << "Write location rebuild triggered with undefined type for base: " << base;
+    internal_assert(type_enforcement_enabled())
+        << "Write location rebuild triggered without type enforcement enabled";
     WriteLoc rebuilt(this->base, _type);
     for (const auto &value : this->accesses) {
         if (std::holds_alternative<std::string>(value)) {
@@ -56,5 +60,5 @@ WriteLoc WriteLoc::rebuild_with_base_type(Type _type) const {
     return rebuilt;
 }
 
-}  // namespace ir
-}  // namespace bonsai
+} // namespace ir
+} // namespace bonsai
