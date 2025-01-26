@@ -167,7 +167,7 @@ Type Struct_t::make(std::string name, Struct_t::Map fields) {
     return node;
 }
 
-Type Struct_t::make(std::string name, Struct_t::Map fields, std::map<std::string, Expr> defaults) {
+Type Struct_t::make(std::string name, Struct_t::Map fields, Struct_t::DefMap defaults) {
     internal_assert(!name.empty()) << "Struct_t::make recieved undefined name";
     internal_assert(std::all_of(fields.cbegin(), fields.cend(), [](const auto &p) { return p.second.defined(); }))
         << "Struct_t::make recieved undefined field type in definition of " << name;

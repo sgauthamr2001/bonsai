@@ -153,7 +153,7 @@ struct Struct_t : TypeNode<Struct_t> {
     DefMap defaults;
 
     static Type make(std::string name, Map fields);
-    static Type make(std::string name, Map fields, std::map<std::string, Expr> defaults);
+    static Type make(std::string name, Map fields, DefMap defaults);
 
     static const IRTypeEnum _node_type = IRTypeEnum::Struct_t;
 };
