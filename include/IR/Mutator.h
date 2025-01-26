@@ -6,53 +6,53 @@ namespace bonsai {
 namespace ir {
 
 struct Mutator {
-    virtual Type mutate(const Type &type);
-    virtual Expr mutate(const Expr &expr);
-    virtual Stmt mutate(const Stmt &stmt);
+  virtual Type mutate(const Type &type);
+  virtual Expr mutate(const Expr &expr);
+  virtual Stmt mutate(const Stmt &stmt);
 
-    // protected:
-    // Types
-    virtual Type visit(const Int_t *);
-    virtual Type visit(const UInt_t *);
-    virtual Type visit(const Float_t *);
-    virtual Type visit(const Bool_t *);
-    virtual Type visit(const Ptr_t *);
-    virtual Type visit(const Vector_t *);
-    virtual Type visit(const Struct_t *);
-    virtual Type visit(const Tuple_t *);
-    virtual Type visit(const Option_t *);
-    virtual Type visit(const Set_t *);
-    virtual Type visit(const Function_t *);
-    // Exprs
-    virtual Expr visit(const IntImm *);
-    virtual Expr visit(const UIntImm *);
-    virtual Expr visit(const FloatImm *);
-    virtual Expr visit(const BoolImm *);
-    virtual Expr visit(const Var *);
-    virtual Expr visit(const BinOp *);
-    virtual Expr visit(const UnOp *);
-    virtual Expr visit(const Select *);
-    virtual Expr visit(const Cast *);
-    virtual Expr visit(const Broadcast *);
-    virtual Expr visit(const VectorReduce *);
-    virtual Expr visit(const VectorShuffle *);
-    virtual Expr visit(const Ramp *);
-    virtual Expr visit(const Extract *);
-    virtual Expr visit(const Build *);
-    virtual Expr visit(const Access *);
-    virtual Expr visit(const Intrinsic *);
-    virtual Expr visit(const Lambda *);
-    virtual Expr visit(const GeomOp *);
-    virtual Expr visit(const SetOp *);
-    virtual Expr visit(const Call *);
-    // Stmts
-    virtual Stmt visit(const Return *);
-    virtual Stmt visit(const Store *);
-    virtual Stmt visit(const LetStmt *);
-    virtual Stmt visit(const IfElse *);
-    virtual Stmt visit(const Sequence *);
-    virtual Stmt visit(const Assign *);
-    virtual Stmt visit(const Accumulate *);
+  // protected:
+  // Types
+  virtual Type visit(const Int_t *);
+  virtual Type visit(const UInt_t *);
+  virtual Type visit(const Float_t *);
+  virtual Type visit(const Bool_t *);
+  virtual Type visit(const Ptr_t *);
+  virtual Type visit(const Vector_t *);
+  virtual Type visit(const Struct_t *);
+  virtual Type visit(const Tuple_t *);
+  virtual Type visit(const Option_t *);
+  virtual Type visit(const Set_t *);
+  virtual Type visit(const Function_t *);
+  // Exprs
+  virtual Expr visit(const IntImm *);
+  virtual Expr visit(const UIntImm *);
+  virtual Expr visit(const FloatImm *);
+  virtual Expr visit(const BoolImm *);
+  virtual Expr visit(const Var *);
+  virtual Expr visit(const BinOp *);
+  virtual Expr visit(const UnOp *);
+  virtual Expr visit(const Select *);
+  virtual Expr visit(const Cast *);
+  virtual Expr visit(const Broadcast *);
+  virtual Expr visit(const VectorReduce *);
+  virtual Expr visit(const VectorShuffle *);
+  virtual Expr visit(const Ramp *);
+  virtual Expr visit(const Extract *);
+  virtual Expr visit(const Build *);
+  virtual Expr visit(const Access *);
+  virtual Expr visit(const Intrinsic *);
+  virtual Expr visit(const Lambda *);
+  virtual Expr visit(const GeomOp *);
+  virtual Expr visit(const SetOp *);
+  virtual Expr visit(const Call *);
+  // Stmts
+  virtual Stmt visit(const Return *);
+  virtual Stmt visit(const Store *);
+  virtual Stmt visit(const LetStmt *);
+  virtual Stmt visit(const IfElse *);
+  virtual Stmt visit(const Sequence *);
+  virtual Stmt visit(const Assign *);
+  virtual Stmt visit(const Accumulate *);
 };
 
 } // namespace ir

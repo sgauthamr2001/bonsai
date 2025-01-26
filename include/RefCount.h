@@ -14,15 +14,15 @@ namespace bonsai {
 
 /** A class representing a reference count to be used with IntrusivePtr */
 class RefCount {
-    std::atomic<int32_t> count;
+  std::atomic<int32_t> count;
 
-  public:
-    RefCount() noexcept : count(0) {}
-    int32_t increment() { return ++count; }
-    // Increment and return new value
-    int32_t decrement() { return --count; }
-    // Decrement and return new value
-    bool is_const_zero() const { return count == 0; }
+public:
+  RefCount() noexcept : count(0) {}
+  int32_t increment() { return ++count; }
+  // Increment and return new value
+  int32_t decrement() { return --count; }
+  // Decrement and return new value
+  bool is_const_zero() const { return count == 0; }
 };
 
 /**
@@ -36,12 +36,14 @@ class RefCount {
  * define something like this in MyClass.cpp (assuming MyClass has
  * a field: mutable RefCount ref_count):
  *
- * template<> RefCount &ref_count<MyClass>(const MyClass *c) noexcept {return c->ref_count;}
- * template<> void destroy<MyClass>(const MyClass *c) {delete c;}
+ * template<> RefCount &ref_count<MyClass>(const MyClass *c) noexcept {return
+ * c->ref_count;} template<> void destroy<MyClass>(const MyClass *c) {delete c;}
  */
 // @{
-template <typename T> RefCount &ref_count(const T *t) noexcept;
-template <typename T> void destroy(const T *t);
+template <typename T>
+RefCount &ref_count(const T *t) noexcept;
+template <typename T>
+void destroy(const T *t);
 // @}
 
 } // namespace bonsai

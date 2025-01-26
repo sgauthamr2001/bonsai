@@ -10,25 +10,25 @@ using namespace bonsai::ir;
 using namespace bonsai;
 
 void test_example() {
-    Type f32 = Float_t::make(32);
-    Expr _1 = FloatImm::make(f32, 1.0);
-    Expr a = Var::make(f32, "a");
-    Expr ap1 = BinOp::make(BinOp::Add, a, _1);
-    std::cout << ap1 << std::endl;
+  Type f32 = Float_t::make(32);
+  Expr _1 = FloatImm::make(f32, 1.0);
+  Expr a = Var::make(f32, "a");
+  Expr ap1 = BinOp::make(BinOp::Add, a, _1);
+  std::cout << ap1 << std::endl;
 }
 
 void test_example2() {
-    // Expected to fail
-    Type f32 = Float_t::make(32);
-    try {
-        Expr _1 = IntImm::make(f32, 1);
-        std::cerr << "Failed!\n";
-    } catch (const std::runtime_error &e) {
-        std::cout << "Successfully caught: " << e.what();
-    }
+  // Expected to fail
+  Type f32 = Float_t::make(32);
+  try {
+    Expr _1 = IntImm::make(f32, 1);
+    std::cerr << "Failed!\n";
+  } catch (const std::runtime_error &e) {
+    std::cout << "Successfully caught: " << e.what();
+  }
 }
 
 int main(void) {
-    test_example();
-    test_example2();
+  test_example();
+  test_example2();
 }
