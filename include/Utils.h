@@ -17,22 +17,23 @@ ir::Expr make_one(const ir::Type &t);
 
 template <typename T>
 ir::Expr make_const(const ir::Type &t, const T &v) {
-  if (t.is<ir::Int_t>()) {
-    return ir::IntImm::make(t, (int64_t)v);
-  } else if (t.is<ir::UInt_t>()) {
-    return ir::UIntImm::make(t, (uint64_t)v);
-  } else if (t.is<ir::Bool_t>()) {
-    return ir::BoolImm::make((bool)v);
-  } else if (t.is<ir::Float_t>()) {
-    return ir::FloatImm::make(t, (double)v);
-  } else if (t.is<ir::Vector_t>()) {
-    ir::Expr r = make_const(t.as<ir::Vector_t>()->etype, v);
-    return ir::Broadcast::make(t.as<ir::Vector_t>()->lanes, std::move(r));
-  } else {
-    internal_error << "make_const does not know how to build constant of type: "
-                   << t << " for value: " << v;
-    return ir::Expr();
-  }
+    if (t.is<ir::Int_t>()) {
+        return ir::IntImm::make(t, (int64_t)v);
+    } else if (t.is<ir::UInt_t>()) {
+        return ir::UIntImm::make(t, (uint64_t)v);
+    } else if (t.is<ir::Bool_t>()) {
+        return ir::BoolImm::make((bool)v);
+    } else if (t.is<ir::Float_t>()) {
+        return ir::FloatImm::make(t, (double)v);
+    } else if (t.is<ir::Vector_t>()) {
+        ir::Expr r = make_const(t.as<ir::Vector_t>()->etype, v);
+        return ir::Broadcast::make(t.as<ir::Vector_t>()->lanes, std::move(r));
+    } else {
+        internal_error
+            << "make_const does not know how to build constant of type: " << t
+            << " for value: " << v;
+        return ir::Expr();
+    }
 }
 
 ir::Expr constant_cast(const ir::Type &t, const ir::Expr &e);
