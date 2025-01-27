@@ -225,19 +225,15 @@ std::ostream &operator<<(std::ostream &out, const Token &token) {
     return out;
 }
 
-// TODO(cgyurgyik): Updating line and column should just be done automatically
-// when adding a token rather than manually each time.
-void TokenStream::addToken(Token::Type type, uint32_t line, uint32_t col,
-                           uint32_t len) {
-    Token newToken;
-
-    newToken.type = type;
-    newToken.lineBegin = line;
-    newToken.colBegin = col;
-    newToken.lineEnd = line;
-    newToken.colEnd = col + len - 1;
-
-    tokens.push_back(newToken);
+void TokenStream::addToken(Token::Type type, uint64_t line, uint64_t column,
+                           uint32_t length) {
+    tokens.push_back(Token{
+        .type = type,
+        .lineBegin = line,
+        .colBegin = column,
+        .lineEnd = line,
+        .colEnd = column + length - 1,
+    });
 }
 
 bool TokenStream::consume(Token::Type type) {
