@@ -27,7 +27,6 @@ struct Token {
 
         FUNC,   // func
         MUT,    // mut
-        LAMBDA, // lambda
         RARROW, // ->
         RETURN, // return
 
@@ -50,11 +49,12 @@ struct Token {
         PERIOD,    // .
         COL,       // :
         SEMICOL,   // ;
+        BAR,       // |
 
         ASSIGN, // =
         AND,    // &&
         AT,     // @
-        OR,     // ||
+        LOR,    // ||
         XOR,    // ^
         NOT,    // !
         PLUS,   // +
@@ -98,6 +98,7 @@ struct TokenStream {
     Token peek(uint32_t count) const;
 
     void skip() { tokens.pop_front(); }
+    Token back() { return tokens.back(); }
     bool consume(Token::Type);
 
     bool empty() const { return tokens.empty(); }

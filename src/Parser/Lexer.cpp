@@ -48,8 +48,6 @@ Token::Type Lexer::getTokenType(const std::string token) {
         return Token::Type::FUNC;
     if (token == "mut")
         return Token::Type::MUT;
-    if (token == "lambda")
-        return Token::Type::LAMBDA;
     if (token == "return")
         return Token::Type::RETURN;
     if (token == "for")
@@ -69,6 +67,12 @@ Token::Type Lexer::getTokenType(const std::string token) {
     return Token::Type::IDENTIFIER;
 }
 
+// Returns whether this is a valid start character of an identifier or keyword,
+// i.e., [A-Za-z_]
+static bool isValidIdentifierStart(int32_t c) {
+    return c == '_' || std::isalpha(c);
+}
+
 TokenStream Lexer::lex(std::istream &programStream) {
     TokenStream tokens;
     uint32_t line = 1;
@@ -76,11 +80,12 @@ TokenStream Lexer::lex(std::istream &programStream) {
     ScanState state = ScanState::INITIAL;
 
     while (programStream.peek() != EOF) {
-        // Try to parse a name of the form [A-Za-z_][A-Za-z0-9_]
-        if (programStream.peek() == '_' || std::isalpha(programStream.peek())) {
+        // Try to parse a name of the form [A-Za-z_][A-Za-z0-9_].
+        if (isValidIdentifierStart(programStream.peek())) {
             std::string tokenString(1, programStream.get());
-            while (programStream.peek() == '_' ||
-                   std::isalnum(programStream.peek())) {
+            // [A-Za-z0-9_]
+            while (isValidIdentifierStart(programStream.peek()) ||
+                   std::isdigit(programStream.peek())) {
                 tokenString += programStream.get();
             }
 
@@ -165,18 +170,16 @@ TokenStream Lexer::lex(std::istream &programStream) {
                     tokens.addToken(Token::Type::ERROR, line, col++);
                 }
                 break;
-            case '|':
+            case '|': {
                 programStream.get();
                 if (programStream.peek() == '|') {
                     programStream.get();
-                    tokens.addToken(Token::Type::OR, line, col, 2);
+                    tokens.addToken(Token::Type::LOR, line, col, /*length=*/2);
                     col += 2;
-                } else {
-                    // TODO: what to do?
-                    reportError("SINGLE | not supported", line, col);
-                    tokens.addToken(Token::Type::ERROR, line, col++);
+                    break;
                 }
-                break;
+                tokens.addToken(Token::Type::BAR, line, col++);
+            } break;
             case '^':
                 programStream.get();
                 tokens.addToken(Token::Type::XOR, line, col++);
