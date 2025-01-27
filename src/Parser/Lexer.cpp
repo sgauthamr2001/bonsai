@@ -12,78 +12,59 @@ namespace parser {
 class Lexer {
   public:
     Lexer() {}
-
     // TODO: support better error handling?
-    void lex(std::istream &);
 
-    // Returns the current line number.
-    uint64_t getLineNo() { return line; }
-
-    // Returns the current column number.
-    uint64_t getColumnNo() { return column; }
-
-    void resetColumnNo() { column = 1; }
-    void resetLineNo() { line = 1; }
-
-    void incrColumnNo(uint32_t value = 1) { column += value; }
-    void incrLineNo(uint32_t value = 1) { line += value; }
-
-    void addToken(TokenType type, uint32_t length = 1) {
-        stream.addToken(type, getLineNo(), getColumnNo(), length);
-    }
-
-    void addToken(Token token) { stream.addToken(token); }
-
-    TokenStream getTokens() { return stream; }
+    TokenStream lex(std::istream &);
 
   private:
-    TokenStream stream;
-    // The current column and line number during the tokenization phase.
-    uint64_t column = 1;
-    uint64_t line = 1;
-
     enum class ScanState { INITIAL, SLTEST, MLTEST };
 
-    static TokenType getTokenType(std::string_view);
+  private:
+    static Token::Type getTokenType(const std::string);
 
-    void reportError(std::string_view message) {
-        internal_error << "Parser error: " << message << "\n  on line "
-                       << getLineNo() << ", column " << getColumnNo();
+    void reportError(std::string msg, uint32_t line, uint32_t col) {
+        internal_error << "Parser error: " << msg << "\n  on line " << line
+                       << " and column " << col;
+        // errors->push_back(ParseError(line, col, line, col, msg));
     }
 
-    char handleEscapedChar(std::istream &programStream);
+    char handleEscapedChar(std::istream &programStream, uint32_t line,
+                           uint32_t col);
+
+  private:
+    // std::vector<ParseError> *errors;
 };
 
-TokenType Lexer::getTokenType(const std::string_view token) {
+Token::Type Lexer::getTokenType(const std::string token) {
     if (token == "import")
-        return TokenType::IMPORT;
+        return Token::Type::IMPORT;
     if (token == "element")
-        return TokenType::ELEMENT;
+        return Token::Type::ELEMENT;
     if (token == "interface")
-        return TokenType::INTERFACE;
+        return Token::Type::INTERFACE;
     if (token == "extern")
-        return TokenType::EXTERN;
+        return Token::Type::EXTERN;
     if (token == "func")
-        return TokenType::FUNC;
+        return Token::Type::FUNC;
     if (token == "mut")
         return Token::Type::MUT;
     if (token == "return")
-        return TokenType::RETURN;
+        return Token::Type::RETURN;
     if (token == "for")
-        return TokenType::FOR;
+        return Token::Type::FOR;
     if (token == "if")
-        return TokenType::IF;
+        return Token::Type::IF;
     if (token == "elif")
-        return TokenType::ELIF;
+        return Token::Type::ELIF;
     if (token == "else")
-        return TokenType::ELSE;
+        return Token::Type::ELSE;
     if (token == "true")
-        return TokenType::TRUE;
+        return Token::Type::TRUE;
     if (token == "false")
-        return TokenType::FALSE;
+        return Token::Type::FALSE;
 
     // If string does not correspond to a keyword, assume it is an identifier.
-    return TokenType::IDENTIFIER;
+    return Token::Type::IDENTIFIER;
 }
 
 // Returns whether this is a valid start character of an identifier or keyword,
@@ -92,7 +73,10 @@ static bool isValidIdentifierStart(int32_t c) {
     return c == '_' || std::isalpha(c);
 }
 
-void Lexer::lex(std::istream &programStream) {
+TokenStream Lexer::lex(std::istream &programStream) {
+    TokenStream tokens;
+    uint32_t line = 1;
+    uint32_t col = 1;
     ScanState state = ScanState::INITIAL;
 
     while (programStream.peek() != EOF) {
@@ -105,131 +89,138 @@ void Lexer::lex(std::istream &programStream) {
                 tokenString += programStream.get();
             }
 
-            Token newToken{
-                .type = getTokenType(tokenString),
-                .lineBegin = getLineNo(),
-                .colBegin = getColumnNo(),
-                .lineEnd = getLineNo(),
-                .colEnd = getColumnNo() + tokenString.length() - 1,
-            };
-            if (newToken.type == TokenType::IDENTIFIER) {
+            Token newToken;
+            newToken.type = getTokenType(tokenString);
+            newToken.lineBegin = line;
+            newToken.colBegin = col;
+            newToken.lineEnd = line;
+            newToken.colEnd = col + tokenString.length() - 1;
+            if (newToken.type == Token::Type::IDENTIFIER) {
                 newToken.value = tokenString;
             }
-            addToken(newToken);
+            tokens.addToken(newToken);
+
+            col += tokenString.length();
         } else {
             switch (programStream.peek()) {
             case '(':
                 programStream.get();
-                addToken(TokenType::LPAREN);
+                tokens.addToken(Token::Type::LPAREN, line, col++);
                 break;
             case ')':
                 programStream.get();
-                addToken(TokenType::RPAREN);
+                tokens.addToken(Token::Type::RPAREN, line, col++);
                 break;
             case '[':
                 programStream.get();
-                addToken(TokenType::LBRACKET);
+                tokens.addToken(Token::Type::LBRACKET, line, col++);
                 break;
             case ']':
                 programStream.get();
-                addToken(TokenType::RBRACKET);
+                tokens.addToken(Token::Type::RBRACKET, line, col++);
                 break;
             case '{':
                 programStream.get();
-                addToken(TokenType::LSQUIGGLE);
+                tokens.addToken(Token::Type::LSQUIGGLE, line, col++);
                 break;
             case '}':
                 programStream.get();
-                addToken(TokenType::RSQUIGGLE);
+                tokens.addToken(Token::Type::RSQUIGGLE, line, col++);
                 break;
             case ',':
                 programStream.get();
-                addToken(TokenType::COMMA);
+                tokens.addToken(Token::Type::COMMA, line, col++);
                 break;
             case '.':
                 // NOTE: this means float literals like .0f are illegal!
                 programStream.get();
-                addToken(TokenType::PERIOD);
+                tokens.addToken(Token::Type::PERIOD, line, col++);
                 break;
             case ':':
                 programStream.get();
-                addToken(TokenType::COL);
+                tokens.addToken(Token::Type::COL, line, col++);
                 break;
             case ';':
                 programStream.get();
-                addToken(TokenType::SEMICOL);
+                tokens.addToken(Token::Type::SEMICOL, line, col++);
                 break;
             case '@':
                 programStream.get();
-                addToken(TokenType::AT);
+                tokens.addToken(Token::Type::AT, line, col++);
                 break;
             case '=':
                 programStream.get();
                 if (programStream.peek() == '=') {
                     programStream.get();
-                    addToken(TokenType::EQ, /*length=*/2);
+                    tokens.addToken(Token::Type::EQ, line, col, 2);
+                    col += 2;
                 } else {
-                    addToken(TokenType::ASSIGN);
+                    tokens.addToken(Token::Type::ASSIGN, line, col++);
                 }
                 break;
             case '&':
                 programStream.get();
                 if (programStream.peek() == '&') {
                     programStream.get();
-                    addToken(TokenType::AND, /*length=*/2);
+                    tokens.addToken(Token::Type::AND, line, col, 2);
+                    col += 2;
                 } else {
-                    reportError("SINGLE `&` not implemented");
-                    addToken(TokenType::ERROR);
+                    // TODO: what to do?
+                    reportError("SINGLE & not supported", line, col);
+                    tokens.addToken(Token::Type::ERROR, line, col++);
                 }
                 break;
             case '|': {
                 programStream.get();
                 if (programStream.peek() == '|') {
                     programStream.get();
-                    addToken(TokenType::LOR, /*length=*/2);
+                    tokens.addToken(Token::Type::LOR, line, col, /*length=*/2);
+                    col += 2;
                     break;
                 }
-                addToken(TokenType::BAR);
+                tokens.addToken(Token::Type::BAR, line, col++);
             } break;
             case '^':
                 programStream.get();
-                addToken(TokenType::XOR);
+                tokens.addToken(Token::Type::XOR, line, col++);
                 break;
             case '!':
                 programStream.get();
                 if (programStream.peek() == '=') {
                     programStream.get();
-                    addToken(TokenType::NEQ, /*length=*/2);
+                    tokens.addToken(Token::Type::NEQ, line, col, 2);
+                    col += 2;
                 } else {
-                    addToken(TokenType::NOT);
+                    tokens.addToken(Token::Type::NOT, line, col++);
                 }
                 break;
             case '+':
                 programStream.get();
                 if (programStream.peek() == '+') {
                     programStream.get();
-                    addToken(TokenType::INC, /*length=*/2);
+                    tokens.addToken(Token::Type::INC, line, col, 2);
+                    col += 2;
                 } else {
-                    addToken(TokenType::PLUS);
+                    tokens.addToken(Token::Type::PLUS, line, col++);
                 }
                 break;
             case '-':
                 programStream.get();
                 if (programStream.peek() == '>') {
                     programStream.get();
-                    addToken(TokenType::RARROW, /*length=*/2);
-
+                    tokens.addToken(Token::Type::RARROW, line, col, 2);
+                    col += 2;
                 } else if (programStream.peek() == '-') {
                     programStream.get();
-                    addToken(TokenType::DEC, /*length=*/2);
-
+                    tokens.addToken(Token::Type::DEC, line, col, 2);
+                    col += 2;
                 } else {
-                    addToken(TokenType::MINUS);
+                    tokens.addToken(Token::Type::MINUS, line, col++);
                 }
                 break;
             case '*':
                 programStream.get();
-                addToken(TokenType::STAR);
+                tokens.addToken(Token::Type::STAR, line, col++);
                 break;
             case '/':
                 programStream.get();
@@ -237,77 +228,80 @@ void Lexer::lex(std::istream &programStream) {
                     while (programStream.peek() != EOF &&
                            programStream.peek() != '\n') {
                         programStream.get();
-                        incrColumnNo();
+                        col++;
                     }
                     if (programStream.peek() != '\n') {
                         programStream.get();
-                        incrLineNo();
-                        resetColumnNo();
+                        line++;
+                        col = 1;
                     }
                     // TODO: emit comment token?
                 } else {
-                    addToken(TokenType::SLASH);
+                    tokens.addToken(Token::Type::SLASH, line, col++);
                 }
                 break;
             case '%':
                 programStream.get();
-                addToken(TokenType::MOD);
+                tokens.addToken(Token::Type::MOD, line, col++);
                 break;
             // EQ, NEQ already handled
             case '<':
                 programStream.get();
                 if (programStream.peek() == '=') {
                     programStream.get();
-                    addToken(TokenType::LEQ, /*length=*/2);
+                    tokens.addToken(Token::Type::LEQ, line, col, 2);
+                    col += 2;
                 } else {
-                    addToken(TokenType::LT);
+                    tokens.addToken(Token::Type::LT, line, col++);
                 }
                 break;
             case '>':
                 programStream.get();
                 if (programStream.peek() == '=') {
                     programStream.get();
-                    addToken(TokenType::GEQ, /*length=*/2);
+                    tokens.addToken(Token::Type::GEQ, line, col, 2);
+                    col += 2;
                 } else {
-                    addToken(TokenType::GT);
+                    tokens.addToken(Token::Type::GT, line, col++);
                 }
                 break;
             case '"': {
                 programStream.get();
                 Token newToken;
-                newToken.type = TokenType::STRING_LITERAL;
-                newToken.lineBegin = getLineNo();
-                newToken.colBegin = getColumnNo();
+                newToken.type = Token::Type::STRING_LITERAL;
+                newToken.lineBegin = line;
+                newToken.colBegin = col++;
                 std::string str;
 
                 while (programStream.peek() != EOF &&
                        programStream.peek() != '"') {
                     if (programStream.peek() == '\\') {
-                        char escapedChar = handleEscapedChar(programStream);
+                        char escapedChar =
+                            handleEscapedChar(programStream, line, col);
                         if (escapedChar != ' ') {
                             str += escapedChar;
                             programStream.get();
-
+                            col += 2;
                         } else {
                             // error case.
-                            incrColumnNo();
+                            col++;
                         }
                     } else {
                         str += programStream.get();
-                        incrColumnNo();
+                        col++;
                     }
                 }
 
-                newToken.lineEnd = getLineNo();
-                newToken.colEnd = getColumnNo();
+                newToken.lineEnd = line;
+                newToken.colEnd = col;
                 newToken.value = str;
-                addToken(newToken);
+                tokens.addToken(newToken);
 
                 if (programStream.peek() == '"') {
                     programStream.get();
-                    incrColumnNo();
+                    col++;
                 } else {
-                    reportError("unclosed string literal");
+                    reportError("unclosed string literal", line, col);
                 }
                 break;
             }
@@ -323,13 +317,13 @@ void Lexer::lex(std::istream &programStream) {
                 if (state == ScanState::SLTEST) {
                     state = ScanState::INITIAL;
                 }
-                incrLineNo();
-                resetColumnNo();
+                line++;
+                col = 1;
                 break;
             case ' ':
             case '\t':
                 programStream.get();
-                incrColumnNo();
+                ++col;
                 break;
             default: {
                 // Try to parse a(n) (int uint, float) literal.
@@ -340,120 +334,134 @@ void Lexer::lex(std::istream &programStream) {
                     std::stringstream errMsg;
                     errMsg << "unexpected symbol (expected digit) '"
                            << (char)programStream.peek() << "'";
-                    reportError(errMsg.str());
+                    reportError(errMsg.str(), line, col);
                     while (programStream.peek() != EOF &&
                            !std::isspace(programStream.peek())) {
                         programStream.get();
-                        incrColumnNo();
+                        col++;
                     }
                     break;
                 }
 
-                Token newToken{
-                    .lineBegin = getLineNo(),
-                    .colBegin = getColumnNo(),
-                    .type = TokenType::INT_LITERAL,
-                };
+                Token newToken;
+                newToken.lineBegin = line;
+                newToken.colBegin = col;
+                newToken.type = Token::Type::INT_LITERAL;
+
                 std::string tokenString;
                 while (std::isdigit(programStream.peek())) {
                     tokenString += programStream.get();
-                    incrColumnNo();
+                    ++col;
                 }
 
-                // Handle decimal.
+                // handle decimal
                 if (programStream.peek() == '.') {
-                    newToken.type = TokenType::FLOAT_LITERAL;
+                    newToken.type = Token::Type::FLOAT_LITERAL;
                     tokenString += programStream.get();
-                    incrColumnNo();
+                    ++col;
 
                     if (!std::isdigit(programStream.peek())) {
                         std::stringstream errMsg;
                         errMsg << "unexpected symbol (expected digit for "
                                   "decimal) '"
-                               << static_cast<char>(programStream.peek())
-                               << "'";
-                        reportError(errMsg.str());
+                               << (char)programStream.peek() << "'";
+                        reportError(errMsg.str(), line, col);
 
                         while (programStream.peek() != EOF &&
                                !std::isspace(programStream.peek())) {
                             programStream.get();
-                            incrColumnNo();
+                            ++col;
                         }
                         break;
                     }
                     do {
                         tokenString += programStream.get();
-                        incrColumnNo();
+                        col++;
                     } while (std::isdigit(programStream.peek()));
                 }
 
                 // handle exponent
                 if (programStream.peek() == 'e' ||
                     programStream.peek() == 'E') {
-                    newToken.type = TokenType::FLOAT_LITERAL;
+                    newToken.type = Token::Type::FLOAT_LITERAL;
                     tokenString += programStream.get();
-                    incrColumnNo();
+                    ++col;
 
                     if (programStream.peek() == '+' ||
                         programStream.peek() == '-') {
                         tokenString += programStream.get();
-                        incrColumnNo();
+                        ++col;
                     }
 
                     if (!std::isdigit(programStream.peek())) {
                         std::stringstream errMsg;
                         errMsg << "unexpected symbol (expected digit for "
                                   "exponent) '"
-                               << static_cast<char>(programStream.peek())
-                               << "'";
-                        reportError(errMsg.str());
+                               << (char)programStream.peek() << "'";
+                        reportError(errMsg.str(), line, col);
 
                         while (programStream.peek() != EOF &&
                                !std::isspace(programStream.peek())) {
                             programStream.get();
-                            incrColumnNo();
+                            ++col;
                         }
                         break;
                     }
                     do {
                         tokenString += programStream.get();
-                        incrColumnNo();
+                        col++;
                     } while (std::isdigit(programStream.peek()));
                 }
 
-                // TODO: Handle f (float), h (half) modifiers.
+                // TODO: handle f (float), h (half) modifiers
 
-                // Handle u (unsigned) modifier.
+                // handle u (unsigned) modifier.
                 if (programStream.peek() == 'u') {
                     programStream.get();
-                    newToken.type = TokenType::UINT_LITERAL;
-                    incrColumnNo();
-                    newToken.value =
-                        static_cast<uint64_t>(std::stoull(tokenString));
-                } else if (newToken.type == TokenType::INT_LITERAL) {
-                    newToken.type = TokenType::INT_LITERAL;
-                    newToken.value =
-                        static_cast<int64_t>(std::stoll(tokenString));
+                    newToken.type = Token::Type::UINT_LITERAL;
+                    ++col;
+                    newToken.value = (uint64_t)std::stoull(tokenString);
+                } else if (newToken.type == Token::Type::INT_LITERAL) {
+                    newToken.type = Token::Type::INT_LITERAL;
+                    newToken.value = (int64_t)std::stoll(tokenString);
                 } else {
-                    internal_assert(newToken.type == TokenType::FLOAT_LITERAL)
+                    internal_assert(newToken.type == Token::Type::FLOAT_LITERAL)
                         << "State error in literal parsing: " << tokenString;
-                    newToken.value =
-                        static_cast<double>(std::stold(tokenString));
+                    newToken.value = (double)std::stold(tokenString);
                 }
-                newToken.lineEnd = getLineNo();
-                newToken.colEnd = getColumnNo() - 1;
-                addToken(newToken);
+                if (newToken.type == Token::Type::FLOAT_LITERAL) {
+                    std::cout << tokenString << std::endl;
+                    std::cout << "parsed as:\n";
+                    std::cout << "double? "
+                              << std::holds_alternative<double>(newToken.value)
+                              << std::endl;
+                    std::cout << "int? "
+                              << std::holds_alternative<int64_t>(newToken.value)
+                              << std::endl;
+                    std::cout
+                        << "uint? "
+                        << std::holds_alternative<uint64_t>(newToken.value)
+                        << std::endl;
+                    std::cout << std::get<double>(newToken.value) << std::endl;
+                }
+                newToken.lineEnd = line;
+                newToken.colEnd = col - 1;
+                tokens.addToken(newToken);
                 break;
             }
             }
         }
     }
     if (state != ScanState::INITIAL) {
-        reportError("unclosed test");
+        reportError("unclosed test", line, col);
     }
+
+    // tokens.addToken(Token::Type::END, line, col);
+    return tokens;
 }
 
-char Lexer::handleEscapedChar(std::istream &programStream) {
+char Lexer::handleEscapedChar(std::istream &programStream, uint32_t line,
+                              uint32_t col) {
     switch (programStream.peek()) {
     case 'a':
         return '\a';
@@ -478,7 +486,7 @@ char Lexer::handleEscapedChar(std::istream &programStream) {
     case '?':
         return '\?';
     default:
-        reportError("Unrecognized escape sequence");
+        reportError("Unrecognized escape sequence", line, col);
         return ' ';
     }
 }
@@ -489,9 +497,9 @@ TokenStream lex(const std::string &filename) {
         << "Error: Could not open file " << filename;
 
     // Lexical analysis
-    Lexer L;
-    L.lex(inputFile);
-    return L.getTokens();
+    TokenStream tokens = Lexer().lex(inputFile);
+    // std::cerr << tokens << std::endl;
+    return tokens;
 }
 
 } // namespace parser
