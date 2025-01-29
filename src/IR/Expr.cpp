@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "IR/Analysis.h"
 #include "IR/Equality.h"
 #include "IR/Float16.h"
 #include "IR/Printer.h"
@@ -855,6 +856,31 @@ Expr Call::make(Expr func, std::vector<Expr> args) {
 
     node->func = std::move(func);
     node->args = std::move(args);
+    return node;
+}
+
+Expr Instantiate::make(Expr expr, Instantiate::TypeMap types) {
+    internal_assert(expr.defined())
+        << "Instantiate::make received undefined expr";
+    internal_assert(
+        std::all_of(types.cbegin(), types.cend(),
+                    [](const auto &p) { return p.second.defined(); }))
+        << "Instantiate::make received undefined type to expr: " << expr;
+
+    Instantiate *node = new Instantiate;
+
+    const bool infer_types =
+        type_enforcement_enabled() || expr.type().defined();
+
+    if (infer_types) {
+        internal_assert(contains_generics(expr.type(), types))
+            << "Instantiation does not contain generics: " << expr << " : "
+            << expr.type();
+        node->type = replace(types, expr.type());
+    }
+
+    node->expr = std::move(expr);
+    node->types = std::move(types);
     return node;
 }
 

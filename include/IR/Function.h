@@ -30,13 +30,32 @@ struct Function {
     std::vector<Argument> args;
     Type ret_type;
     Stmt body;
+    struct NamedInterface {
+        std::string name;
+        Interface interface;
+
+        NamedInterface();
+
+        NamedInterface(std::string _name, Interface _interface)
+            : name(std::move(_name)), interface(std::move(_interface)) {}
+
+        NamedInterface(const NamedInterface &) = default;
+        NamedInterface(NamedInterface &&) noexcept = default;
+        NamedInterface &operator=(const NamedInterface &) = default;
+        NamedInterface &operator=(NamedInterface &&) noexcept = default;
+        ~NamedInterface() = default;
+    };
+    // Intentionally ordered.
+    using InterfaceList = std::vector<NamedInterface>;
+    InterfaceList interfaces;
 
     Function() {}
 
     Function(std::string _name, std::vector<Argument> _args, Type _ret_type,
-             Stmt _body)
+             Stmt _body, InterfaceList _interfaces)
         : name(std::move(_name)), args(std::move(_args)),
-          ret_type(std::move(_ret_type)), body(std::move(_body)) {}
+          ret_type(std::move(_ret_type)), body(std::move(_body)),
+          interfaces(std::move(_interfaces)) {}
 
     Function(const Function &) = default;
     Function(Function &&) noexcept = default;

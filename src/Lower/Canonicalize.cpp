@@ -1,7 +1,9 @@
 #include "Lower/Canonicalize.h"
 
 #include "IR/Mutator.h"
-#include "Lower/LowerOption.h"
+
+#include "Lower/Generics.h"
+#include "Lower/Options.h"
 
 #include "Error.h"
 #include "Utils.h"
@@ -92,12 +94,14 @@ ir::Program canonicalize(const ir::Program &program) {
     for (const auto &[f, func] : program.funcs) {
         ir::Stmt body = canonicalize(func->body);
         new_program.funcs[f] = std::make_shared<ir::Function>(
-            func->name, func->args, func->ret_type, body);
+            func->name, func->args, func->ret_type, body, func->interfaces);
     }
 
     new_program.main_body = canonicalize(program.main_body);
 
     new_program = lower_option(new_program);
+
+    new_program = lower_generics(new_program);
     // TODO: more canonicalizations
     return new_program;
 }

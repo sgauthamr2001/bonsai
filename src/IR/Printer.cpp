@@ -26,6 +26,22 @@ std::ostream &operator<<(std::ostream &os, const Expr &expr) {
     return os;
 }
 
+std::string to_string(const Interface &interface) {
+    std::ostringstream oss;
+    oss << interface;
+    return oss.str();
+}
+
+std::ostream &operator<<(std::ostream &os, const Interface &interface) {
+    if (interface.defined()) {
+        Printer printer(os);
+        printer.print(interface);
+    } else {
+        os << "(undef-interface)";
+    }
+    return os;
+}
+
 std::string to_string(const Type &type) {
     std::ostringstream oss;
     oss << type;
@@ -59,7 +75,7 @@ std::ostream &operator<<(std::ostream &os, const Stmt &stmt) {
 }
 
 std::ostream &operator<<(std::ostream &stream, const Indentation &indentation) {
-    for (int i = 0; i < indentation.indent; i++) {
+    for (int i = 0; i < indentation.indent * 2; i++) {
         stream << " ";
     }
     return stream;
@@ -75,6 +91,50 @@ std::ostream &operator<<(std::ostream &os, const WriteLoc &loc) {
     return os;
 }
 
+std::ostream &operator<<(std::ostream &os, const Function &func) {
+    Printer printer(os);
+    os << "func " << func.name;
+    if (!func.interfaces.empty()) {
+        os << "<";
+        bool first = true;
+        for (const auto &[name, interface] : func.interfaces) {
+            if (!first) {
+                os << ", ";
+            }
+            first = false;
+
+            os << name;
+            if (!interface.is<IEmpty>()) {
+                os << " : ";
+                printer.print(interface);
+            }
+        }
+        os << ">";
+    }
+    os << "(";
+    bool first = true;
+    for (const auto &arg : func.args) {
+        if (!first) {
+            os << ", ";
+        }
+        first = false;
+
+        os << arg.name;
+        if (arg.type.defined()) {
+            os << " : " << arg.type;
+        }
+        if (arg.default_value.defined()) {
+            os << " = " << arg.default_value;
+        }
+    }
+
+    os << ") -> " << func.ret_type << " {\n";
+    printer.set_indent(1);
+    func.body.accept(&printer);
+    os << "}";
+    return os;
+}
+
 void Printer::print(const Type &type) {
     if (type.defined()) {
         type->accept(this);
@@ -83,6 +143,11 @@ void Printer::print(const Type &type) {
         // have a ton of undefined types.
         os << "unknown";
     }
+}
+
+void Printer::print(const Interface &interface) {
+    internal_assert(interface.defined());
+    interface->accept(this);
 }
 
 void Printer::print_type_list(const std::vector<Type> &types) {
@@ -195,6 +260,29 @@ void Printer::visit(const Function_t *node) {
     print(node->ret_type);
 }
 
+void Printer::visit(const Generic_t *node) {
+    if (node->interface.is<IEmpty>()) {
+        os << node->name;
+    } else {
+        os << "(" << node->name << " : ";
+        print(node->interface);
+        os << ")";
+    }
+}
+
+void Printer::visit(const IEmpty *node) { os << "IEmpty"; }
+
+void Printer::visit(const IFloat *node) { os << "IFloat"; }
+
+void Printer::visit(const IVector *node) {
+    os << "IVector";
+    if (node->etype.defined()) {
+        os << "[[";
+        print(node->etype);
+        os << "]]";
+    }
+}
+
 void Printer::visit(const IntImm *node) {
     os << "(";
     print(node->type);
@@ -230,15 +318,7 @@ void Printer::visit(const BoolImm *node) {
     os << str;
 }
 
-void Printer::visit(const Var *node) {
-    if (!known_type.contains(node->name) && node->type.defined() &&
-        !node->type.is<Function_t>()) {
-        os << "(";
-        print(node->type);
-        os << ")";
-    }
-    os << node->name;
-}
+void Printer::visit(const Var *node) { os << node->name; }
 
 void Printer::open() {
     if (!implicit_parens) {
@@ -444,7 +524,7 @@ void Printer::visit(const Lambda *node) {
         }
     }
     os << "| ";
-    print(node->value);
+    print_no_parens(node->value);
 }
 
 std::string to_string(const GeomOp::OpType &op) {
@@ -495,6 +575,21 @@ void Printer::visit(const Call *node) {
     os << "(";
     print_expr_list(node->args);
     os << ")";
+}
+
+void Printer::visit(const Instantiate *node) {
+    print_no_parens(node->expr);
+    os << "[[";
+    bool first = true;
+    for (const auto &[key, value] : node->types) {
+        if (!first) {
+            os << ", ";
+        }
+        first = false;
+        os << key << " -> ";
+        print(value);
+    }
+    os << "]]";
 }
 
 void Printer::visit(const Return *node) {

@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Expr.h"
+#include "Function.h"
 #include "Scope.h"
 #include "Stmt.h"
 #include "Visitor.h"
@@ -15,6 +16,9 @@ namespace ir {
 std::string to_string(const Expr &expr);
 std::ostream &operator<<(std::ostream &os, const Expr &expr);
 
+std::string to_string(const Interface &interface);
+std::ostream &operator<<(std::ostream &os, const Interface &interface);
+
 std::string to_string(const Type &type);
 std::ostream &operator<<(std::ostream &os, const Type &type);
 
@@ -22,6 +26,8 @@ std::string to_string(const Stmt &stmt);
 std::ostream &operator<<(std::ostream &os, const Stmt &stmt);
 
 std::ostream &operator<<(std::ostream &os, const WriteLoc &loc);
+
+std::ostream &operator<<(std::ostream &os, const Function &func);
 
 std::string to_string(const BinOp::OpType &op);
 std::string to_string(const UnOp::OpType &op);
@@ -40,6 +46,7 @@ struct Printer : public Visitor {
 
     void print(const Type &type);
     void print_type_list(const std::vector<Type> &types);
+    void print(const Interface &interface);
     void print(const Expr &expr);
     void print_no_parens(const Expr &expr);
     void print_expr_list(const std::vector<Expr> &exprs);
@@ -58,6 +65,11 @@ struct Printer : public Visitor {
     void visit(const Option_t *) override;
     void visit(const Set_t *) override;
     void visit(const Function_t *) override;
+    void visit(const Generic_t *) override;
+    // Interfaces
+    void visit(const IEmpty *) override;
+    void visit(const IFloat *) override;
+    void visit(const IVector *) override;
     // Exprs
     void visit(const IntImm *) override;
     void visit(const UIntImm *) override;
@@ -83,6 +95,7 @@ struct Printer : public Visitor {
     void visit(const GeomOp *) override;
     void visit(const SetOp *) override;
     void visit(const Call *) override;
+    void visit(const Instantiate *) override;
     // Stmts
     void visit(const Return *) override;
     void visit(const Store *) override;
@@ -91,6 +104,8 @@ struct Printer : public Visitor {
     void visit(const Sequence *) override;
     void visit(const Assign *) override;
     void visit(const Accumulate *) override;
+
+    void set_indent(int _indent) { indent = _indent; }
 
   protected:
     /** The stream on which we're outputting */
