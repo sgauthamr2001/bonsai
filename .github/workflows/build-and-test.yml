@@ -10,8 +10,6 @@ env:
   BUILD_TYPE: Debug
 
 jobs:
-  # TODO(cgyurgyik): Run clang-format, clang-tidy. (The CIRCT project has this set up [1].)
-  # [1]: https://github.com/llvm/circt/blob/main/.github/workflows/buildAndTest.yml
   build-and-test:
     # Currently we are only running this on mac-os. For multi-platform:
     # https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
@@ -45,12 +43,46 @@ jobs:
       run: |
         cmake --build ${{ github.workspace }}/build --config ${{env.BUILD_TYPE}}
       
-    - name: Install runt
-      uses: baptiste0928/cargo-install@v3
+    - name: Set up Rust (stable)
+      uses: actions-rs/toolchain@v1
       with:
-        crate: runt
-        version: "0.4.1"
+        toolchain: stable
+        override: true
+
+    - name: Install runt 
+      run: cargo install runt
       
     - name: Test
       working-directory: ${{ github.workspace }}
       run: runt -d
+    
+  clang-tidy:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2 # Required for clang-tidy / clang-format checks.
+    
+    # Clang format 
+    - uses: jidicula/clang-format-action@v4.14.0
+      with:
+        clang-format-version: '19'
+
+    # Clang tidy
+    - uses: ZedThree/clang-tidy-review@v0.20.1
+      id: review
+      if: github.event_name == 'pull_request'
+      with:
+        config_file: '.clang-tidy'
+        build_dir: build
+        lgtm_comment_body: "" # No comments upon success.
+
+    - uses: ZedThree/clang-tidy-review/upload@v0.20.1
+      id: upload-review
+      # If there are any comments, fail the check.
+    - if: steps.review.outputs.total_comments > 0
+      run: exit 1
