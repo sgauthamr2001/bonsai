@@ -146,8 +146,8 @@ struct Parser {
         if (auto token = consume(type)) {
             return *token;
         } else {
-            internal_error << "Expected " << Token::tokenTypeString(type)
-                           << ", instead received: " + peek().toString()
+            internal_error << "Expected " << Token::token_type_string(type)
+                           << ", instead received: " + peek().to_string()
                            << " at line: " << peek().lineBegin << ":"
                            << peek().colBegin;
             return Token{};
@@ -168,7 +168,7 @@ struct Parser {
             return parseFunction();
         default: {
             internal_error << "Failure in parseProgramElement: " +
-                                  peek().toString();
+                                  peek().to_string();
         }
         }
     }
@@ -519,7 +519,8 @@ struct Parser {
                 return parseAccumulate(std::move(loc));
             }
         }
-        internal_error << "TODO: implement parseStmt for " << peek().toString();
+        internal_error << "TODO: implement parseStmt for "
+                       << peek().to_string();
         return ir::Stmt();
     }
 
@@ -796,7 +797,7 @@ struct Parser {
             // TODO: should also support e.g. Type{} notation.
         } else {
             internal_error << "Unknown token in parseBaseExpr: "
-                           << peek().toString()
+                           << peek().to_string()
                            << " at line: " << peek().lineBegin;
             return ir::Expr();
         }
