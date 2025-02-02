@@ -45,6 +45,58 @@
 #include <sstream>
 
 namespace bonsai {
+namespace {
+
+// Returns the `printf` function for this module. If none exists, it is created.
+static llvm::Function *retrieve_printf(llvm::Module &m) {
+    llvm::Function *printf;
+    if ((printf = m.getFunction("printf"))) {
+        return printf;
+    }
+
+    llvm::LLVMContext &context = m.getContext();
+    auto *functy = llvm::FunctionType::get(
+        llvm::IntegerType::get(context, 32),
+        llvm::PointerType::get(llvm::IntegerType::get(context, 8),
+                               /*AddressSpace=*/0),
+        /*isVarArg=*/true);
+    printf = llvm::Function::Create(functy, llvm::GlobalValue::ExternalLinkage,
+                                    "printf", m);
+    printf->setCallingConv(llvm::CallingConv::C);
+    return printf;
+}
+
+// Returns the printf format specifier for this value, or error if it is not
+// implemented yet.
+// TODO(cgyurgyik): Add support for non-standard types.
+static std::string get_specifier(const ir::Type &type) {
+    std::string specifier = "%";
+    const uint32_t width = type.bits();
+    if (!(type.is_numeric() && (width == 32 || width == 64))) {
+        internal_error << "[unimplemented] LLVM print: " << type;
+        return "";
+    }
+    if (type.is_int()) {
+        if (width > 32)
+            return "%ld";
+        return "%d";
+    }
+    if (type.is_uint() || type.is_bool()) {
+        if (width > 32)
+            return "%lu";
+        return "%u";
+    }
+    if (type.is_float()) {
+        // C will convert float (f32) to double (f64) for variadic
+        // argument functions (to include printf).
+        return "%f";
+    }
+
+    internal_error << "[unimplemented] LLVM print: " << type;
+    return "";
+}
+
+} // namespace
 
 using namespace ir;
 
@@ -750,6 +802,21 @@ void CodeGen_LLVM::visit(const Select *node) {
     // https://llvm.org/docs/LangRef.html#vector-predication-intrinsics
     // https://llvm.org/docs/LangRef.html#llvm-vp-select-intrinsics
     value = builder->CreateSelect(cond, tvalue, fvalue);
+}
+
+void CodeGen_LLVM::visit(const Print *node) {
+    // TODO(cgyurgyik): Support strings and more complex structures.
+    ir::Expr v = node->value;
+
+    std::string specifier = get_specifier(v.type());
+    specifier += "\n";
+    llvm::Value *expr = codegen_expr(v);
+
+    std::vector<llvm::Value *> args;
+    args.push_back(builder->CreateGlobalStringPtr(specifier));
+    args.push_back(expr);
+    llvm::Function *func = retrieve_printf(*module);
+    value = builder->CreateCall(func, args);
 }
 
 void CodeGen_LLVM::visit(const Cast *node) {

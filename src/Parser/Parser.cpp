@@ -504,6 +504,12 @@ struct Parser {
             ir::Expr ret = parseExpr();
             expect(Token::Type::SEMICOL);
             return ir::Return::make(std::move(ret));
+        } else if (consume(Token::Type::PRINT)) {
+            expect(Token::Type::LPAREN);
+            ir::Expr value = parseExpr();
+            expect(Token::Type::RPAREN);
+            expect(Token::Type::SEMICOL);
+            return ir::Print::make(value);
         } else if (peek().type == Token::Type::IDENTIFIER) {
             // TODO: allow tuple declaration/assignment?
             // TODO: how to do SSA in parsing?
@@ -1337,6 +1343,8 @@ struct Parser {
             return ir::Float_t::make(bits);
         } else if (name == "bool") {
             return ir::Bool_t::make();
+        } else if (name == "void") {
+            return ir::Void_t::make();
         }
         // Now look for built-ins
         else if (name == "vector") {

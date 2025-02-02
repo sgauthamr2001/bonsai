@@ -5,6 +5,13 @@
 namespace bonsai {
 namespace ir {
 
+Stmt Print::make(Expr value) {
+    internal_assert(value.defined()) << "Undefined value in Print::make";
+    Print *node = new Print;
+    node->value = std::move(value);
+    return node;
+}
+
 Stmt Return::make(Expr value) {
     internal_assert(value.defined()) << "Undefined value in Return::make";
     Return *node = new Return;

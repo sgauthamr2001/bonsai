@@ -54,6 +54,7 @@ struct Printer : public Visitor {
     void print(const WriteLoc &loc);
 
     // Types
+    void visit(const Void_t *) override;
     void visit(const Int_t *) override;
     void visit(const UInt_t *) override;
     void visit(const Float_t *) override;
@@ -97,6 +98,7 @@ struct Printer : public Visitor {
     void visit(const Call *) override;
     void visit(const Instantiate *) override;
     // Stmts
+    void visit(const Print *) override;
     void visit(const Return *) override;
     void visit(const Store *) override;
     void visit(const LetStmt *) override;

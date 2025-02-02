@@ -32,6 +32,8 @@ void visit_writeloc(Visitor *v, const WriteLoc &loc) {
 }
 } // namespace
 
+void Visitor::visit(const Void_t *) {}
+
 void Visitor::visit(const Int_t *) {}
 
 void Visitor::visit(const UInt_t *) {}
@@ -143,6 +145,8 @@ void Visitor::visit(const Instantiate *node) {
     node->expr.accept(this);
     // TODO: should we visit the instantiated types?
 }
+
+void Visitor::visit(const Print *node) { node->value.accept(this); }
 
 void Visitor::visit(const Return *node) { node->value.accept(this); }
 

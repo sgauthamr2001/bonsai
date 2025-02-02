@@ -7,6 +7,7 @@ namespace ir {
 
 struct Visitor {
     // Types
+    virtual void visit(const Void_t *);
     virtual void visit(const Int_t *);
     virtual void visit(const UInt_t *);
     virtual void visit(const Float_t *);
@@ -47,6 +48,7 @@ struct Visitor {
     virtual void visit(const Call *);
     virtual void visit(const Instantiate *);
     // Stmts
+    virtual void visit(const Print *);
     virtual void visit(const Return *);
     virtual void visit(const Store *);
     virtual void visit(const LetStmt *);

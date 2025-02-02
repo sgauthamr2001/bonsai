@@ -56,6 +56,8 @@ Stmt Mutator::mutate(const Stmt &stmt) {
     return stmt.defined() ? stmt.get()->mutate_stmt(this) : Stmt();
 }
 
+Type Mutator::visit(const Void_t *node) { return node; }
+
 Type Mutator::visit(const Int_t *node) { return node; }
 
 Type Mutator::visit(const UInt_t *node) { return node; }
@@ -321,6 +323,14 @@ Expr Mutator::visit(const Instantiate *node) {
         return node;
     }
     return Instantiate::make(std::move(expr), node->types);
+}
+
+Stmt Mutator::visit(const Print *node) {
+    Expr value = mutate(node->value);
+    if (value.same_as(node->value)) {
+        return node;
+    }
+    return Print::make(std::move(value));
 }
 
 Stmt Mutator::visit(const Return *node) {

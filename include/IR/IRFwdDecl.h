@@ -5,6 +5,7 @@ namespace ir {
 
 // Types
 struct Type;
+struct Void_t;
 struct Int_t;
 struct UInt_t;
 struct Float_t;
@@ -51,6 +52,7 @@ struct Instantiate;
 
 // Stmts
 struct Stmt;
+struct Print;
 struct Return;
 struct Store;
 struct LetStmt;

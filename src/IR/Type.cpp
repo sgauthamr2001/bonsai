@@ -113,6 +113,11 @@ Type Type::element_of() const {
     }
 }
 
+Type Void_t::make() {
+    static Type global_void = new Void_t;
+    return global_void;
+}
+
 Type Int_t::make(uint32_t bits) {
     internal_assert(bits > 0 && bits <= 64)
         << "Unsupported bitwidth in Int_t: " << bits;

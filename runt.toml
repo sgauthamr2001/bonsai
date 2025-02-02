@@ -30,3 +30,10 @@ cmd = """
 flags="$(head -n 1 {} | cut -c 3-)"
 ./build/compiler {} $flags
 """
+
+[[tests]]
+name = "[correctness] llvm"
+paths = ["tests/bonsai/correctness/llvm/*.bonsai"]
+cmd = """
+./build/compiler {} -run
+"""

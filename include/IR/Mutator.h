@@ -13,6 +13,7 @@ struct Mutator {
 
     // protected:
     // Types
+    virtual Type visit(const Void_t *);
     virtual Type visit(const Int_t *);
     virtual Type visit(const UInt_t *);
     virtual Type visit(const Float_t *);
@@ -53,6 +54,7 @@ struct Mutator {
     virtual Expr visit(const Call *);
     virtual Expr visit(const Instantiate *);
     // Stmts
+    virtual Stmt visit(const Print *);
     virtual Stmt visit(const Return *);
     virtual Stmt visit(const Store *);
     virtual Stmt visit(const LetStmt *);
