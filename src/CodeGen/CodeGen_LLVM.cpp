@@ -1057,7 +1057,9 @@ void CodeGen_LLVM::visit(const Intrinsic *node) {
 }
 
 void CodeGen_LLVM::visit(const Lambda *node) {
-    internal_error << "TODO: implement Lambda code generation: " << Expr(node);
+    internal_error
+        << "Lambda expression should have been canonicalized and eliminated: "
+        << Expr(node);
 }
 
 void CodeGen_LLVM::visit(const GeomOp *node) {
