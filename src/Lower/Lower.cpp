@@ -6,6 +6,7 @@
 #include "Lower/Lambdas.h"
 #include "Lower/Options.h"
 #include "Lower/VerifyOptions.h"
+#include "Opt/DCE.h"
 
 #include "CompilerOptions.h"
 #include "Error.h"
@@ -71,6 +72,7 @@ PassManager register_passes() {
     d.push_back(std::make_unique<LowerLambda>());
     d.push_back(std::make_unique<LowerOption>());
     d.push_back(std::make_unique<LowerGeneric>());
+    d.push_back(std::make_unique<opt::DCE>());
     manager.register_alias("default", d);
 
     return manager;

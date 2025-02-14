@@ -476,9 +476,7 @@ void CodeGen_LLVM::visit(const UInt_t *node) {
     type = llvm::Type::getIntNTy(*context, node->bits);
 }
 
-void CodeGen_LLVM::visit(const Bool_t *node) {
-    type = llvm::Type::getInt1Ty(*context);
-}
+void CodeGen_LLVM::visit(const Bool_t *node) { type = i1_t; }
 
 void CodeGen_LLVM::visit(const Float_t *node) {
     switch (node->bits()) {
@@ -1060,10 +1058,13 @@ void CodeGen_LLVM::visit(const Extract *node) {
 
 void CodeGen_LLVM::visit(const Intrinsic *node) {
     llvm::Intrinsic::IndependentIntrinsics intrin;
+    // llvm.abs for integers requires passing a constant `false` to it.
+    bool add_false_arg = false;
     switch (node->op) {
     case Intrinsic::abs: {
         intrin = node->args[0].type().is_float() ? llvm::Intrinsic::fabs
                                                  : llvm::Intrinsic::abs;
+        add_false_arg = node->args[0].type().is_int();
         break;
     }
     case Intrinsic::cos: {
@@ -1123,6 +1124,11 @@ void CodeGen_LLVM::visit(const Intrinsic *node) {
     std::vector<llvm::Value *> args(node->args.size());
     for (size_t i = 0; i < args.size(); i++) {
         args[i] = codegen_expr(node->args[i]);
+    }
+
+    if (add_false_arg) {
+        // Necessary for integer abs(), this is <is_int_min_poison>
+        args.push_back(llvm::ConstantInt::get(i1_t, 0));
     }
 
     llvm::Type *ret_type = codegen_type(node->type);

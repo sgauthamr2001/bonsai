@@ -556,19 +556,21 @@ struct Parser {
 
         // TODO: do type-forcing here!
         if (type_label.defined() && type.defined()) {
+            if (!ir::equals(type_label, value.type()) && is_const(value)) {
+                value = constant_cast(type_label, value);
+            }
             internal_assert(ir::equals(type_label, value.type()))
                 << "Mismatching assignment: " << loc
                 << " is labelled with type: " << type_label << " but " << value
                 << " has type " << type;
         }
         ir::Type write_type = type_label.defined() ? type_label : type;
-
         add_type_to_frame(loc.base, write_type, _mutable);
 
+        loc = ir::WriteLoc(loc.base, std::move(write_type));
         if (!_mutable) {
             return ir::LetStmt::make(std::move(loc), std::move(value));
         } else {
-            loc = ir::WriteLoc(loc.base, std::move(write_type));
             return ir::Assign::make(std::move(loc), std::move(value),
                                     /*mutating*/ false);
         }
@@ -934,7 +936,7 @@ struct Parser {
         });
 
         if (auto op = try_match_pattern<ir::VectorReduce::OpType>(
-                name, args.size(), RPATTERNS, 2, line, col)) {
+                name, args.size(), RPATTERNS, 1, line, col)) {
             return ir::VectorReduce::make(*op, std::move(args[0]));
         }
 
