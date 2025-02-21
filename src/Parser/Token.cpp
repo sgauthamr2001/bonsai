@@ -126,6 +126,10 @@ uint64_t Token::size() const {
     }
 }
 
+std::string Token::token_type_string(const Token &token) {
+    return Token::token_type_string(token.type);
+}
+
 std::string Token::token_type_string(Token::Type type) {
     switch (type) {
     case Token::Type::INT_LITERAL:
@@ -297,15 +301,15 @@ std::ostream &operator<<(std::ostream &out, const Token &token) {
 }
 
 void TokenStream::add_token(Token::Type type, uint64_t line, uint64_t column) {
-    tokens.push_back(Token{
-        .type = type,
-        .lineBegin = line,
-        .colBegin = column,
-    });
+    tokens.push_back(Token(type,
+                           /*line_begin=*/line,
+                           /*column_begin=*/column));
 }
 
 bool TokenStream::consume(Token::Type type) {
-    if (tokens.front().type == type) {
+    Token token = tokens.front();
+    if (token.type == type) {
+        current = token;
         tokens.pop_front();
         return true;
     }
@@ -316,7 +320,7 @@ bool TokenStream::consume(Token::Type type) {
 Token TokenStream::peek(uint32_t count) const {
     if (count == 0) {
         if (tokens.empty()) {
-            return Token{.type = Token::Type::ERROR};
+            return Token::ErrorToken();
         }
         return tokens.front();
     }
@@ -326,11 +330,8 @@ Token TokenStream::peek(uint32_t count) const {
     }
 
     if (it == tokens.cend()) {
-        Token end_token = Token();
-        end_token.type = Token::Type::ERROR;
-        return end_token;
+        return Token::ErrorToken();
     }
-
     return *it;
 }
 
