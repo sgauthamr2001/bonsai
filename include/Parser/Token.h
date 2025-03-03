@@ -29,12 +29,14 @@ class Token {
         ELEMENT,   // element
         INTERFACE, // interface
         EXTERN,    // extern
+        TREE,      // tree
 
         FUNC,   // func
         MUT,    // mut
         RARROW, // ->
         RETURN, // return
         PRINT,  // print
+        WITH,   // with
 
         // WHILE, // while
         FOR,   // for
