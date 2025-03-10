@@ -134,16 +134,16 @@ struct HasSideEffects : ir::Visitor {
     }
 };
 
-std::set<std::string> find_side_effects(const ir::FuncMap &funcs) {
+std::set<std::string> find_side_effects(const ir::Program &program) {
     const std::vector<std::string> topo_order =
-        lower::func_topological_order(funcs, /*undef_calls=*/false);
+        lower::func_topological_order(program, /*undef_calls=*/false);
     std::set<std::string> side_effects;
     HasSideEffects checker(side_effects);
     for (const std::string &func : topo_order) {
         internal_assert(!checker.function_has_side_effects.contains(func))
             << "Found cycle involving: " << func;
         checker.found = false;
-        funcs.at(func)->body.accept(&checker);
+        program.funcs.at(func)->body.accept(&checker);
         if (checker.found) {
             side_effects.insert(func);
         }
@@ -310,17 +310,20 @@ ir::Stmt dce_stmt(const ir::Stmt &stmt,
 
 } // namespace
 
-ir::FuncMap DCE::run(ir::FuncMap &funcs) const {
+ir::Program DCE::dce(const ir::Program &program) const {
+    ir::Program new_program = program;
+
     // TODO(ajr): We should also erase unused arguments to Lambdas and
     // Functions. This requires mutating the definitions and all calls,
     // which can get tricky.
 
-    std::set<std::string> se_functions = find_side_effects(funcs);
+    std::set<std::string> se_functions = find_side_effects(program);
 
-    for (auto &[name, func] : funcs) {
+    for (auto &[name, func] : new_program.funcs) {
         func->body = dce_stmt(func->body, se_functions);
     }
-    return std::move(funcs);
+
+    return new_program;
 }
 
 } // namespace opt

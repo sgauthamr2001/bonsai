@@ -204,28 +204,22 @@ bool contains_option(const ir::Type &type) {
 
 } // namespace
 
-ir::TypeMap LowerOption::run(ir::TypeMap &types) const {
-    ir::TypeMap new_types;
+ir::Program LowerOption::lower(const ir::Program &program) const {
+    ir::Program new_program;
 
-    for (const auto &[t, type] : types) {
-        new_types[t] = lower_option(type);
-    }
-
-    return new_types;
-}
-
-ir::ExternList LowerOption::run(ir::ExternList &externs) const {
-    for (const auto &[name, type] : externs) {
+    // Can externs have option types? I don't think so.
+    for (const auto &[name, type] : program.externs) {
         internal_assert(!contains_option(type))
             << "Lowering failure, found option type in extern: " << name
             << " with type: " << type;
     }
-    return externs;
-}
+    new_program.externs = program.externs;
 
-ir::FuncMap LowerOption::run(ir::FuncMap &funcs) const {
-    ir::FuncMap new_funcs;
-    for (const auto &[f, func] : funcs) {
+    for (const auto &[t, type] : program.types) {
+        new_program.types[t] = lower_option(type);
+    }
+
+    for (const auto &[f, func] : program.funcs) {
         std::vector<ir::Function::Argument> args(func->args.size());
         for (size_t i = 0; i < args.size(); i++) {
             const auto &arg = func->args[i];
@@ -235,11 +229,12 @@ ir::FuncMap LowerOption::run(ir::FuncMap &funcs) const {
         ir::Type ret_type = lower_option(func->ret_type);
         ir::Stmt body = lower_option(func->body);
 
-        new_funcs[f] = std::make_shared<ir::Function>(
+        new_program.funcs[f] = std::make_shared<ir::Function>(
             func->name, std::move(args), std::move(ret_type), std::move(body),
             func->interfaces);
     }
-    return new_funcs;
+
+    return new_program;
 }
 
 } // namespace lower

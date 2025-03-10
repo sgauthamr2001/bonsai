@@ -83,7 +83,8 @@ std::string short_type_name(const Type &type) {
     }
 }
 
-std::string unique_generic_name(const std::string &name, const TypeMap &types) {
+std::string unique_generic_name(const std::string &name,
+                                const Instantiate::TypeMap &types) {
     // TypeMap is a std::map, so sorted on key.
     // This gives a unique ordering, and therefore,
     // a unique name.
@@ -101,11 +102,13 @@ std::string unique_generic_name(const std::string &name, const TypeMap &types) {
 
 FuncMap handle_instantiations(const FuncMap &funcs) {
     struct FindInstantiations : Mutator {
-        std::map<std::string, std::map<Type, TypeMap, TypeLessThan>> instants;
+        std::map<std::string,
+                 std::map<Type, Instantiate::TypeMap, TypeLessThan>>
+            instants;
         bool updated = false;
         std::map<std::string, Expr> repls;
 
-        const TypeMap *type_repls = nullptr;
+        const std::map<std::string, Type> *type_repls = nullptr;
 
         Expr visit(const Instantiate *node) override {
             if (!node->expr.is<Var>()) {
@@ -213,8 +216,12 @@ FuncMap handle_instantiations(const FuncMap &funcs) {
 
 } // namespace
 
-ir::FuncMap LowerGeneric::run(ir::FuncMap &funcs) const {
-    return handle_instantiations(funcs);
+Program LowerGeneric::lower(const Program &program) const {
+    Program new_program;
+    new_program.externs = program.externs;
+    new_program.types = program.types;
+    new_program.funcs = handle_instantiations(program.funcs);
+    return new_program;
 }
 
 } // namespace lower
