@@ -135,6 +135,33 @@ std::ostream &operator<<(std::ostream &os, const Function &func) {
     return os;
 }
 
+std::ostream &operator<<(std::ostream &os, const Target &target) {
+    // TODO: flesh this out.
+    switch (target) {
+    case Target::Host: {
+        os << "host";
+        break;
+    }
+    default: {
+        internal_error << "Support for non-host target? add printing support!";
+    }
+    }
+    return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const Schedule &schedule) {
+    Printer printer(os, /*verbose=*/true);
+
+    for (const auto &[name, type] : schedule.tree_types) {
+        os << name << " : ";
+        printer.print(type);
+        os << "\n";
+    }
+    // TODO: the rest of the schedule.
+
+    return os;
+}
+
 void Printer::print(const Type &type) {
     if (type.defined()) {
         type->accept(this);
@@ -286,7 +313,7 @@ void Printer::visit(const Generic_t *node) {
     }
 }
 
-void Printer::visit(const BVH_t *node) {
+void Printer::print(const BVH_t::Node &node) {
     const auto print_param = [&](const BVH_t::Param &param) {
         os << param.name << " : ";
         print(param.type);
@@ -306,39 +333,36 @@ void Printer::visit(const BVH_t *node) {
         os << ")";
     };
 
-    const auto print_group = [&](std::string_view name,
-                                 const std::vector<BVH_t::Param> &params,
-                                 const std::optional<BVH_t::Volume> &volume) {
-        os << name;
-        if (params.size()) {
-            os << "(";
-            for (size_t i = 0; i < params.size(); i++) {
-                if (i != 0) {
-                    os << ", ";
-                }
-                print_param(params[i]);
+    os << node.name;
+    if (node.params.size()) {
+        os << "(";
+        for (size_t i = 0; i < node.params.size(); i++) {
+            if (i != 0) {
+                os << ", ";
             }
-            os << ")";
+            print_param(node.params[i]);
         }
-        if (volume.has_value()) {
-            os << " with ";
-            print_volume(*volume);
-        }
-    };
+        os << ")";
+    }
+    if (node.volume.has_value()) {
+        os << " with ";
+        print_volume(*node.volume);
+    }
+}
 
-    os << "tree ";
+void Printer::visit(const BVH_t *node) {
+    os << "tree[[";
+    print(node->primitive);
+    os << "]] " << node->name;
+    ;
     if (!verbose) {
-        os << node->name;
         return;
     }
-
-    print_group(node->name, node->params, node->volume);
 
     internal_assert(!node->nodes.empty());
     for (size_t i = 0; i < node->nodes.size(); i++) {
         os << "\n  | ";
-        print_group(node->nodes[i].name, node->nodes[i].params,
-                    node->nodes[i].volume);
+        print(node->nodes[i]);
     }
 }
 
@@ -386,8 +410,15 @@ void Printer::visit(const FloatImm *node) {
 }
 
 void Printer::visit(const BoolImm *node) {
-    auto str = node->value ? "true" : "false";
+    const auto *str = node->value ? "true" : "false";
     os << str;
+}
+
+void Printer::visit(const Infinity *node) {
+    os << "(";
+    print(node->type);
+    os << ")";
+    os << "inf";
 }
 
 void Printer::visit(const Var *node) { os << node->name; }
@@ -734,7 +765,11 @@ void Printer::visit(const Sequence *node) {
 void Printer::visit(const Assign *node) {
     os << get_indent();
     print(node->loc);
-    os << " = ";
+    if (node->mutating) {
+        os << " = ";
+    } else {
+        os << " := ";
+    }
     print_no_parens(node->value);
     os << "\n";
     // TODO: fix this!! bring back SSA
@@ -762,6 +797,43 @@ void Printer::visit(const Accumulate *node) {
     os << "\n";
     // TODO: fix this!! bring back SSA
     // print(node->body);
+}
+
+void Printer::visit(const Match *node) {
+    os << get_indent();
+    os << "match ";
+    print(node->loc);
+    os << "{\n";
+    for (const auto &arm : node->arms) {
+        os << get_indent() << "| ";
+        print(arm.first);
+        os << " ->\n";
+        indent++;
+        print(arm.second);
+        indent--;
+    }
+    os << get_indent() << "}\n";
+}
+
+void Printer::visit(const Yield *node) {
+    os << get_indent();
+    os << "yield ";
+    print_no_parens(node->value);
+    os << "\n";
+}
+
+void Printer::visit(const Scan *node) {
+    os << get_indent();
+    os << "scan ";
+    print_no_parens(node->value);
+    os << "\n";
+}
+
+void Printer::visit(const YieldFrom *node) {
+    os << get_indent();
+    os << "from ";
+    print_no_parens(node->value);
+    os << "\n";
 }
 
 } // namespace ir

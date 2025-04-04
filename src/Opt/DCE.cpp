@@ -40,7 +40,7 @@ struct ComputeUseCounts : ir::Visitor {
 
     void visit(const ir::Lambda *node) override {
         for (const ir::Lambda::Argument &arg : node->args) {
-            internal_assert(!use_counts.contains(arg.name));
+            internal_assert(!use_counts.contains(arg.name)) << arg.name;
             if (!curr_var.empty()) {
                 const UseCountMap &dep_map = dependent_use_counts[curr_var];
                 internal_assert(!dep_map.contains(arg.name));
@@ -81,10 +81,11 @@ struct ComputeUseCounts : ir::Visitor {
         internal_assert(curr_var.empty())
             << "Unexpected nested Assign: " << ir::Stmt(node)
             << " when traversing for: " << curr_var;
-        internal_assert(!node->mutating || !use_counts.contains(node->loc.base))
-            << "ComputeUseCounts already active for var: " << node->loc;
+        internal_assert(!node->mutating || use_counts.contains(node->loc.base))
+            << "ComputeUseCounts already active for var: " << node->loc
+            << " in stmt: " << ir::Stmt(node);
         internal_assert(!node->mutating ||
-                        !dependent_use_counts.contains(node->loc.base))
+                        dependent_use_counts.contains(node->loc.base))
             << "ComputeUseCounts already active for var (dependent): "
             << node->loc;
 
@@ -110,6 +111,10 @@ struct ComputeUseCounts : ir::Visitor {
         node->value.accept(this);
         curr_var.clear();
     }
+
+    // void visit(const ir::Match *node) override {
+    //     internal_error << "TODO: implement ComputeUseCounts for Match";
+    // }
 };
 
 struct HasSideEffects : ir::Visitor {

@@ -119,7 +119,7 @@ struct ConvertLambdaToFunction : public ir::Mutator {
         }
         std::shared_ptr<ir::Function> &f = it->second.function;
 
-        ir::Type type = ir::Function_t::make(f->ret_type, f->argument_types());
+        ir::Type type = f->call_type();
         return ir::Call::make(ir::Var::make(type, f->name), call->args);
     }
 };
@@ -197,7 +197,9 @@ ir::Program lower_program(const ir::Program &old_program) {
 } // namespace
 
 ir::Program LowerLambda::run(ir::Program program) const {
-    return lower_program(program);
+    ir::Program new_program = lower_program(program);
+    new_program.schedules = std::move(program.schedules);
+    return new_program;
 }
 
 } // namespace lower

@@ -32,7 +32,7 @@ Stmt Store::make(std::string name, Expr index, Expr value) {
 // Stmt LetStmt::make(std::string name, Expr value, Stmt body) {
 Stmt LetStmt::make(WriteLoc loc, Expr value) {
     internal_assert(loc.defined())
-        << "Undefined write location in Assign::make";
+        << "Undefined write location in LetStmt::make";
     internal_assert(value.defined()) << "Undefined value in LetStmt::make";
     // internal_assert(body.defined()) << "Undefined body in LetStmt::make";
     LetStmt *node = new LetStmt;
@@ -91,6 +91,53 @@ Stmt Accumulate::make(WriteLoc loc, OpType op, Expr value) {
     node->op = op;
     node->value = std::move(value);
     // node->body = std::move(body);
+    return node;
+}
+
+Stmt Match::make(Expr loc, Match::Arms arms) {
+    internal_assert(loc.defined()) << "Undefined match location in Match::make";
+    internal_assert(!arms.empty()) << "Received no match arms in Match::make";
+    const BVH_t *bvh = loc.type().as<BVH_t>();
+    internal_assert(bvh) << "Match is only implemented for BVH_t, received: "
+                         << loc;
+    internal_assert(bvh->nodes.size() == arms.size())
+        << "Incorrect number of match arms for BVH type: " << loc.type()
+        << " with " << arms.size() << " arms.";
+    // Make sure all match arms exist.
+    const size_t n = bvh->nodes.size();
+    for (size_t i = 0; i < n; i++) {
+        std::string_view name = bvh->nodes[i].name;
+        const bool found =
+            arms.cend() !=
+            std::find_if(arms.cbegin(), arms.cend(), [&name](const auto &arm) {
+                return arm.first.name == name;
+            });
+        internal_assert(found) << "Match does not contain match arm: " << name;
+    }
+    Match *node = new Match;
+    node->loc = std::move(loc);
+    node->arms = std::move(arms);
+    return node;
+}
+
+Stmt Yield::make(Expr value) {
+    internal_assert(value.defined()) << "Undefined value in Yield::make";
+    Yield *node = new Yield;
+    node->value = std::move(value);
+    return node;
+}
+
+Stmt Scan::make(Expr value) {
+    internal_assert(value.defined()) << "Undefined value in Scan::make";
+    Scan *node = new Scan;
+    node->value = std::move(value);
+    return node;
+}
+
+Stmt YieldFrom::make(Expr value) {
+    internal_assert(value.defined()) << "Undefined value in YieldFrom::make";
+    YieldFrom *node = new YieldFrom;
+    node->value = std::move(value);
     return node;
 }
 

@@ -29,14 +29,18 @@ class Token {
         ELEMENT,   // element
         INTERFACE, // interface
         EXTERN,    // extern
-        TREE,      // tree
+        SCHEDULE,  // schedule
 
+        // Function related keywords
         FUNC,   // func
         MUT,    // mut
         RARROW, // ->
         RETURN, // return
         PRINT,  // print
-        WITH,   // with
+
+        // Data structure specification related keywords
+        TREE, // tree
+        WITH, // with
 
         // WHILE, // while
         FOR,   // for

@@ -47,7 +47,7 @@ bool is_const(const Expr &e) {
     if (const Build *b = e.as<Build>()) {
         return b->values.empty(); // default is constant!
     }
-    return e.is<IntImm, UIntImm, FloatImm, BoolImm>();
+    return e.is<IntImm, UIntImm, FloatImm, BoolImm, Infinity>();
 }
 
 Expr make_zero(const Type &t) { return make_const(t, 0); }
@@ -102,8 +102,8 @@ Expr cast_to(const Type &t, const Expr &e) {
 
 Expr replace(const std::string &var_name, Expr repl, const Expr &orig) {
     struct Replacer : public Mutator {
-        Replacer(const std::string &_var_name, Expr _repl)
-            : var_name(_var_name), repl(std::move(_repl)) {}
+        Replacer(const std::string &var_name, Expr repl)
+            : var_name(var_name), repl(std::move(repl)) {}
 
       private:
         const std::string &var_name;
@@ -120,6 +120,29 @@ Expr replace(const std::string &var_name, Expr repl, const Expr &orig) {
     };
 
     Replacer replacer(var_name, std::move(repl));
+    return replacer.mutate(orig);
+}
+
+ir::Expr replace(const std::map<std::string, ir::Expr> &repls,
+                 const ir::Expr &orig) {
+    struct Replacer : public Mutator {
+        Replacer(const std::map<std::string, ir::Expr> &repls) : repls(repls) {}
+
+      private:
+        const std::map<std::string, ir::Expr> &repls;
+
+      public:
+        Expr visit(const Var *node) override {
+            const auto &iter = repls.find(node->name);
+            if (iter != repls.cend()) {
+                return iter->second;
+            } else {
+                return node;
+            }
+        }
+    };
+
+    Replacer replacer(repls);
     return replacer.mutate(orig);
 }
 

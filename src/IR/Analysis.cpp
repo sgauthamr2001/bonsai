@@ -13,25 +13,26 @@ namespace {
 
 struct GatherFreeVars : public Visitor {
     // return in seen-order
-    std::vector<std::pair<std::string, Type>> free_vars;
+    std::vector<const Var *> free_vars;
     // no duplicates
     std::set<std::string> seen_vars;
 
     void visit(const Var *node) override {
         if (seen_vars.count(node->name) == 0) {
-            free_vars.emplace_back(node->name, node->type);
+            free_vars.push_back(node);
             seen_vars.insert(node->name);
         }
     }
 
     void visit(const Store *node) override {
-        if (seen_vars.count(node->name) == 0) {
-            Type ptr_t = Ptr_t::make(node->value.type());
-            free_vars.emplace_back(node->name, std::move(ptr_t));
-            seen_vars.insert(node->name);
-        }
-        // TODO: consider implications on recursive definition.
-        Visitor::visit(node);
+        internal_error << "TODO: GatherFreeVars of a Store: " << Stmt(node);
+        // if (seen_vars.count(node->name) == 0) {
+        //     Type ptr_t = Ptr_t::make(node->value.type());
+        //     free_vars.emplace_back(node->name, std::move(ptr_t));
+        //     seen_vars.insert(node->name);
+        // }
+        // // TODO: consider implications on recursive definition.
+        // Visitor::visit(node);
     }
 
     void visit(const LetStmt *node) override {
@@ -65,6 +66,37 @@ struct GatherFreeVars : public Visitor {
             }
         }
         node->value.accept(this);
+    }
+
+    void visit(const ir::Lambda *node) override {
+        for (const auto &arg : node->args) {
+            internal_assert(!seen_vars.contains(arg.name));
+            seen_vars.insert(arg.name);
+        }
+        node->value.accept(this);
+        for (const auto &arg : node->args) {
+            seen_vars.erase(arg.name);
+        }
+    }
+
+    void visit(const Match *node) override {
+        internal_error << "TODO: implement GatherFreeFars for Match: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const Yield *node) override {
+        internal_error << "TODO: implement GatherFreeFars for Yield: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const Scan *node) override {
+        internal_error << "TODO: implement GatherFreeFars for Scan: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const YieldFrom *node) override {
+        internal_error << "TODO: implement GatherFreeFars for YieldFrom: "
+                       << ir::Stmt(node);
     }
 };
 
@@ -113,6 +145,26 @@ struct AlwaysReturns : public Visitor {
         returns = false;
         // node->body.accept(this);
     }
+
+    void visit(const Match *node) override {
+        internal_error << "TODO: implement AlwaysReturns for Match: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const Yield *node) override {
+        internal_error << "TODO: implement AlwaysReturns for Yield: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const Scan *node) override {
+        internal_error << "TODO: implement AlwaysReturns for Scan: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const YieldFrom *node) override {
+        internal_error << "TODO: implement AlwaysReturns for YieldFrom: "
+                       << ir::Stmt(node);
+    }
 };
 
 struct ReturnType : public Visitor {
@@ -135,6 +187,26 @@ struct ReturnType : public Visitor {
     void visit(const Accumulate *node) override {
         // TODO: fix this!! bring back SSA
         // node->body.accept(this);
+    }
+
+    void visit(const Match *node) override {
+        internal_error << "TODO: implement ReturnType for Match: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const Yield *node) override {
+        internal_error << "TODO: implement ReturnType for Yield: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const Scan *node) override {
+        internal_error << "TODO: implement ReturnType for Scan: "
+                       << ir::Stmt(node);
+    }
+
+    void visit(const YieldFrom *node) override {
+        internal_error << "TODO: implement ReturnType for YieldFrom: "
+                       << ir::Stmt(node);
     }
 
     void visit(const IfElse *node) override {
@@ -202,17 +274,18 @@ struct GatherStructTypes : public Visitor {
 
 } // namespace
 
-std::vector<std::pair<std::string, Type>> gather_free_vars(const Expr &expr) {
+std::vector<const ir::Var *> gather_free_vars(const Expr &expr) {
     GatherFreeVars gather;
     expr.accept(&gather);
     return std::move(gather.free_vars);
 }
 
-std::vector<std::pair<std::string, Type>> gather_free_vars(const Stmt &stmt) {
-    GatherFreeVars gather;
-    stmt.accept(&gather);
-    return std::move(gather.free_vars);
-}
+// std::vector<std::pair<std::string, Type>> gather_free_vars(const Stmt &stmt)
+// {
+//     GatherFreeVars gather;
+//     stmt.accept(&gather);
+//     return std::move(gather.free_vars);
+// }
 
 bool always_returns(const Stmt &stmt) {
     AlwaysReturns check;
@@ -258,7 +331,7 @@ std::vector<const Struct_t *> gather_struct_types(const Program &program) {
 // TODO: merge with is_const ?
 bool is_constant_expr(const Expr &expr) {
     // TODO: constant fold first?
-    if (expr.is<IntImm, UIntImm, FloatImm, BoolImm>()) {
+    if (expr.is<IntImm, UIntImm, FloatImm, BoolImm, Infinity>()) {
         return true;
     } else if (expr.is<Broadcast>()) {
         return is_constant_expr(expr.as<Broadcast>()->value);

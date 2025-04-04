@@ -32,6 +32,7 @@ struct IntImm;
 struct UIntImm;
 struct FloatImm;
 struct BoolImm;
+struct Infinity;
 struct Var;
 struct BinOp;
 struct UnOp;
@@ -61,6 +62,10 @@ struct IfElse;
 struct Sequence;
 struct Assign;
 struct Accumulate;
+struct Match;
+struct Yield;
+struct Scan;
+struct YieldFrom;
 
 } // namespace ir
 } // namespace bonsai

@@ -30,6 +30,7 @@ struct Visitor {
     virtual void visit(const UIntImm *);
     virtual void visit(const FloatImm *);
     virtual void visit(const BoolImm *);
+    virtual void visit(const Infinity *);
     virtual void visit(const Var *);
     virtual void visit(const BinOp *);
     virtual void visit(const UnOp *);
@@ -57,6 +58,10 @@ struct Visitor {
     virtual void visit(const Sequence *);
     virtual void visit(const Assign *);
     virtual void visit(const Accumulate *);
+    virtual void visit(const Match *);
+    virtual void visit(const Yield *);
+    virtual void visit(const Scan *);
+    virtual void visit(const YieldFrom *);
 };
 
 } // namespace ir

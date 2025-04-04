@@ -36,6 +36,7 @@ struct Mutator {
     virtual Expr visit(const UIntImm *);
     virtual Expr visit(const FloatImm *);
     virtual Expr visit(const BoolImm *);
+    virtual Expr visit(const Infinity *);
     virtual Expr visit(const Var *);
     virtual Expr visit(const BinOp *);
     virtual Expr visit(const UnOp *);
@@ -63,6 +64,10 @@ struct Mutator {
     virtual Stmt visit(const Sequence *);
     virtual Stmt visit(const Assign *);
     virtual Stmt visit(const Accumulate *);
+    virtual Stmt visit(const Match *);
+    virtual Stmt visit(const Yield *);
+    virtual Stmt visit(const Scan *);
+    virtual Stmt visit(const YieldFrom *);
 };
 
 } // namespace ir

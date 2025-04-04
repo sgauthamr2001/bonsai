@@ -2,14 +2,18 @@
 
 #include <iostream>
 #include <map>
+#include <memory>
 
 #include "Function.h"
+#include "Schedule.h"
+#include "Target.h"
 #include "Type.h"
 
 namespace bonsai {
 namespace ir {
 
 using FuncMap = std::map<std::string, std::shared_ptr<Function>>;
+using ScheduleMap = std::map<Target, Schedule>;
 using ExternList = std::vector<std::pair<std::string, Type>>;
 
 struct Program {
@@ -22,37 +26,44 @@ struct Program {
     FuncMap funcs;
     // All types (including aliases).
     TypeMap types;
+    // TODO: what is the right interface for this?
+    ScheduleMap schedules;
     // TODO: interfaces / inheritance?
 
     Program() {}
 
-    Program(ExternList _externs, FuncMap _funcs, TypeMap _types)
-        : externs(std::move(_externs)), funcs(std::move(_funcs)),
-          types(std::move(_types)) {}
+    Program(ExternList externs, FuncMap funcs, TypeMap types,
+            ScheduleMap schedules)
+        : externs(std::move(externs)), funcs(std::move(funcs)),
+          types(std::move(types)), schedules(std::move(schedules)) {}
 
     ~Program() = default;
 
     Program(const Program &other)
-        : externs(other.externs), funcs(other.funcs), types(other.types) {}
+        : externs(other.externs), funcs(other.funcs), types(other.types),
+          schedules(other.schedules) {}
 
     Program &operator=(const Program &other) {
         if (this != &other) {
             externs = other.externs;
             funcs = other.funcs;
             types = other.types;
+            schedules = other.schedules;
         }
         return *this;
     }
 
     Program(Program &&other) noexcept
         : externs(std::move(other.externs)), funcs(std::move(other.funcs)),
-          types(std::move(other.types)) {}
+          types(std::move(other.types)), schedules(std::move(other.schedules)) {
+    }
 
     Program &operator=(Program &&other) noexcept {
         if (this != &other) {
             externs = std::move(other.externs);
             funcs = std::move(other.funcs);
             types = std::move(other.types);
+            schedules = std::move(other.schedules);
         }
         return *this;
     }

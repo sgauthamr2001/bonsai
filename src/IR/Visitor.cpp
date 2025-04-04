@@ -1,6 +1,7 @@
 #include "IR/Visitor.h"
 
 #include "IR/Expr.h"
+#include "IR/Printer.h"
 #include "IR/Stmt.h"
 #include "IR/Type.h"
 
@@ -66,7 +67,16 @@ void Visitor::visit(const Function_t *node) {
 void Visitor::visit(const Generic_t *node) { node->interface.accept(this); }
 
 void Visitor::visit(const BVH_t *node) {
-    internal_error << "TODO: implement Visitor::visit(BVH_t)";
+    node->primitive.accept(this);
+    // Recursively visit Volume types and Param types.
+    for (const auto &subnode : node->nodes) {
+        if (subnode.volume.has_value()) {
+            subnode.volume->struct_type.accept(this);
+        }
+        for (const auto &param : subnode.params) {
+            param.type.accept(this);
+        }
+    }
 }
 
 void Visitor::visit(const IEmpty *) {}
@@ -82,6 +92,8 @@ void Visitor::visit(const UIntImm *) {}
 void Visitor::visit(const FloatImm *) {}
 
 void Visitor::visit(const BoolImm *) {}
+
+void Visitor::visit(const Infinity *) {}
 
 void Visitor::visit(const Var *) {}
 
@@ -190,6 +202,19 @@ void Visitor::visit(const Accumulate *node) {
     // TODO: fix this!! bring back SSA
     // node->body.accept(this);
 }
+
+void Visitor::visit(const Match *node) {
+    node->loc.accept(this);
+    for (const auto &[_, stmt] : node->arms) {
+        stmt.accept(this);
+    }
+}
+
+void Visitor::visit(const Yield *node) { node->value.accept(this); }
+
+void Visitor::visit(const Scan *node) { node->value.accept(this); }
+
+void Visitor::visit(const YieldFrom *node) { node->value.accept(this); }
 
 } // namespace ir
 } // namespace bonsai
