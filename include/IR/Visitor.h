@@ -13,9 +13,11 @@ struct Visitor {
     virtual void visit(const Float_t *);
     virtual void visit(const Bool_t *);
     virtual void visit(const Ptr_t *);
+    virtual void visit(const Ref_t *);
     virtual void visit(const Vector_t *);
     virtual void visit(const Struct_t *);
     virtual void visit(const Tuple_t *);
+    virtual void visit(const Array_t *);
     virtual void visit(const Option_t *);
     virtual void visit(const Set_t *);
     virtual void visit(const Function_t *);
@@ -43,6 +45,7 @@ struct Visitor {
     virtual void visit(const Extract *);
     virtual void visit(const Build *);
     virtual void visit(const Access *);
+    virtual void visit(const Unwrap *);
     virtual void visit(const Intrinsic *);
     virtual void visit(const Lambda *);
     virtual void visit(const GeomOp *);
@@ -62,7 +65,21 @@ struct Visitor {
     virtual void visit(const Yield *);
     virtual void visit(const Scan *);
     virtual void visit(const YieldFrom *);
+    virtual void visit(const ForAll *);
+    // Layouts
+    virtual void visit(const Name *);
+    virtual void visit(const Pad *);
+    virtual void visit(const Split *);
+    virtual void visit(const Chain *);
+    virtual void visit(const Group *);
+    virtual void visit(const Materialize *);
 };
+
+#define RESTRICT_VISITOR(IRNODE)                                               \
+    void visit(const IRNODE *) final {                                         \
+        internal_error << "Restricted Visitor class does not handle: "         \
+                       << typeid(IRNODE).name();                               \
+    }
 
 } // namespace ir
 } // namespace bonsai

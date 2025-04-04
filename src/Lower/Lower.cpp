@@ -3,9 +3,12 @@
 #include "IR/Mutator.h"
 #include "Lower/Canonicalize.h"
 #include "Lower/Generics.h"
+#include "Lower/Geometrics.h"
 #include "Lower/Lambdas.h"
+#include "Lower/Layouts.h"
 #include "Lower/Options.h"
 #include "Lower/Trees.h"
+#include "Lower/VerifyLayouts.h"
 #include "Lower/VerifyOptions.h"
 #include "Opt/DCE.h"
 
@@ -56,14 +59,20 @@ PassManager register_passes() {
     manager.register_pass<VerifyOptions>();
     manager.register_pass<LowerGeneric>();
     manager.register_pass<opt::DCE>();
+    manager.register_pass<VerifyLayouts>();
     manager.register_pass<LowerTrees>();
+    manager.register_pass<LowerGeometrics>();
+    manager.register_pass<LowerLayouts>();
 
     // Core: the minimal set of passes required to legally lower Bonsai IR
     // (this should *not* include optimizations).
     std::vector<std::unique_ptr<Pass>> core;
     core.push_back(std::make_unique<Canonicalize>());
     core.push_back(std::make_unique<VerifyOptions>());
+    core.push_back(std::make_unique<VerifyLayouts>());
     core.push_back(std::make_unique<LowerTrees>());
+    core.push_back(std::make_unique<LowerGeometrics>());
+    core.push_back(std::make_unique<LowerLayouts>());
     core.push_back(std::make_unique<LowerLambda>());
     core.push_back(std::make_unique<LowerOption>());
     core.push_back(std::make_unique<LowerGeneric>());
@@ -73,7 +82,10 @@ PassManager register_passes() {
     std::vector<std::unique_ptr<Pass>> d;
     d.push_back(std::make_unique<Canonicalize>());
     d.push_back(std::make_unique<VerifyOptions>());
+    d.push_back(std::make_unique<VerifyLayouts>());
     d.push_back(std::make_unique<LowerTrees>());
+    d.push_back(std::make_unique<LowerGeometrics>());
+    d.push_back(std::make_unique<LowerLayouts>());
     d.push_back(std::make_unique<LowerLambda>());
     d.push_back(std::make_unique<LowerOption>());
     d.push_back(std::make_unique<LowerGeneric>());

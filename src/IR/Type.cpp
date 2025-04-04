@@ -81,6 +81,22 @@ bool Type::is_numeric() const {
     return this->is_int_or_uint() || this->is_float();
 }
 
+bool Type::is_primitive() const {
+    return is<Int_t, UInt_t, Float_t, Bool_t, Ptr_t>() ||
+           (is<Vector_t>() && element_of().is_primitive()) ||
+           (is<Struct_t>() &&
+            std::all_of(
+                as<Struct_t>()->fields.cbegin(), as<Struct_t>()->fields.cend(),
+                [](const auto &p) { return p.second.is_primitive(); })) ||
+           (is<Tuple_t>() &&
+            std::all_of(as<Tuple_t>()->etypes.cbegin(),
+                        as<Tuple_t>()->etypes.cend(),
+                        [](const auto &p) { return p.is_primitive(); })) ||
+           (is<Array_t>() && as<Array_t>()->etype.is_primitive());
+}
+
+bool Type::is_iterable() const { return is<Vector_t, Array_t>(); }
+
 Type Type::to_bool() const {
     if (this->is_bool()) {
         return *this;
@@ -114,6 +130,8 @@ Type Type::element_of() const {
         return this->as<Set_t>()->etype;
     } else if (this->is<BVH_t>()) {
         return this->as<BVH_t>()->primitive;
+    } else if (this->is<Array_t>()) {
+        return this->as<Array_t>()->etype;
     } else {
         internal_error << "Called element_of() on bad type: " << *this;
     }
@@ -214,6 +232,13 @@ Type Ptr_t::make(Type etype) {
     return node;
 }
 
+Type Ref_t::make(std::string name) {
+    internal_assert(!name.empty()) << "Ref_t::make received empty name";
+    Ref_t *node = new Ref_t;
+    node->name = std::move(name);
+    return node;
+}
+
 Type Vector_t::make(Type etype, uint32_t lanes) {
     internal_assert(etype.defined())
         << "Vector_t::make received undefined etype";
@@ -266,6 +291,19 @@ Type Tuple_t::make(std::vector<Type> etypes) {
     return node;
 }
 
+Type Array_t::make(Type etype, Expr size) {
+    internal_assert(etype.defined())
+        << "Array_t::make received undefined etype";
+    if (size.defined()) {
+        internal_assert(size.type().is_int_or_uint())
+            << "Array_t::make received non-integer size: " << size;
+    }
+    Array_t *node = new Array_t;
+    node->etype = std::move(etype);
+    // node->size = std::move(size);
+    return node;
+}
+
 Type Option_t::make(Type etype) {
     internal_assert(etype.defined())
         << "Option_t::make received undefined etype";
@@ -306,8 +344,7 @@ Type Generic_t::make(std::string name, Interface interface) {
 namespace {
 
 bool validate_volume(const BVH_t::Volume &volume,
-                     const std::vector<BVH_t::Param> &params,
-                     const std::vector<BVH_t::Param> &parent_params) {
+                     const std::vector<Struct_t::Field> &params) {
     if (!volume.struct_type.is<Struct_t>()) {
         return false;
     }
@@ -318,25 +355,16 @@ bool validate_volume(const BVH_t::Volume &volume,
 
     for (size_t i = 0; i < fields.size(); i++) {
         const std::string &name = volume.initializers[i];
-        Type type;
 
-        auto it =
-            std::find_if(params.begin(), params.end(),
-                         [&](const BVH_t::Param &p) { return p.name == name; });
-        if (it != params.end()) {
-            type = it->type;
-        } else {
-            // Check parent_params for a match
-            it = std::find_if(
-                parent_params.begin(), parent_params.end(),
-                [&](const BVH_t::Param &p) { return p.name == name; });
-            if (it != parent_params.end()) {
-                type = it->type;
-            } else {
-                // Param doesn't exist.
-                return false;
-            }
+        auto it = std::find_if(
+            params.begin(), params.end(),
+            [&](const Struct_t::Field &p) { return p.first == name; });
+
+        if (it == params.end()) {
+            return false;
         }
+
+        Type type = it->second;
 
         // Validate type
         if (!equals(type, fields[i].second)) {
@@ -360,7 +388,7 @@ Type BVH_t::make(ir::Type primitive, std::string name,
     for (size_t i = 0; i < nodes.size(); i++) {
         if (nodes[i].volume.has_value()) {
             internal_assert(
-                validate_volume(*nodes[i].volume, nodes[i].params, {}))
+                validate_volume(*nodes[i].volume, nodes[i].fields()))
                 << "Failed to validate node " << i << " of " << name;
         }
     }
@@ -373,27 +401,35 @@ Type BVH_t::make(ir::Type primitive, std::string name,
 }
 
 Type BVH_t::make(ir::Type primitive, std::string name,
-                 std::vector<BVH_t::Param> params,
+                 const std::vector<Struct_t::Field> &globals,
                  std::vector<BVH_t::Node> nodes, BVH_t::Volume volume) {
     internal_assert(primitive.defined())
         << "BVH_t::make received undefined prim_t";
     internal_assert(!name.empty()) << "BVH_t::make received empty name";
-    internal_assert(!params.empty()) << "BVH_t::make received empty params";
+    internal_assert(!globals.empty()) << "BVH_t::make received empty globals";
     internal_assert(!nodes.empty()) << "BVH_t::make received empty nodes";
 
-    internal_assert(validate_volume(volume, params, {}))
+    internal_assert(validate_volume(volume, globals))
         << "Failed to validate parent volume of " << name;
 
     // TODO: check that prim_t is contained in some node (leaves)?
     for (size_t i = 0; i < nodes.size(); i++) {
         // Insert params into the front of nodes[i].params
-        nodes[i].params.insert(nodes[i].params.begin(), params.begin(),
-                               params.end());
+        std::vector<Struct_t::Field> copy = globals;
+        const auto &params = nodes[i].fields();
+        // TODO: figure out why insert() segfaults.
+        // copy.insert(globals.end(), params.begin(), params.end());
+        for (const auto &[name, type] : params) {
+            copy.push_back({name, type});
+        }
+        Type struct_type = Struct_t::make(nodes[i].name(), std::move(copy));
+        nodes[i].struct_type = std::move(struct_type);
+
         if (!nodes[i].volume.has_value()) {
             nodes[i].volume = volume;
         }
-        internal_assert(
-            validate_volume(*nodes[i].volume, nodes[i].params, params))
+
+        internal_assert(validate_volume(*nodes[i].volume, nodes[i].fields()))
             << "Failed to validate node " << i << " of " << name;
     }
 

@@ -63,6 +63,8 @@ std::string short_type_name(const Type &type) {
         return "bool";
     case IRTypeEnum::Ptr_t:
         return "^" + short_type_name(type.as<Ptr_t>()->etype);
+    case IRTypeEnum::Ref_t:
+        return "&" + type.as<Ref_t>()->name;
     case IRTypeEnum::Vector_t:
         return short_type_name(type.as<Vector_t>()->etype) + "x" +
                std::to_string(type.as<Vector_t>()->lanes);
@@ -73,6 +75,12 @@ std::string short_type_name(const Type &type) {
         for (const Type &t : type.as<Tuple_t>()->etypes) {
             name += short_type_name(t) + "_";
         }
+        return name;
+    }
+    case IRTypeEnum::Array_t: {
+        // TODO: this is not unique over size?
+        std::string name = "[]";
+        name += short_type_name(type.as<Array_t>()->etype);
         return name;
     }
     case IRTypeEnum::Option_t:

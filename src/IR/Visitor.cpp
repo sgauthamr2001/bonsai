@@ -45,6 +45,8 @@ void Visitor::visit(const Bool_t *) {}
 
 void Visitor::visit(const Ptr_t *node) { node->etype.accept(this); }
 
+void Visitor::visit(const Ref_t *node) {}
+
 void Visitor::visit(const Vector_t *node) { node->etype.accept(this); }
 
 void Visitor::visit(const Struct_t *node) {
@@ -54,6 +56,8 @@ void Visitor::visit(const Struct_t *node) {
 }
 
 void Visitor::visit(const Tuple_t *node) { visit_list(this, node->etypes); }
+
+void Visitor::visit(const Array_t *node) { node->etype.accept(this); }
 
 void Visitor::visit(const Option_t *node) { node->etype.accept(this); }
 
@@ -70,11 +74,9 @@ void Visitor::visit(const BVH_t *node) {
     node->primitive.accept(this);
     // Recursively visit Volume types and Param types.
     for (const auto &subnode : node->nodes) {
+        subnode.struct_type.accept(this);
         if (subnode.volume.has_value()) {
             subnode.volume->struct_type.accept(this);
-        }
-        for (const auto &param : subnode.params) {
-            param.type.accept(this);
         }
     }
 }
@@ -137,6 +139,8 @@ void Visitor::visit(const Extract *node) {
 void Visitor::visit(const Build *node) { visit_list(this, node->values); }
 
 void Visitor::visit(const Access *node) { node->value.accept(this); }
+
+void Visitor::visit(const Unwrap *node) { node->value.accept(this); }
 
 void Visitor::visit(const Intrinsic *node) { visit_list(this, node->args); }
 
@@ -215,6 +219,27 @@ void Visitor::visit(const Yield *node) { node->value.accept(this); }
 void Visitor::visit(const Scan *node) { node->value.accept(this); }
 
 void Visitor::visit(const YieldFrom *node) { node->value.accept(this); }
+
+void Visitor::visit(const ForAll *node) {
+    node->iter.accept(this);
+    node->body.accept(this);
+}
+
+void Visitor::visit(const Name *node) {}
+
+void Visitor::visit(const Pad *node) {}
+
+void Visitor::visit(const Split *node) {
+    for (const auto &[_, layout] : node->arms) {
+        layout.accept(this);
+    }
+}
+
+void Visitor::visit(const Chain *node) { visit_list(this, node->layouts); }
+
+void Visitor::visit(const Group *node) { node->inner.accept(this); }
+
+void Visitor::visit(const Materialize *node) {}
 
 } // namespace ir
 } // namespace bonsai

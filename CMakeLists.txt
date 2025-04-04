@@ -82,6 +82,7 @@ target_sources(
     src/IR/Expr.cpp
     src/IR/Float16.cpp
     src/IR/Interface.cpp
+    src/IR/Layout.cpp
     src/IR/Mutator.cpp
     src/IR/Operators.cpp
     src/IR/Printer.cpp
@@ -89,13 +90,16 @@ target_sources(
     src/IR/Stmt.cpp
     src/IR/Type.cpp
     src/IR/TypeEnforcement.cpp
+    src/IR/ValidateLayout.cpp
     src/IR/Visitor.cpp
     src/IR/WriteLoc.cpp
     src/Lower/Canonicalize.cpp
     src/Lower/CompilerOptions.cpp
     src/Lower/Generics.cpp
+    src/Lower/Geometrics.cpp
     src/Lower/Intrinsics.cpp
     src/Lower/Lambdas.cpp
+    src/Lower/Layouts.cpp
     src/Lower/Lower.cpp
     src/Lower/Options.cpp
     src/Lower/Pass.cpp
@@ -104,6 +108,7 @@ target_sources(
     src/Lower/Trees.cpp
     src/Lower/TopologicalOrder.cpp
     src/Lower/TypeInference.cpp
+    src/Lower/VerifyLayouts.cpp
     src/Lower/VerifyOptions.cpp
     src/Opt/DCE.cpp
     src/Parser/Lexer.cpp
@@ -135,6 +140,7 @@ target_sources(
     include/IR/IRHandle.h
     include/IR/IRNode.h
     include/IR/Interface.h
+    include/IR/Layout.h
     include/IR/Mutator.h
     include/IR/Operators.h
     include/IR/Printer.h
@@ -144,14 +150,17 @@ target_sources(
     include/IR/Target.h
     include/IR/Type.h
     include/IR/TypeEnforcement.h
+    include/IR/ValidateLayout.h
     include/IR/Visitor.h
     include/IR/WriteLoc.h
     include/IntrusivePtr.h
     include/LLVMIncl.h
     include/Lower/Canonicalize.h
     include/Lower/Generics.h
+    include/Lower/Geometrics.h
     include/Lower/Intrinsics.h
     include/Lower/Lambdas.h
+    include/Lower/Layouts.h
     include/Lower/Lower.h
     include/Lower/Options.h
     include/Lower/Pass.h
@@ -160,6 +169,7 @@ target_sources(
     include/Lower/Trees.h
     include/Lower/TopologicalOrder.h
     include/Lower/TypeInference.h
+    include/Lower/VerifyLayouts.h
     include/Lower/VerifyOptions.h
     include/Opt/DCE.h
     include/Parser/Lexer.h
