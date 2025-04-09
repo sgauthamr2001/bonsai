@@ -24,12 +24,14 @@ enum class IRStmtEnum {
     Sequence,
     Assign,
     Accumulate,
+    Allocate,
 
     Match,
     Yield,
     Scan,
     YieldFrom,
     ForAll,
+    ForEach,
 };
 
 using IRStmtNode = IRNode<Stmt, IRStmtEnum>;
@@ -151,6 +153,15 @@ struct Accumulate : StmtNode<Accumulate> {
     static const IRStmtEnum _node_type = IRStmtEnum::Accumulate;
 };
 
+struct Allocate : StmtNode<Allocate> {
+    std::string name;
+    Type type;
+
+    static Stmt make(std::string name, Type type);
+
+    static const IRStmtEnum _node_type = IRStmtEnum::Allocate;
+};
+
 struct Match : StmtNode<Match> {
     using Arms = std::vector<std::pair<BVH_t::Node, Stmt>>;
     Expr loc; // Of type BVH_t
@@ -185,13 +196,25 @@ struct YieldFrom : StmtNode<YieldFrom> {
     static const IRStmtEnum _node_type = IRStmtEnum::YieldFrom;
 };
 
-// TODO: generalize this and implement lowering / scheduling!
-struct ForAll : StmtNode<ForAll> {
+struct ForEach : StmtNode<ForEach> {
     std::string name;
     Expr iter; // array or vector
     Stmt body;
 
     static Stmt make(std::string name, Expr iter, Stmt body);
+
+    static const IRStmtEnum _node_type = IRStmtEnum::ForEach;
+};
+
+struct ForAll : StmtNode<ForAll> {
+    struct Slice {
+        Expr begin, end, stride;
+    } slice;
+    std::string index;
+    Stmt header; // let x = extract[<...>]
+    Stmt body;   // use(x)
+
+    static Stmt make(std::string index, Stmt header, Slice slice, Stmt body);
 
     static const IRStmtEnum _node_type = IRStmtEnum::ForAll;
 };
