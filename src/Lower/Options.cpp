@@ -211,9 +211,12 @@ ir::Program LowerOption::run(ir::Program program) const {
         std::vector<ir::Function::Argument> args(func->args.size());
         for (size_t i = 0; i < args.size(); i++) {
             const auto &arg = func->args[i];
-            args[i] =
-                ir::Function::Argument{arg.name, rewriter.mutate(arg.type),
-                                       rewriter.mutate(arg.default_value)};
+            args[i] = ir::Function::Argument{
+                arg.name,
+                rewriter.mutate(arg.type),
+                rewriter.mutate(arg.default_value),
+                arg.mutating,
+            };
         }
         ir::Type ret_type = rewriter.mutate(func->ret_type);
         ir::Stmt body = rewriter.mutate(func->body);

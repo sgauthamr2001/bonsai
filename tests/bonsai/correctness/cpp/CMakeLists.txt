@@ -3,4 +3,5 @@ add_bonsai_tests(
     FILES
     simple.bonsai
     struct.bonsai
+    swap.bonsai
 )
