@@ -10,6 +10,15 @@
 
 namespace bonsai {
 namespace ir {
+namespace {
+
+template <typename IRNode>
+void print_annotation(const IRNode &node, std::ostream &os) {
+    if (std::string ann = node->get_annotation(); !ann.empty()) {
+        os << ' ' << '\"' << ann << '\"';
+    }
+}
+} // namespace
 
 std::string to_string(const Expr &expr) {
     std::ostringstream oss;
@@ -219,11 +228,9 @@ void Printer::print_type_list(const std::vector<Type> &types) {
 }
 
 void Printer::print(const Expr &expr) {
-    // ScopedValue<bool> old(implicit_parens, false);
-    bool temp = implicit_parens;
-    implicit_parens = false;
+    ScopedValue<bool> old(implicit_parens, false);
     expr.accept(this);
-    implicit_parens = temp;
+    print_annotation(expr, os);
 }
 
 void Printer::print_no_parens(const Expr &expr) {
@@ -240,7 +247,10 @@ void Printer::print_expr_list(const std::vector<Expr> &exprs) {
     }
 }
 
-void Printer::print(const Stmt &stmt) { stmt->accept(this); }
+void Printer::print(const Stmt &stmt) {
+    stmt->accept(this);
+    print_annotation(stmt, os);
+}
 
 void Printer::print(const WriteLoc &loc) {
     if (verbose) {
