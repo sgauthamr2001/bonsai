@@ -23,21 +23,6 @@ std::pair<std::vector<T>, bool> visit_list(Mutator *v,
     return {std::move(new_l), not_changed};
 }
 
-std::pair<WriteLoc, bool> mutate_writeloc(Mutator *v, const WriteLoc &loc) {
-    WriteLoc new_loc(loc.base, loc.base_type);
-    bool not_changed = true;
-    for (const auto &value : loc.accesses) {
-        if (std::holds_alternative<Expr>(value)) {
-            Expr new_value = v->mutate(std::get<Expr>(value));
-            not_changed =
-                not_changed && new_value.same_as(std::get<Expr>(value));
-            new_loc.add_index_access(std::move(new_value));
-        } else {
-            new_loc.add_struct_access(std::get<std::string>(value));
-        }
-    }
-    return {std::move(new_loc), not_changed};
-}
 } // namespace
 
 Type Mutator::mutate(const Type &type) {
@@ -55,6 +40,22 @@ Expr Mutator::mutate(const Expr &expr) {
 
 Stmt Mutator::mutate(const Stmt &stmt) {
     return stmt.defined() ? stmt.get()->mutate_stmt(this) : Stmt();
+}
+
+std::pair<WriteLoc, bool> Mutator::mutate_writeloc(const WriteLoc &loc) {
+    WriteLoc new_loc(loc.base, loc.base_type);
+    bool not_changed = true;
+    for (const auto &value : loc.accesses) {
+        if (std::holds_alternative<Expr>(value)) {
+            Expr new_value = mutate(std::get<Expr>(value));
+            not_changed =
+                not_changed && new_value.same_as(std::get<Expr>(value));
+            new_loc.add_index_access(std::move(new_value));
+        } else {
+            new_loc.add_struct_access(std::get<std::string>(value));
+        }
+    }
+    return {std::move(new_loc), not_changed};
 }
 
 Type Mutator::visit(const Void_t *node) { return node; }
@@ -434,7 +435,7 @@ Stmt Mutator::visit(const Store *node) {
 }
 
 Stmt Mutator::visit(const LetStmt *node) {
-    auto [loc, not_changed] = mutate_writeloc(this, node->loc);
+    auto [loc, not_changed] = mutate_writeloc(node->loc);
     Expr value = mutate(node->value);
     if (not_changed && value.same_as(node->value)) {
         return node;
@@ -454,6 +455,15 @@ Stmt Mutator::visit(const IfElse *node) {
                         std::move(else_body));
 }
 
+Stmt Mutator::visit(const DoWhile *node) {
+    Stmt body = mutate(node->body);
+    Expr cond = mutate(node->cond);
+    if (body.same_as(node->body) && cond.same_as(node->cond)) {
+        return node;
+    }
+    return DoWhile::make(std::move(body), std::move(cond));
+}
+
 Stmt Mutator::visit(const Sequence *node) {
     auto [stmts, not_changed] = visit_list(this, node->stmts);
     if (not_changed) {
@@ -463,7 +473,7 @@ Stmt Mutator::visit(const Sequence *node) {
 }
 
 Stmt Mutator::visit(const Assign *node) {
-    auto [loc, not_changed] = mutate_writeloc(this, node->loc);
+    auto [loc, not_changed] = mutate_writeloc(node->loc);
     Expr value = mutate(node->value);
     if (not_changed && value.same_as(node->value)) {
         return node;
@@ -472,7 +482,7 @@ Stmt Mutator::visit(const Assign *node) {
 }
 
 Stmt Mutator::visit(const Accumulate *node) {
-    auto [loc, not_changed] = mutate_writeloc(this, node->loc);
+    auto [loc, not_changed] = mutate_writeloc(node->loc);
     Expr value = mutate(node->value);
     if (not_changed && value.same_as(node->value)) {
         return node;

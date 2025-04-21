@@ -907,6 +907,17 @@ void Printer::visit(const IfElse *node) {
     os << get_indent() << "}\n";
 }
 
+void Printer::visit(const DoWhile *node) {
+    os << get_indent();
+    os << "do {\n";
+    indent++;
+    print(node->body);
+    indent--;
+    os << get_indent() << "} while (";
+    print_no_parens(node->cond);
+    os << ")\n";
+}
+
 void Printer::visit(const Sequence *node) {
     for (const auto &stmt : node->stmts) {
         stmt.accept(this);
@@ -937,6 +948,10 @@ void Printer::visit(const Accumulate *node) {
     }
     case Accumulate::OpType::Mul: {
         os << " *= ";
+        break;
+    }
+    case Accumulate::OpType::Sub: {
+        os << " -= ";
         break;
     }
     default: {
@@ -1041,14 +1056,18 @@ void Printer::visit(const Pad *node) {
 void Printer::visit(const Split *node) {
     os << get_indent();
     os << "switch " << node->field << " {\n";
-    for (const auto &[value, layout] : node->arms) {
+    for (const auto &[value, name, layout] : node->arms) {
         os << get_indent();
         if (value.has_value()) {
             os << *value;
         } else {
             os << "_";
         }
-        os << " =>\n";
+        os << " => ";
+        if (name.has_value()) {
+            os << *name;
+        }
+        os << "\n";
         indent++;
         layout.accept(this);
         indent--;

@@ -65,6 +65,7 @@ struct Return;
 struct Store;
 struct LetStmt;
 struct IfElse;
+struct DoWhile;
 struct Sequence;
 struct Assign;
 struct Accumulate;
@@ -83,6 +84,8 @@ struct Split;
 struct Chain;
 struct Group;
 struct Materialize;
+
+struct WriteLoc;
 
 } // namespace ir
 } // namespace bonsai

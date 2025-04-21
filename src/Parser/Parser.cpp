@@ -1132,7 +1132,8 @@ struct Parser {
         };
 
         static const auto GPATTERNS = std::to_array<GeomPattern>({
-            {"distance", ir::GeomOp::distance},
+            {"distmax", ir::GeomOp::distmax},
+            {"distmin", ir::GeomOp::distmin},
             {"intersects", ir::GeomOp::intersects},
             {"contains", ir::GeomOp::contains},
         });
@@ -1416,9 +1417,16 @@ struct Parser {
                         << "range() expects third argument to be an integer "
                            "type: "
                         << args[2] << " is " << args[2].type();
+                    internal_assert(ir::equals(args[1].type(), args[2].type()))
+                        << "range() expects second and third arguments to be "
+                           "same type "
+                        << "arg1: " << args[1] << " is " << args[1].type()
+                        << " arg2: " << args[2] << " is " << args[2].type();
                     // TODO: make this an intrinsic?
+                    ir::Type ret_type =
+                        ir::Array_t::make(args[0].type().element_of(), args[2]);
                     ir::Type call_type = ir::Function_t::make(
-                        args[0].type(),
+                        std::move(ret_type),
                         {args[0].type(), args[1].type(), args[2].type()});
                     ir::Expr func =
                         ir::Var::make(std::move(call_type), "range");
@@ -1474,6 +1482,13 @@ struct Parser {
             }
             // otherwise ignore, not a struct build, e.g. maybe `if` expr { body
             // }
+        }
+
+        if (name == "inf") {
+            if (!fields.empty()) {
+                report_error() << "`inf` is a reserved keyword for infinity";
+            }
+            return ir::Infinity::make(f32);
         }
 
         return make_expr();
@@ -2060,9 +2075,16 @@ struct Parser {
                 }
                 expect(Token::Type::ASSIGN);
                 expect(Token::Type::GT);
+                std::optional<std::string> node_name;
+                if (peek().type == Token::Type::IDENTIFIER &&
+                    peek(1).type == Token::Type::LSQUIGGLE) {
+                    // named split.
+                    node_name = get_id();
+                }
                 ir::Layout inner = parse_layout();
                 expect(Token::Type::SEMICOL);
-                arms.push_back({std::move(value), std::move(inner)});
+                arms.push_back(
+                    {std::move(value), std::move(node_name), std::move(inner)});
             } while (!consume(Token::Type::RSQUIGGLE));
             return ir::Split::make(std::move(name), std::move(arms));
         }

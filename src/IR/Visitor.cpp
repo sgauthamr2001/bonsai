@@ -205,6 +205,11 @@ void Visitor::visit(const IfElse *node) {
     }
 }
 
+void Visitor::visit(const DoWhile *node) {
+    node->body.accept(this);
+    node->cond.accept(this);
+}
+
 void Visitor::visit(const Sequence *node) { visit_list(this, node->stmts); }
 
 void Visitor::visit(const Assign *node) {
@@ -254,7 +259,7 @@ void Visitor::visit(const Name *node) {}
 void Visitor::visit(const Pad *node) {}
 
 void Visitor::visit(const Split *node) {
-    for (const auto &[_, layout] : node->arms) {
+    for (const auto &[_, __, layout] : node->arms) {
         layout.accept(this);
     }
 }

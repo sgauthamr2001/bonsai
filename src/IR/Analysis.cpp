@@ -18,25 +18,14 @@ struct GatherFreeVars : public Visitor {
     std::set<std::string> seen_vars;
 
     void visit(const Var *node) override {
-        if (seen_vars.count(node->name) == 0) {
+        // Function calls are not free vars.
+        if (seen_vars.count(node->name) == 0 && !node->type.is_func()) {
             free_vars.push_back(node);
             seen_vars.insert(node->name);
         }
     }
 
-    void visit(const Store *node) override {
-        internal_error << "TODO: GatherFreeVars of a Store: " << Stmt(node);
-        // if (seen_vars.count(node->name) == 0) {
-        //     Type ptr_t = Ptr_t::make(node->value.type());
-        //     free_vars.emplace_back(node->name, std::move(ptr_t));
-        //     seen_vars.insert(node->name);
-        // }
-        // // TODO: consider implications on recursive definition.
-        // Visitor::visit(node);
-    }
-
     void visit(const LetStmt *node) override {
-        // TODO: fix this!! use SSA.
         seen_vars.insert(node->loc.base);
         for (const auto &value : node->loc.accesses) {
             if (std::holds_alternative<Expr>(value)) {
@@ -44,8 +33,6 @@ struct GatherFreeVars : public Visitor {
             }
         }
         node->value.accept(this);
-        // node->body.accept(this);
-        // seen_vars.erase(node->name);
     }
 
     void visit(const Assign *node) override {
@@ -79,12 +66,38 @@ struct GatherFreeVars : public Visitor {
         }
     }
 
-    RESTRICT_VISITOR(Match);
-    RESTRICT_VISITOR(Yield);
-    RESTRICT_VISITOR(Scan);
-    RESTRICT_VISITOR(YieldFrom);
-    RESTRICT_VISITOR(ForAll);
-    RESTRICT_VISITOR(ForEach);
+    RESTRICT_VISITOR(Store);
+
+    void visit(const ir::ForAll *node) override {
+        node->slice.begin.accept(this);
+        node->slice.end.accept(this);
+        node->slice.stride.accept(this);
+
+        // Now insert iteration var.
+        internal_assert(!seen_vars.contains(node->index));
+        seen_vars.insert(node->index);
+
+        if (node->header.defined()) {
+            node->header.accept(this);
+        }
+        node->body.accept(this);
+
+        // Erase iteration var.
+        seen_vars.erase(node->index);
+    }
+
+    void visit(const ir::ForEach *node) override {
+        node->iter.accept(this);
+
+        // Now insert iteration var.
+        internal_assert(!seen_vars.contains(node->name));
+        seen_vars.insert(node->name);
+
+        node->body.accept(this);
+
+        // Erase iteration var.
+        seen_vars.erase(node->name);
+    }
 };
 
 struct AlwaysReturns : public Visitor {
@@ -109,6 +122,8 @@ struct AlwaysReturns : public Visitor {
             returns = false;
         }
     }
+
+    RESTRICT_VISITOR(DoWhile);
 
     void visit(const Sequence *node) override {
         for (size_t i = 0; i < node->stmts.size() - 1; i++) {
@@ -168,6 +183,7 @@ struct ReturnType : public Visitor {
     RESTRICT_VISITOR(Yield);
     RESTRICT_VISITOR(Scan);
     RESTRICT_VISITOR(YieldFrom);
+    RESTRICT_VISITOR(DoWhile);
 
     void visit(const IfElse *node) override {
         node->then_body.accept(this);
@@ -240,12 +256,20 @@ std::vector<const ir::Var *> gather_free_vars(const Expr &expr) {
     return std::move(gather.free_vars);
 }
 
-// std::vector<std::pair<std::string, Type>> gather_free_vars(const Stmt &stmt)
-// {
+// std::vector<const ir::Var *> gather_free_vars(const Stmt &stmt) {
 //     GatherFreeVars gather;
 //     stmt.accept(&gather);
 //     return std::move(gather.free_vars);
 // }
+
+std::vector<const ir::Var *> gather_free_vars(const Function &func) {
+    GatherFreeVars gather;
+    for (const auto &arg : func.args) {
+        gather.seen_vars.insert(arg.name);
+    }
+    func.body.accept(&gather);
+    return std::move(gather.free_vars);
+}
 
 bool always_returns(const Stmt &stmt) {
     AlwaysReturns check;

@@ -529,6 +529,14 @@ void CodeGen_LLVM::optimize_module(llvm::TargetMachine &tm,
 
     tm.registerPassBuilderCallbacks(pb);
     mpm = pb.buildPerModuleDefaultPipeline(level, debug_pass_manager);
+
+    for (auto &F : *module) {
+        if (llvm::verifyFunction(F, &llvm::errs())) {
+            F.print(llvm::errs());
+            internal_error << "Invalid function IR before optimization";
+        }
+    }
+
     mpm.run(*module, mam);
 }
 
@@ -655,15 +663,36 @@ void CodeGen_LLVM::visit(const VecImm *node) {
 }
 
 void CodeGen_LLVM::visit(const Infinity *node) {
-    internal_error << "TODO: implement Infinity codegen for type: "
-                   << node->type;
+    llvm::Type *inf_type = codegen_type(node->type);
+
+    if (inf_type->isFloatTy()) {
+        value = llvm::ConstantFP::get(
+            inf_type, llvm::APFloat::getInf(llvm::APFloat::IEEEsingle()));
+    } else if (inf_type->isDoubleTy()) {
+        value = llvm::ConstantFP::get(
+            inf_type, llvm::APFloat::getInf(llvm::APFloat::IEEEdouble()));
+    } else if (inf_type->isHalfTy()) {
+        value = llvm::ConstantFP::get(
+            inf_type, llvm::APFloat::getInf(llvm::APFloat::IEEEhalf()));
+    } else if (inf_type->isIntegerTy()) {
+        const uint32_t bits = inf_type->getIntegerBitWidth();
+        bool is_signed = node->type.is_int();
+
+        llvm::APInt max_val = is_signed ? llvm::APInt::getSignedMaxValue(bits)
+                                        : llvm::APInt::getMaxValue(bits);
+
+        value = llvm::ConstantInt::get(inf_type, max_val);
+    } else {
+        internal_error << "Infinity codegen not yet supported for type: "
+                       << node->type;
+    }
 }
 
 void CodeGen_LLVM::visit(const Var *node) {
     auto [_value, _mutable] = frames.from_frames(node->name);
     if (_mutable) {
-        llvm::Type *_type = codegen_type(node->type);
-        value = builder->CreateLoad(_type, _value, node->name);
+        llvm::Type *var_type = codegen_type(node->type);
+        value = builder->CreateLoad(var_type, _value, node->name);
     } else {
         value = _value; // immutable so not pointer.
     }
@@ -1000,19 +1029,48 @@ void CodeGen_LLVM::visit(const Print *node) {
 }
 
 void CodeGen_LLVM::visit(const Cast *node) {
-    // TODO: upgrade_type_for_arithmetic?
-    llvm::Value *_value = codegen_expr(node->value);
-
     const ir::Type &src = node->value.type();
     const ir::Type &dst = node->type;
 
+    // TODO(ajr): we need a more general fix for these sorts of reinterprets.
+    if (src.is<Vector_t>() && dst.is<Struct_t>() &&
+        dst.as<Struct_t>()->fields.size() == 1) {
+        ir::Expr repl =
+            Cast::make(dst.as<Struct_t>()->fields[0].second, node->value);
+        repl = Build::make(node->type, {std::move(repl)});
+        repl.accept(this);
+        return;
+    }
+
+    // TODO: upgrade_type_for_arithmetic?
+    llvm::Value *inner = codegen_expr(node->value);
+
     llvm::Type *llvm_dst = codegen_type(dst);
 
-    // TODO: handle vectors better?
+    // Except the first branch, these just copy Halide's lowering (minus a few
+    // pointer things).
+    if ((src.is_vector() && !dst.is_vector()) ||
+        (dst.is_vector() && !src.is_vector()) ||
+        (src.is_vector() && dst.is_vector() && src.lanes() != dst.lanes())) {
+        // Must be a reinterpret cast
+        llvm::Type *llvm_src = codegen_type(src);
 
-    // These just copy Halide's lowering (minus a few pointer things).
-    if (src.is_int_or_uint() && dst.is_int_or_uint()) {
-        value = builder->CreateIntCast(_value, llvm_dst,
+        // Reinterpret cast — bit widths must match
+        if (module->getDataLayout().getTypeAllocSize(llvm_dst) !=
+            module->getDataLayout().getTypeAllocSize(llvm_src)) {
+            std::cerr << "Cannot cast between types of different sizes: "
+                      << std::flush;
+            llvm_dst->print(llvm::errs());
+            llvm::errs() << " -> ";
+            llvm_src->print(llvm::errs());
+            llvm::errs().flush();
+
+            internal_error << "Failed in Cast codegen (reinterpret)";
+        }
+
+        value = builder->CreateBitCast(inner, llvm_dst);
+    } else if (src.is_int_or_uint() && dst.is_int_or_uint()) {
+        value = builder->CreateIntCast(inner, llvm_dst,
                                        /* isSigned */ src.is_int());
     } else if (src.is_float() && dst.is_int()) {
         value = builder->CreateFPToSI(value, llvm_dst);
@@ -1021,14 +1079,14 @@ void CodeGen_LLVM::visit(const Cast *node) {
         // use uint1 as bools. so I think we can ignore this, and handle it
         // explicitly in bool -> float casts. Note: this has undefined behavior
         // on overflow.
-        value = builder->CreateFPToUI(value, llvm_dst);
+        value = builder->CreateFPToUI(inner, llvm_dst);
     } else if (src.is_int() && dst.is_float()) {
-        value = builder->CreateSIToFP(value, llvm_dst);
+        value = builder->CreateSIToFP(inner, llvm_dst);
     } else if (src.is_uint() && dst.is_float()) {
-        value = builder->CreateUIToFP(value, llvm_dst);
+        value = builder->CreateUIToFP(inner, llvm_dst);
     } else if (src.is_float() && dst.is_float()) {
         // Float widening or narrowing
-        value = builder->CreateFPCast(value, llvm_dst);
+        value = builder->CreateFPCast(inner, llvm_dst);
     } else {
         internal_error << "TODO: implement Cast codegen: " << Expr(node);
     }
@@ -1203,8 +1261,9 @@ void CodeGen_LLVM::visit(const Intrinsic *node) {
             // Follows the IEEE-754 semantics for maxNum except for the handling
             // of signaling NaNs. This matches the behavior of libm’s fmax.
             // https://llvm.org/docs/LangRef.html#llvm-maxnum-intrinsic
-            // intrin = llvm::Intrinsic::maxnum;
-            internal_error << "TODO: figure out fmax codegen: " << Expr(node);
+            intrin = llvm::Intrinsic::maxnum;
+            // internal_error << "TODO: figure out fmax codegen: " <<
+            // Expr(node);
         }
         break;
     }
@@ -1219,8 +1278,9 @@ void CodeGen_LLVM::visit(const Intrinsic *node) {
             // Follows the IEEE-754 semantics for minNum, except for handling of
             // signaling NaNs. This match’s the behavior of libm’s fmin.
             // https://llvm.org/docs/LangRef.html#llvm-minnum-intrinsic
-            // intrin = llvm::Intrinsic::minnum;
-            internal_error << "TODO: figure out fmin codegen: " << Expr(node);
+            intrin = llvm::Intrinsic::minnum;
+            // internal_error << "TODO: figure out fmin codegen: " <<
+            // Expr(node);
         }
         break;
     }
@@ -1560,6 +1620,40 @@ void CodeGen_LLVM::visit(const IfElse *node) {
     }
 }
 
+void CodeGen_LLVM::visit(const DoWhile *node) {
+    // Body of the loop
+    llvm::BasicBlock *loop_bb =
+        llvm::BasicBlock::Create(*context, "do.body", current_function);
+    // Block after the loop.
+    llvm::BasicBlock *end_bb =
+        llvm::BasicBlock::Create(*context, "do.end", current_function);
+
+    // Jump unconditionally to loop body (required for do-while)
+    builder->CreateBr(loop_bb);
+
+    builder->SetInsertPoint(loop_bb);
+
+    // TODO: are there phi nodes?
+    // For now, assume LLVM optimizes loads/stores into phi nodes.
+
+    // Establish new frame
+    frames.new_frame();
+
+    // Emit loop body
+    codegen_stmt(node->body);
+
+    // Maybe exit the loop
+    llvm::Value *loop_back_condition = codegen_expr(node->cond);
+    // TODO(ajr): use very_likely_branch?
+    builder->CreateCondBr(loop_back_condition, loop_bb, end_bb);
+
+    // Following statements should write to end_bb
+    builder->SetInsertPoint(end_bb);
+
+    // Pop for-loop local scope names.
+    frames.pop_frame();
+}
+
 void CodeGen_LLVM::visit(const Assign *node) {
     llvm::Value *loc = codegen_write_loc(node->loc);
     internal_assert(loc) << "Failed to codegen LLVM ptr for: " << node->loc
@@ -1587,6 +1681,14 @@ void CodeGen_LLVM::visit(const Accumulate *node) {
             acc = builder->CreateFAdd(current, _value);
         } else {
             acc = builder->CreateAdd(current, _value);
+        }
+        break;
+    }
+    case Accumulate::Sub: {
+        if (node->value.type().is_float()) {
+            acc = builder->CreateFSub(current, _value);
+        } else {
+            acc = builder->CreateSub(current, _value);
         }
         break;
     }
@@ -1775,6 +1877,7 @@ void CodeGen_LLVM::visit(const ForAll *node) {
 
     // Maybe exit the loop
     llvm::Value *end_condition = codegen_expr(var + 1 >= node->slice.end);
+    // TODO(ajr): use very_likely_branch?
     builder->CreateCondBr(end_condition, end_bb, loop_bb);
 
     // Following statements should write to end_bb
@@ -1874,10 +1977,18 @@ void CodeGen_LLVM::declare_struct_types(
     for (const auto &_struct : structs) {
         std::vector<llvm::Type *> types(_struct->fields.size());
         size_t i = 0;
+        // TODO(ajr): this is a hacky fix...
+        bool skip = false;
         for (const auto &[key, value] : _struct->fields) {
-            types[i++] = codegen_type(value);
+            if (!value.is<Ref_t>()) {
+                types[i++] = codegen_type(value);
+            } else {
+                skip = true;
+            }
         }
-        struct_types[_struct->name]->setBody(types);
+        if (!skip) {
+            struct_types[_struct->name]->setBody(types);
+        }
         // llvm::errs() << "built: " << *struct_types[_struct->name] << "\n";
     }
 }

@@ -67,6 +67,7 @@ ir::Expr make_zero(const ir::Type &t);
 
 // Creates an immediate with value `1` and the provided type.
 ir::Expr make_one(const ir::Type &t);
+ir::Expr make_inf(const ir::Type &t);
 
 template <typename T>
 ir::Expr make_const(const ir::Type &t, const T &v) {
@@ -129,7 +130,7 @@ ir::WriteLoc read_to_writeloc(const ir::Expr &expr);
 bool is_writeloc(const ir::Expr &expr);
 
 inline bool is_geometric_intrinsic(const std::string &name) {
-    return (name == "contains") || (name == "distance") ||
+    return (name == "contains") || (name == "distmin") || (name == "distmax") ||
            (name == "intersects");
 }
 
@@ -138,7 +139,7 @@ inline bool is_geometric_predicate(const std::string &name) {
 }
 
 inline bool is_geometric_metric(const std::string &name) {
-    return (name == "distance");
+    return (name == "distmin") || (name == "distmax");
 }
 
 } // namespace bonsai

@@ -3,6 +3,8 @@
 #include "IR/Mutator.h"
 #include "Lower/Arrays.h"
 #include "Lower/Canonicalize.h"
+#include "Lower/Externs.h"
+#include "Lower/ForEachs.h"
 #include "Lower/Generics.h"
 #include "Lower/Geometrics.h"
 #include "Lower/Lambdas.h"
@@ -10,8 +12,10 @@
 #include "Lower/Options.h"
 #include "Lower/ReturnToOutParameter.h"
 #include "Lower/Trees.h"
+#include "Lower/Tuples.h"
 #include "Lower/VerifyLayouts.h"
 #include "Lower/VerifyOptions.h"
+#include "Lower/Yields.h"
 #include "Opt/DCE.h"
 #include "Opt/Inline.h"
 #include "Opt/Simplify.h"
@@ -58,15 +62,19 @@ PassManager register_passes() {
     PassManager manager;
     // Lowering pass registration.
     manager.register_pass<Canonicalize>();
-    manager.register_pass<LowerLambda>();
-    manager.register_pass<LowerOption>();
+    manager.register_pass<LowerLambdas>();
+    manager.register_pass<LowerOptions>();
     manager.register_pass<VerifyOptions>();
-    manager.register_pass<LowerGeneric>();
+    manager.register_pass<LowerGenerics>();
     manager.register_pass<VerifyLayouts>();
     manager.register_pass<LowerTrees>();
     manager.register_pass<LowerArrays>();
+    manager.register_pass<LowerForEachs>();
     manager.register_pass<LowerGeometrics>();
     manager.register_pass<LowerLayouts>();
+    manager.register_pass<LowerTuples>();
+    manager.register_pass<LowerYields>();
+    manager.register_pass<LowerExterns>();
     manager.register_pass<ReturnToOutParameter>();
     // Optimizing pass registration.
     manager.register_pass<opt::DCE>();
@@ -81,11 +89,15 @@ PassManager register_passes() {
     core.push_back(std::make_unique<VerifyLayouts>());
     core.push_back(std::make_unique<LowerArrays>());
     core.push_back(std::make_unique<LowerTrees>());
+    core.push_back(std::make_unique<LowerExterns>());
     core.push_back(std::make_unique<LowerGeometrics>());
     core.push_back(std::make_unique<LowerLayouts>());
-    core.push_back(std::make_unique<LowerLambda>());
-    core.push_back(std::make_unique<LowerOption>());
-    core.push_back(std::make_unique<LowerGeneric>());
+    core.push_back(std::make_unique<LowerForEachs>());
+    core.push_back(std::make_unique<LowerYields>());
+    core.push_back(std::make_unique<LowerLambdas>());
+    core.push_back(std::make_unique<LowerOptions>());
+    core.push_back(std::make_unique<LowerTuples>());
+    core.push_back(std::make_unique<LowerGenerics>());
     core.push_back(std::make_unique<ReturnToOutParameter>());
     manager.register_alias("core", core);
 
@@ -96,11 +108,15 @@ PassManager register_passes() {
     d.push_back(std::make_unique<VerifyLayouts>());
     d.push_back(std::make_unique<LowerArrays>());
     d.push_back(std::make_unique<LowerTrees>());
+    d.push_back(std::make_unique<LowerExterns>());
     d.push_back(std::make_unique<LowerGeometrics>());
     d.push_back(std::make_unique<LowerLayouts>());
-    d.push_back(std::make_unique<LowerLambda>());
-    d.push_back(std::make_unique<LowerOption>());
-    d.push_back(std::make_unique<LowerGeneric>());
+    d.push_back(std::make_unique<LowerForEachs>());
+    d.push_back(std::make_unique<LowerYields>());
+    d.push_back(std::make_unique<LowerLambdas>());
+    d.push_back(std::make_unique<LowerOptions>());
+    d.push_back(std::make_unique<LowerTuples>());
+    d.push_back(std::make_unique<LowerGenerics>());
     d.push_back(std::make_unique<ReturnToOutParameter>());
     d.push_back(std::make_unique<opt::Simplify>());
     d.push_back(std::make_unique<opt::DCE>());
