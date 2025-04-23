@@ -1,0 +1,23 @@
+//! flags: -p core
+
+func foo() -> bool {
+    w: bool = 1;
+    x: bool = 0;
+    y: bool = w | x;
+    z: bool = y & x;
+    
+    return z;
+}
+
+func order_of_operations() -> i32 {
+  a: i32 = 12;
+  b: i32 = 10;
+  c: i32 = 6;
+  d: i32 = 1;
+
+  expect: i32 = (((a & b) ^ c) | d);
+  actual: i32 =    a & b  ^ c  | d;
+  print(expect);
+  print(actual);
+  return 0;
+}

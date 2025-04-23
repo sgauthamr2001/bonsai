@@ -363,7 +363,7 @@ ir::Stmt lower_switch_tree(ir::Layout layout, ir::Expr base,
                 ir::Expr eq = ir::BinOp::make(ir::BinOp::Eq, std::move(value),
                                               std::move(constant));
                 if (cond.defined()) {
-                    cond = ir::BinOp::make(ir::BinOp::And, std::move(cond),
+                    cond = ir::BinOp::make(ir::BinOp::LAnd, std::move(cond),
                                            std::move(eq));
                 } else {
                     cond = std::move(eq);

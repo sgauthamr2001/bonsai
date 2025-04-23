@@ -782,6 +782,18 @@ void CodeGen_LLVM::visit(const BinOp *node) {
             value = builder->CreateICmpNE(a, b);
             return;
         }
+        case BinOp::Xor: {
+            value = builder->CreateXor(a, b);
+            return;
+        }
+        case BinOp::BwAnd: {
+            value = builder->CreateAnd(a, b);
+            return;
+        }
+        case BinOp::BwOr: {
+            value = builder->CreateOr(a, b);
+            return;
+        }
         default: {
             internal_error
                 << "Unimplemented BinOp lowering for signed integer: "
@@ -830,6 +842,18 @@ void CodeGen_LLVM::visit(const BinOp *node) {
             value = builder->CreateICmpNE(a, b);
             return;
         }
+        case BinOp::Xor: {
+            value = builder->CreateXor(a, b);
+            return;
+        }
+        case BinOp::BwAnd: {
+            value = builder->CreateAnd(a, b);
+            return;
+        }
+        case BinOp::BwOr: {
+            value = builder->CreateOr(a, b);
+            return;
+        }
         default: {
             internal_error
                 << "Unimplemented BinOp lowering for unsigned integer: "
@@ -838,11 +862,11 @@ void CodeGen_LLVM::visit(const BinOp *node) {
         }
     } else if (node->a.type().is_bool()) {
         switch (node->op) {
-        case BinOp::And: {
+        case BinOp::BwAnd: {
             value = builder->CreateAnd(a, b);
             return;
         }
-        case BinOp::Or: {
+        case BinOp::BwOr: {
             value = builder->CreateOr(a, b);
             return;
         }
@@ -850,6 +874,8 @@ void CodeGen_LLVM::visit(const BinOp *node) {
             value = builder->CreateXor(a, b);
             return;
         }
+        case BinOp::LOr:
+        case BinOp::LAnd:
         default: {
             internal_error << "Unimplemented BinOp lowering for boolean: "
                            << Expr(node);
@@ -1621,7 +1647,7 @@ void CodeGen_LLVM::visit(const IfElse *node) {
 void CodeGen_LLVM::codegen_short_circuit(Expr cond, llvm::BasicBlock *true_bb,
                                          llvm::BasicBlock *false_bb) {
     if (const BinOp *op = cond.as<BinOp>()) {
-        if (op->op == BinOp::And) {
+        if (op->op == BinOp::LAnd) {
             llvm::BasicBlock *rhs_bb =
                 llvm::BasicBlock::Create(*context, "and_rhs", current_function);
             // if a then check b else goto false
@@ -1630,7 +1656,7 @@ void CodeGen_LLVM::codegen_short_circuit(Expr cond, llvm::BasicBlock *true_bb,
             // if also b then goto true else goto false
             codegen_short_circuit(op->b, true_bb, false_bb);
             return;
-        } else if (op->op == BinOp::Or) {
+        } else if (op->op == BinOp::LOr) {
             llvm::BasicBlock *rhs_bb =
                 llvm::BasicBlock::Create(*context, "or_rhs", current_function);
             // if a then goto true else check b

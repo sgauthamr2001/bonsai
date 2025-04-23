@@ -166,11 +166,13 @@ Expr Var::make(Type type, const std::string &name) {
 
 bool BinOp::is_numeric_op(const BinOp::OpType &op) {
     switch (op) {
-    // Technically, And, Or, and Xor keep the type of the operands.
+    // Technically, And, Or, BwAnd, BwOr, and Xor keep the type of the operands.
     // maybe need to rename this function.
-    case BinOp::And:
-    case BinOp::Or:
+    case BinOp::LAnd:
+    case BinOp::LOr:
     case BinOp::Xor:
+    case BinOp::BwAnd:
+    case BinOp::BwOr:
     case BinOp::Add:
     case BinOp::Mod:
     case BinOp::Mul:
@@ -187,9 +189,11 @@ bool BinOp::is_numeric_op(const BinOp::OpType &op) {
 
 bool BinOp::is_boolean_op(const BinOp::OpType &op) {
     switch (op) {
-    case BinOp::And:
-    case BinOp::Or:
-    case BinOp::Xor: // see above note
+    case BinOp::LAnd:
+    case BinOp::LOr:
+    case BinOp::Xor:   // see above note
+    case BinOp::BwAnd: // see above note
+    case BinOp::BwOr:  // see above note
     case BinOp::Add:
     case BinOp::Mod:
     case BinOp::Mul:
@@ -205,6 +209,11 @@ bool BinOp::is_boolean_op(const BinOp::OpType &op) {
 }
 
 namespace {
+
+// Returns whether this type is valid for logical operations.
+bool is_valid_logical_operation(ir::Type type) {
+    return type.is<ir::Option_t, Bool_t>();
+}
 
 void try_match_types(Expr &a, Expr &b) {
     if (a.type().defined() && b.type().defined()) {
@@ -283,7 +292,12 @@ Expr BinOp::make(BinOp::OpType op, Expr a, Expr b) {
             << "BinOp of mismatched types: " << a << " : " << a.type() << " "
             << to_string(op) << " " << b << " : " << b.type();
 
-        if (op == BinOp::And || op == BinOp::Or) {
+        if (op == BinOp::LAnd || op == BinOp::LOr) {
+            // Verify logical operations only act upon options, bools aggregates
+            // of bools.
+            internal_assert(is_valid_logical_operation(a.type()) &&
+                            is_valid_logical_operation(b.type()))
+                << a.type() << ", " << b.type();
             if (a.type().is<Option_t>() || b.type().is<Option_t>()) {
                 // TODO: handle vectors of options?
                 node->type = Bool_t::make();
@@ -324,6 +338,7 @@ Expr UnOp::make(UnOp::OpType op, Expr a) {
     const bool infer_types = type_enforcement_enabled() || a.type().defined();
     if (infer_types) {
         if (op == UnOp::Not) {
+            internal_assert(is_valid_logical_operation(a.type())) << a.type();
             if (a.type().is<Option_t>()) {
                 a = Cast::make(Bool_t::make(), a);
             }
