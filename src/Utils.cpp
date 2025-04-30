@@ -321,6 +321,24 @@ bool is_writeloc(const Expr &expr) {
     return false;
 }
 
+ir::Expr update_type(ir::Expr expr, ir::Type type) {
+    internal_assert(type.defined());
+    internal_assert(expr.defined());
+    switch (expr->node_type) {
+    case ir::IRExprEnum::Build: {
+        const auto *build = expr.as<ir::Build>();
+        return ir::Build::make(std::move(type), build->values);
+    }
+    case ir::IRExprEnum::Var: {
+        const auto *var = expr.as<ir::Var>();
+        return ir::Var::make(std::move(type), var->name);
+    }
+    default:
+        internal_error << "[unimplemented] update_type(" << expr << " : "
+                       << expr.type() << ", " << type << ")";
+    }
+}
+
 namespace {
 
 Type flatten_array_type_helper(Type type, Expr size) {
