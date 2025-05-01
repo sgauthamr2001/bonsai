@@ -87,6 +87,10 @@ bool is_const(const Expr &e) {
     return e.is<IntImm, UIntImm, FloatImm, BoolImm, Infinity, VecImm>();
 }
 
+bool is_location_expr(const Expr &expr) {
+    return expr.is<Var, Access, PtrTo>();
+}
+
 Expr get_value_at(Expr v, int64_t index) {
     const Type &type = v.type();
     internal_assert(type.is_vector()) << type;
@@ -348,17 +352,17 @@ uint64_t bit_mask(int64_t n) {
     return n >= width ? ~uint64_t{0} : (uint64_t{1} << n) - uint64_t{1};
 }
 
-ir::Expr update_type(ir::Expr expr, ir::Type type) {
+Expr update_type(Expr expr, Type type) {
     internal_assert(type.defined());
     internal_assert(expr.defined());
     switch (expr->node_type) {
-    case ir::IRExprEnum::Build: {
-        const auto *build = expr.as<ir::Build>();
-        return ir::Build::make(std::move(type), build->values);
+    case IRExprEnum::Build: {
+        const auto *build = expr.as<Build>();
+        return Build::make(std::move(type), build->values);
     }
-    case ir::IRExprEnum::Var: {
-        const auto *var = expr.as<ir::Var>();
-        return ir::Var::make(std::move(type), var->name);
+    case IRExprEnum::Var: {
+        const auto *var = expr.as<Var>();
+        return Var::make(std::move(type), var->name);
     }
     default:
         internal_error << "[unimplemented] update_type(" << expr << " : "

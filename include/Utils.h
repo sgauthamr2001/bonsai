@@ -15,6 +15,7 @@ bool is_const_one(const ir::Expr &e);
 bool is_const_all_ones(const ir::Expr &e);
 bool is_const_zero(const ir::Expr &e);
 bool is_const(const ir::Expr &e);
+bool is_location_expr(const ir::Expr &expr);
 
 // Attempts to infer the value at the given index in the vector `v`, otherwise
 // returns an undefined expression upon failure.
@@ -176,6 +177,5 @@ bool is_all_ones(T value, int64_t width) {
 ir::Expr update_type(ir::Expr, ir::Type);
 
 ir::Type flatten_array_type(const ir::Type &type);
-
 
 } // namespace bonsai
