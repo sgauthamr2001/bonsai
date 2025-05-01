@@ -315,7 +315,7 @@ llvm::Function *CodeGen_LLVM::declare_function(const Function &func) {
 
 void CodeGen_LLVM::compile_function(const Function &func,
                                     llvm::Function *function) {
-    frames.new_frame();
+    frames.push_frame();
 
     // TODO: allow nested functions? Can LLVM even do that?
     internal_assert(current_function == nullptr);
@@ -368,7 +368,7 @@ CodeGen_LLVM::compile_program(const Program &program,
     const auto struct_types = gather_struct_types(program);
     declare_struct_types(struct_types);
 
-    frames.new_frame();
+    frames.push_frame();
     // TODO: add program.externs to the global frame.
     std::map<std::string, llvm::Function *> func_map;
     for (const auto &[fname, func] : program.funcs) {
@@ -689,7 +689,9 @@ void CodeGen_LLVM::visit(const Infinity *node) {
 }
 
 void CodeGen_LLVM::visit(const Var *node) {
-    auto [_value, _mutable] = frames.from_frames(node->name);
+    auto v_m = frames.from_frames(node->name);
+    internal_assert(v_m.has_value()) << node->name;
+    auto [_value, _mutable] = *v_m;
     if (_mutable) {
         llvm::Type *var_type = codegen_type(node->type);
         value = builder->CreateLoad(var_type, _value, node->name);
@@ -1733,7 +1735,7 @@ void CodeGen_LLVM::visit(const DoWhile *node) {
     // For now, assume LLVM optimizes loads/stores into phi nodes.
 
     // Establish new frame
-    frames.new_frame();
+    frames.push_frame();
     latch_blocks.push_back(cond_bb);
     // TODO(ajr): will need this for `break` statements.
     // escape_blocks.push_back(end_bb);
@@ -1976,7 +1978,7 @@ void CodeGen_LLVM::visit(const ForAll *node) {
     phi->addIncoming(begin, preheader_bb);
 
     // Add index to new frame.
-    frames.new_frame();
+    frames.push_frame();
     frames.add_to_frame(node->index, {phi, /*mutable=*/false});
 
     latch_blocks.push_back(inc_bb);
@@ -2127,8 +2129,9 @@ llvm::Value *CodeGen_LLVM::codegen_buffer_pointer(const std::string &buffer,
                                                   const Type &type,
                                                   llvm::Value *idx) {
     llvm::DataLayout d(module.get());
-    auto [base_addr, _] = frames.from_frames(buffer);
-    // llvm::Value *base_addr = frames.from_frames(buffer);
+    auto v_m = frames.from_frames(buffer);
+    internal_assert(v_m.has_value()) << buffer;
+    auto [base_addr, _] = *v_m;
 
     // TODO: upgrade type for storage?
     llvm::Type *load_type = codegen_type(type);
@@ -2213,8 +2216,8 @@ llvm::Function *CodeGen_LLVM::codegen_func_ptr(const Expr &expr) {
 
 llvm::Value *CodeGen_LLVM::codegen_write_loc(const ir::WriteLoc &loc) {
     llvm::Value *base = nullptr;
-    if (frames.name_in_scope(loc.base)) {
-        auto [_base, _mutable] = frames.from_frames(loc.base);
+    if (auto v_m = frames.from_frames(loc.base)) {
+        auto [_base, _mutable] = *v_m;
         internal_assert(_mutable)
             << "Attempting to codegen write to immutable data: " << loc.base;
         base = _base;
