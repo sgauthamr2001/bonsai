@@ -40,6 +40,9 @@ struct GatherFreeVars : public Visitor {
     }
 
     void visit(const Assign *node) override {
+        if (node->mutating && !seen_vars.contains(node->loc.base)) {
+            free_vars.push_back({node->loc.base, node->loc.base_type});
+        }
         seen_vars.insert(node->loc.base);
         for (const auto &value : node->loc.accesses) {
             if (std::holds_alternative<Expr>(value)) {
@@ -97,6 +100,8 @@ struct GatherFreeVars : public Visitor {
         // Erase iteration var.
         seen_vars.erase(node->name);
     }
+
+    RESTRICT_VISITOR(Launch);
 };
 
 struct AlwaysReturns : public Visitor {
@@ -149,6 +154,7 @@ struct AlwaysReturns : public Visitor {
     RESTRICT_VISITOR(Yield);
     RESTRICT_VISITOR(Scan);
     RESTRICT_VISITOR(YieldFrom);
+    RESTRICT_VISITOR(Launch);
 };
 
 struct ReturnType : public Visitor {
@@ -179,6 +185,7 @@ struct ReturnType : public Visitor {
     RESTRICT_VISITOR(Scan);
     RESTRICT_VISITOR(YieldFrom);
     RESTRICT_VISITOR(DoWhile);
+    RESTRICT_VISITOR(Launch);
 
     void visit(const IfElse *node) override {
         node->then_body.accept(this);
@@ -265,11 +272,11 @@ std::vector<TypedVar> gather_free_vars(const Expr &expr) {
     return std::move(gather.free_vars);
 }
 
-// std::vector<TypedVar> gather_free_vars(const Stmt &stmt) {
-//     GatherFreeVars gather;
-//     stmt.accept(&gather);
-//     return std::move(gather.free_vars);
-// }
+std::vector<TypedVar> gather_free_vars(const Stmt &stmt) {
+    GatherFreeVars gather;
+    stmt.accept(&gather);
+    return std::move(gather.free_vars);
+}
 
 std::vector<TypedVar> gather_free_vars(const Function &func) {
     GatherFreeVars gather;

@@ -115,17 +115,6 @@ struct Simplifier : ir::Mutator {
         return it->second;
     }
 
-    ir::Stmt visit(const ir::LetStmt *node) override {
-        ir::Expr value = mutate(node->value);
-        if (is_const(value)) {
-            name_to_immediate[node->loc.base] = value;
-        }
-        if (value.same_as(node->value)) {
-            return node;
-        }
-        return ir::LetStmt::make(node->loc, std::move(value));
-    }
-
     ir::Expr visit(const ir::UnOp *node) override {
         ir::Expr a = mutate(node->a);
         const ir::Type type = a.type();
@@ -421,18 +410,76 @@ struct Simplifier : ir::Mutator {
         return ir::Extract::make(std::move(v), std::move(i));
     }
 
-    ir::Stmt visit(const ir::IfElse *node) override {
-        std::optional<uint64_t> x = get_constant_value(mutate(node->cond));
-        if (!x.has_value()) {
-            return ir::Mutator::visit(node);
+    ir::Stmt visit(const ir::LetStmt *node) override {
+        ir::Expr value = mutate(node->value);
+        if (is_const(value)) {
+            name_to_immediate[node->loc.base] = value;
         }
-        if (x == 0) {
-            if (node->else_body.defined()) {
-                return mutate(node->else_body);
+        if (value.same_as(node->value)) {
+            return node;
+        }
+        return ir::LetStmt::make(node->loc, std::move(value));
+    }
+
+    ir::Stmt visit(const ir::Sequence *node) override {
+        bool changed = false;
+        std::vector<ir::Stmt> stmts;
+        stmts.reserve(node->stmts.size());
+
+        auto flatten = [&](const ir::Stmt &stmt) {
+            ir::Stmt mut = mutate(stmt);
+            changed = changed || !mut.same_as(stmt);
+            if (!mut.defined()) {
+                changed = true;
+                return;
+            } else if (const ir::Sequence *seq = mut.as<ir::Sequence>()) {
+                stmts.insert(stmts.end(), seq->stmts.begin(), seq->stmts.end());
+                changed = true;
+            } else {
+                stmts.emplace_back(std::move(mut));
             }
-            internal_error << "ir::Stmt as a nop, open an issue please!";
+        };
+
+        for (const auto &stmt : node->stmts) {
+            flatten(stmt);
         }
-        return mutate(node->then_body);
+
+        if (!changed) {
+            return node;
+        }
+        if (stmts.empty()) {
+            return ir::Stmt();
+        }
+        return ir::Sequence::make(std::move(stmts));
+    }
+
+    ir::Stmt visit(const ir::IfElse *node) override {
+        ir::Expr cond = mutate(node->cond);
+        ir::Stmt then_body = mutate(node->then_body);
+        ir::Stmt else_body = mutate(node->else_body);
+
+        if (auto x = get_constant_value(cond); x.has_value()) {
+            if (*x == 0) {
+                return else_body;
+            } else {
+                return then_body;
+            }
+        }
+
+        if (!then_body.defined()) {
+            if (!else_body.defined()) {
+                // No-op
+                return then_body;
+            }
+            return ir::IfElse::make(~cond, std::move(else_body));
+        }
+
+        if (cond.same_as(node->cond) && then_body.same_as(node->then_body) &&
+            else_body.same_as(node->else_body)) {
+            return node;
+        }
+        return ir::IfElse::make(std::move(cond), std::move(then_body),
+                                std::move(else_body));
     }
 
   private:

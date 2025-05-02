@@ -21,6 +21,7 @@
 #include "Opt/DCE.h"
 #include "Opt/Fusion.h"
 #include "Opt/Inline.h"
+#include "Opt/Parallelize.h"
 #include "Opt/Simplify.h"
 #include "Opt/Unswitch.h"
 
@@ -85,6 +86,7 @@ PassManager register_passes() {
     manager.register_pass<opt::DCE>();
     manager.register_pass<opt::Fusion>();
     manager.register_pass<opt::Inline>();
+    manager.register_pass<opt::Parallelize>();
     manager.register_pass<opt::Simplify>();
     manager.register_pass<opt::Unswitch>();
 
@@ -136,6 +138,7 @@ PassManager register_passes() {
     d.push_back(std::make_unique<opt::Simplify>());
     d.push_back(std::make_unique<opt::DCE>());
     d.push_back(std::make_unique<opt::Inline>());
+    d.push_back(std::make_unique<opt::Parallelize>());
     // This should always run last! It duplicates the exported functions.
     d.push_back(std::make_unique<ReturnToOutParameter>());
     d.push_back(std::make_unique<Mutability>());

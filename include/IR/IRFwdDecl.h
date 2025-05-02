@@ -81,6 +81,7 @@ struct YieldFrom;
 struct ForAll;
 struct ForEach;
 struct Continue;
+struct Launch;
 
 // Layouts
 struct Name;
