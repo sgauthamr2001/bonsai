@@ -1,0 +1,107 @@
+//! flags: -b cpp -o apps/rtiow/main
+// clang++ -std=c++20 -O3 main_hook.cpp main.o -o bonsai.out
+
+import stdlib/numerics;
+import stdlib/ray;
+import stdlib/sphere;
+import stdlib/distance;
+
+func build_ray(i : i32, j : i32, width : i32) {
+    aspect_ratio : Float = 16.0 / 9.0;
+    height : mut = cast[[i32]](cast[[Float]](width) / aspect_ratio);
+    height = select(height < 1, 1, height);
+
+    // Camera
+    focal_length : Float = 1.0;
+    viewport_height : Float = 2.0;
+    viewport_width = viewport_height * (cast[[Float]](width) / cast[[Float]](height));
+    camera_center = vec3f{0.0, 0.0, 0.0};
+
+    // Calculate vectors across the horizontal dnd down the vertical viewport edges.
+    viewport_u = vec3f{viewport_width, 0.0, 0.0};
+    viewport_v = vec3f{0.0, -viewport_height, 0.0};
+
+    // Calculate the horizontal and vertical delta vectors from pixel to pixel.
+    pixel_delta_u = viewport_u / cast[[Float]](width);
+    pixel_delta_v = viewport_v / cast[[Float]](height);
+
+    // Calculate the location of the upper left pixel.
+    viewport_upper_left = camera_center - vec3f{0.0, 0.0, focal_length} - viewport_u / 2 - viewport_v / 2;
+    pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+
+    pixel_center = pixel00_loc + (cast[[Float]](i) * pixel_delta_u) + (cast[[Float]](j) * pixel_delta_v);
+    ray_direction = pixel_center - camera_center;
+    return Ray{camera_center, ray_direction};
+}
+
+func unit_vector(v : vec3f) = v / norm(v);
+
+func at(r : Ray, t : Float) = r.o + t * r.d;
+
+
+element hit_record {
+    p, normal : vec3f;
+    t : Float;
+    front_face : bool;
+}
+
+func get_hit_record(r : Ray, s : Sphere) -> hit_record {
+    t = distmin(r, s);
+    p = at(r, t);
+    outward_normal = (p - s.center) / s.radius;
+    front_face = dot(r.d, outward_normal) < 0;
+    normal = select(front_face, outward_normal, -outward_normal);
+    record : hit_record = {p, normal, t, front_face};
+    return record;
+}
+
+extern spheres : set[Sphere];
+
+// TODO: this should return an option[Sphere]...
+func trace(r : Ray) = argmin(|s : Sphere| distmin(r, s), filter(|s : Sphere| intersects(r, s), spheres));
+
+func pixel(r : Ray) -> vec3f {
+    isect = trace(r);
+    if isect {
+        hit = get_hit_record(r, *isect);
+        return 0.5 * (hit.normal + 1);
+    }
+    unit_direction = r.d / norm(r.d);
+    a = 0.5 * (unit_direction.y + 1.0);
+    return (1.0 - a) * vec3f{1.0, 1.0, 1.0} + a * vec3f{0.5, 0.7, 1.0};
+}
+
+func to_rgb(v : vec3f) {
+    return cast[[vector[i32, 3]]](255.999 * v);
+}
+
+func [[export]] image(width : i32) {
+    aspect_ratio : Float = 16.0 / 9.0;
+    height : mut = cast[[i32]](cast[[Float]](width) / aspect_ratio);
+    height = select(height < 1, 1, height);
+    return map(|j : i32| map(|i : i32| to_rgb(pixel(build_ray(i, j, width))), iter(width)), iter(height));
+}
+
+schedule {
+    // TODO: generic over primitive types!
+    tree[[Sphere]] SphereBVH(center : vec3f, radius : Float) with Sphere(center, radius) =
+    | Interior(left : SphereBVH, right : SphereBVH)
+    | Leaf(data : array[Sphere]);
+
+    spheres : SphereBVH;
+
+    layout spheres {
+        pCount : u32;
+        prims : array[Sphere, pCount];
+        count : u32;
+        group[count] index : u16 {
+            center : vec3f;
+            radius : Float;
+            nPrims : u16;
+            switch nPrims {
+                0 => Interior { offset : u16; left = index + 1; right = index + offset; };
+                _ => Leaf { pOffset : u16; data = range(prims, pOffset, nPrims); };
+            };
+        };
+    };
+}

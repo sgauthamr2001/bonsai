@@ -350,7 +350,10 @@ void CodeGen_LLVM::compile_function(const Function &func,
     builder->restoreIP(here);
 
     // Validate the generated code, checking for consistency.
-    verifyFunction(*function);
+    if (llvm::verifyFunction(*function, &llvm::errs())) {
+        internal_error << "Function verification failed for " << func.name
+                       << "\n";
+    }
 
     current_function = nullptr;
 
@@ -744,6 +747,10 @@ void CodeGen_LLVM::visit(const BinOp *node) {
             value = builder->CreateFCmpOEQ(a, b);
             return;
         }
+        case BinOp::Neq: {
+            value = value = builder->CreateFCmpONE(a, b);
+            return;
+        }
         default: {
             internal_error << "Unimplemented BinOp lowering for float: "
                            << Expr(node);
@@ -945,8 +952,8 @@ void CodeGen_LLVM::visit(const Select *node) {
     llvm::Value *fvalue = codegen_expr(node->fvalue);
     if (tvalue->getType()->isVectorTy()) {
         // TODO: handle broadcasting!
-        internal_assert(cond->getType()->isVectorTy())
-            << "Select lowering failure: " << ir::Expr(node);
+        // internal_assert(cond->getType()->isVectorTy())
+        //     << "Select lowering failure: " << ir::Expr(node);
         internal_assert(fvalue->getType()->isVectorTy())
             << "Select lowering failure: " << ir::Expr(node);
     }

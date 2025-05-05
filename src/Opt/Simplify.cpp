@@ -398,6 +398,11 @@ struct Simplifier : ir::Mutator {
         } else if (const auto *map = as_map(v)) {
             internal_assert(map->b.type().is<ir::Array_t>());
             return mutate(call(map->a, ir::Extract::make(map->b, i)));
+        } else if (const auto *gen = v.as<ir::Generator>()) {
+            if (gen->op == ir::Generator::iter) {
+                return i; // just the index.
+            }
+            // TODO(ajr): handle range() simplification
         }
 
         std::optional<uint64_t> index = get_constant_value(i);
@@ -412,6 +417,24 @@ struct Simplifier : ir::Mutator {
             return node;
         }
         return ir::Extract::make(std::move(v), std::move(i));
+    }
+
+    ir::Expr visit(const ir::Access *node) override {
+        ir::Expr value = mutate(node->value);
+
+        if (const ir::Build *build = value.as<ir::Build>()) {
+            const ir::Struct_t *struct_t =
+                node->value.type().as<ir::Struct_t>();
+            internal_assert(struct_t);
+            const size_t idx = find_struct_index(node->field, struct_t->fields);
+            internal_assert(idx < build->values.size());
+            return build->values[idx];
+        }
+
+        if (value.same_as(node->value)) {
+            return node;
+        }
+        return ir::Access::make(node->field, std::move(value));
     }
 
     ir::Stmt visit(const ir::LetStmt *node) override {

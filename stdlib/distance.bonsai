@@ -2,6 +2,7 @@ import stdlib/aabb;
 import stdlib/intersects;
 import stdlib/point;
 import stdlib/ray;
+import stdlib/sphere;
 import stdlib/triangle;
 
 func distmax(r : Ray, b : AABB) -> Float {
@@ -124,4 +125,22 @@ func SqDistPointAABB(pt : Point, a : AABB) -> Float {
 
 func distmin(pt : Point, a : AABB) -> Float {
     return sqrt(SqDistPointAABB(pt, a));
+}
+
+func distmax(r : Ray, s : Sphere) -> Float {
+    interval = intersectsp_ray_sphere(r, s);
+    if interval {
+        extract = *interval;
+        return extract.high;
+    }
+    return inf;
+}
+
+func distmin(r : Ray, s : Sphere) -> Float {
+    interval = intersectsp_ray_sphere(r, s);
+    if interval {
+        extract = *interval;
+        return extract.low;
+    }
+    return -inf;
 }
