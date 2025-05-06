@@ -1,0 +1,37 @@
+#include <cuda_fp16.h>
+#include <math.h>
+#include "runtime/CUDA/math.h"
+
+struct Foo {
+  int32_t x = 42;
+};
+
+struct Inner {
+  int32_t x;
+  int32_t y;
+  int32_t z;
+};
+
+struct Outer {
+  float f;
+  Inner position;
+};
+
+int32_t add_s(int32_t x, int32_t y) {
+  const int32_t v = (x + y);
+  return v;
+}
+
+int4 add_v(int4 x, int4 y) {
+  int4 v = (x + y);
+  return v;
+}
+
+int32_t if_else(float x, float y) {
+  float3 v = float3{x, y, 1};
+  if ((v.z + v.y) < v.x) {
+    return 0;
+  } else {
+    return ((0 < (v.x + v.y)) ? 1 : 2);
+  }
+}
