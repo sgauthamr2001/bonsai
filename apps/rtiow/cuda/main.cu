@@ -1,16 +1,32 @@
-#pragma once
+// Compilation steps:
+// 1. Compile RTIOW with Bonsai, and include it here.
+//    `./build/compiler -i <rtiow-path> -o main.cu -b cuda`
+// 2. Compile this file:
+//    `nvcc -O3 main.cu -o main`
+// 3. Run it:
+//    `./main`
 
 // Pulled from [1], with our own addendums for Bonsai.
 // [1] https://github.com/NVIDIA/cuda-samples/blob/master/Common/helper_math.h
 
 #include "cuda_runtime.h"
 
+// For math.h
 #include <algorithm>
 #include <cstdint>
 #include <cuda_fp16.h>
 #include <initializer_list>
 #include <math.h>
 #include <type_traits>
+
+// For the main hook
+#include <cassert>
+#include <chrono>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <random>
+#include <vector>
 
 typedef unsigned int uint;
 typedef unsigned short ushort;
@@ -1779,4 +1795,1208 @@ O bonsai_reinterpret(I input) {
     O *output;
     output = reinterpret_cast<O *>(i);
     return *output;
+}
+
+struct AABB {
+    float3 low;
+    float3 high;
+};
+
+struct Camera {
+    float aspect_ratio;
+    int32_t width;
+    uint32_t samples_per_pixel = 100u;
+    int32_t max_depth = 10;
+    float vfov = static_cast<float>(90);
+    float3 lookfrom = float3{static_cast<float>(0), static_cast<float>(0),
+                             static_cast<float>(0)};
+    float3 lookat = float3{static_cast<float>(0), static_cast<float>(0),
+                           static_cast<float>(-1)};
+    float3 vup = float3{static_cast<float>(0), static_cast<float>(1),
+                        static_cast<float>(0)};
+    float defocus_angle = static_cast<float>(0);
+    float focus_dist = static_cast<float>(10);
+};
+
+struct FInterval {
+    float low;
+    float high;
+};
+
+struct Sphere {
+    float3 center;
+    float radius;
+};
+
+struct MaterialSphere {
+    Sphere s;
+    uint32_t material;
+    float3 albedo;
+    float fuzz;
+};
+
+struct Point {
+    float3 vec;
+};
+
+struct Ray {
+    float3 o;
+    float3 d;
+    float tmax = INFINITY;
+};
+
+struct Triangle {
+    float3 p0;
+    float3 p1;
+    float3 p2;
+};
+
+struct TriangleIntersection {
+    float b0;
+    float b1;
+    float b2;
+    float t;
+};
+
+struct __tuple_0 {
+    float _field0;
+    MaterialSphere _field1;
+};
+
+struct __tuple_1 {
+    Point _field0;
+    Point _field1;
+};
+
+struct _option0 {
+    MaterialSphere value;
+    bool set = false;
+};
+
+struct _option1 {
+    FInterval value;
+    bool set = false;
+};
+
+struct _option2 {
+    TriangleIntersection value;
+    bool set = false;
+};
+
+struct _spheres_layout1 {
+    float3 center;
+    float radius;
+    uint16_t nPrims;
+    uchar2 spheres_spliton_nPrims;
+} __attribute__((packed));
+
+struct _spheres_layout0 {
+    uint32_t pCount;
+    MaterialSphere *prims; // of size pCount
+    uint32_t count;
+    _spheres_layout1 *spheres_index; // of size count
+} __attribute__((packed));
+
+struct _spheres_split_layout2 {
+    uint16_t offset;
+} __attribute__((packed));
+
+struct _spheres_split_layout3 {
+    uint16_t pOffset;
+} __attribute__((packed));
+
+struct hit_record {
+    float3 p;
+    float3 normal;
+    float t;
+    bool front_face;
+};
+
+struct scatter_record {
+    float3 attenuation;
+    Ray ray;
+    bool hit;
+};
+
+Point ClosestPtPointAABB(Point *pt, AABB *a) {
+    return Point{min(max((*pt).vec, (*a).low), (*a).high)};
+}
+
+float SqDistPointAABB(Point *pt, AABB *a) {
+    float3 v = (*pt).vec;
+    float3 sqLow = (((*a).low - v) * ((*a).low - v));
+    float3 low = make_float3(
+        ((v < (*a).low).x ? sqLow.x : make_float3(static_cast<float>(0)).x),
+        ((v < (*a).low).y ? sqLow.y : make_float3(static_cast<float>(0)).y),
+        ((v < (*a).low).z ? sqLow.z : make_float3(static_cast<float>(0)).z));
+    float3 sqHigh = ((v - (*a).high) * (v - (*a).high));
+    float3 high = make_float3(
+        (((*a).high < v).x ? sqHigh.x : make_float3(static_cast<float>(0)).x),
+        (((*a).high < v).y ? sqHigh.y : make_float3(static_cast<float>(0)).y),
+        (((*a).high < v).z ? sqHigh.z : make_float3(static_cast<float>(0)).z));
+    return sum((low + high));
+}
+
+float __prod_diff_f32(float a, float b, float c, float d) {
+    float cd = (c * d);
+    float diff = fma(a, b, -cd);
+    float err = fma(-c, d, cd);
+    return (diff + err);
+}
+
+float __sqlen_f32(float3 v) { return sum((v * v)); }
+
+_option1 intersectsp_ray_sphere(Ray *r, Sphere *s) {
+    float3 oc = ((*s).center - (*r).o);
+    float a = sum(((*r).d * (*r).d));
+    float h = dot((*r).d, oc);
+    float c = (sum((oc * oc)) - ((*s).radius * (*s).radius));
+    float disc = ((h * h) - (a * c));
+    if (disc < static_cast<float>(0)) {
+        return _option1{};
+    }
+    float sqrtd = sqrt(disc);
+    float root0 = ((h - sqrtd) / a);
+    float root1 = ((h + sqrtd) / a);
+    FInterval interval =
+        FInterval{std::min<float>(root0, root1), std::max<float>(root0, root1)};
+    return _option1{interval, true};
+}
+
+float distmax_Ray_Sphere(Ray *r, Sphere *s) {
+    _option1 interval = intersectsp_ray_sphere(r, s);
+    if (interval.set) {
+        FInterval extract = interval.value;
+        return extract.high;
+    }
+    return INFINITY;
+}
+
+float distmin_Ray_Sphere(Ray *r, Sphere *s) {
+    _option1 interval = intersectsp_ray_sphere(r, s);
+    if (interval.set) {
+        FInterval extract = interval.value;
+        return extract.low;
+    }
+    return -INFINITY;
+}
+
+bool intersects_Ray_Sphere(Ray *ray, Sphere *s) {
+    _option1 interval = intersectsp_ray_sphere(ray, s);
+    if (interval.set) {
+        FInterval extract = interval.value;
+        return ((extract.low < (*ray).tmax) &
+                (static_cast<float>(0) < extract.high));
+    }
+    return false;
+}
+
+void _recloop_func0(uint16_t spheres__index, _spheres_layout0 *spheres, Ray *r,
+                    __tuple_0 *_best0) {
+    Sphere _lv2 = Sphere{(*spheres).spheres_index[spheres__index].center,
+                         (*spheres).spheres_index[spheres__index].radius};
+    if (intersects_Ray_Sphere(r, (&_lv2))) {
+        Sphere _lv1 = Sphere{(*spheres).spheres_index[spheres__index].center,
+                             (*spheres).spheres_index[spheres__index].radius};
+        if (static_cast<float>(0.001) < distmax_Ray_Sphere(r, (&_lv1))) {
+            Sphere _lv0 =
+                Sphere{(*spheres).spheres_index[spheres__index].center,
+                       (*spheres).spheres_index[spheres__index].radius};
+            if (distmin_Ray_Sphere(r, (&_lv0)) < (*_best0)._field0) {
+                if ((*spheres).spheres_index[spheres__index].nPrims == 0u) {
+                    _recloop_func0(spheres__index + 1u, spheres, r, _best0);
+                    _recloop_func0(
+                        spheres__index +
+                            bonsai_reinterpret<_spheres_split_layout2>(
+                                (*spheres)
+                                    .spheres_index[spheres__index]
+                                    .spheres_spliton_nPrims)
+                                .offset,
+                        spheres, r, _best0);
+                } else {
+                    for (uint16_t _idx0 = 0u;
+                         _idx0 <
+                         (*spheres).spheres_index[spheres__index].nPrims;
+                         _idx0 += 1u) {
+                        if (intersects_Ray_Sphere(
+                                r, (&(*spheres)
+                                         .prims[bonsai_reinterpret<
+                                                    _spheres_split_layout3>(
+                                                    (*spheres)
+                                                        .spheres_index
+                                                            [spheres__index]
+                                                        .spheres_spliton_nPrims)
+                                                    .pOffset +
+                                                _idx0]
+                                         .s))) {
+                            if (static_cast<float>(0.001) <
+                                distmin_Ray_Sphere(
+                                    r,
+                                    (&(*spheres)
+                                          .prims
+                                              [bonsai_reinterpret<
+                                                   _spheres_split_layout3>(
+                                                   (*spheres)
+                                                       .spheres_index
+                                                           [spheres__index]
+                                                       .spheres_spliton_nPrims)
+                                                   .pOffset +
+                                               _idx0]
+                                          .s))) {
+                                if (distmin_Ray_Sphere(
+                                        r,
+                                        (&(*spheres)
+                                              .prims
+                                                  [bonsai_reinterpret<
+                                                       _spheres_split_layout3>(
+                                                       (*spheres)
+                                                           .spheres_index
+                                                               [spheres__index]
+                                                           .spheres_spliton_nPrims)
+                                                       .pOffset +
+                                                   _idx0]
+                                              .s)) < (*_best0)._field0) {
+                                    *_best0 = argmin(
+                                        _best0,
+                                        __tuple_0{
+                                            distmin_Ray_Sphere(
+                                                r,
+                                                (&(*spheres)
+                                                      .prims
+                                                          [bonsai_reinterpret<
+                                                               _spheres_split_layout3>(
+                                                               (*spheres)
+                                                                   .spheres_index
+                                                                       [spheres__index]
+                                                                   .spheres_spliton_nPrims)
+                                                               .pOffset +
+                                                           _idx0]
+                                                      .s)),
+                                            (*spheres).prims
+                                                [bonsai_reinterpret<
+                                                     _spheres_split_layout3>(
+                                                     (*spheres)
+                                                         .spheres_index
+                                                             [spheres__index]
+                                                         .spheres_spliton_nPrims)
+                                                     .pOffset +
+                                                 _idx0]});
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return;
+}
+
+float3 random_in_unit_disk() {
+    float r = sqrt(static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
+    float theta = ((static_cast<float>(2) * static_cast<float>(3.14159)) *
+                   static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
+    return float3{r * cos(theta), r * sin(theta), static_cast<float>(0)};
+}
+
+float3 defocus_disk_sample(float3 center, float3 defocus_disk_u,
+                           float3 defocus_disk_v) {
+    float3 p = random_in_unit_disk();
+    return ((center + (make_float3(p.x) * defocus_disk_u)) +
+            (make_float3(p.y) * defocus_disk_v));
+}
+
+Ray build_ray(int32_t i, int32_t j, Camera *cam) {
+    int32_t width = (*cam).width;
+    int32_t _height = (int32_t)((float)width / (*cam).aspect_ratio);
+    int32_t *height = &_height;
+    *height = (((*height) < 1) ? 1 : (*height));
+    float theta =
+        (((*cam).vfov * static_cast<float>(3.14159)) / static_cast<float>(180));
+    float h = tan(theta / static_cast<float>(2));
+    float viewport_height = ((static_cast<float>(2) * h) * (*cam).focus_dist);
+    float viewport_width =
+        (viewport_height * ((float)width / (float)(*height)));
+    float3 camera_center = (*cam).lookfrom;
+    float3 w = (((*cam).lookfrom - (*cam).lookat) /
+                make_float3(length((*cam).lookfrom - (*cam).lookat)));
+    float3 u =
+        (cross((*cam).vup, w) / make_float3(length(cross((*cam).vup, w))));
+    float3 v = cross(w, u);
+    float3 viewport_u = (make_float3(viewport_width) * u);
+    float3 viewport_v = (make_float3(viewport_height) * -v);
+    float3 pixel_delta_u = (viewport_u / make_float3((float)width));
+    float3 pixel_delta_v = (viewport_v / make_float3((float)(*height)));
+    float3 viewport_upper_left =
+        (((camera_center - (make_float3((*cam).focus_dist) * w)) -
+          (viewport_u / make_float3(static_cast<float>(2)))) -
+         (viewport_v / make_float3(static_cast<float>(2))));
+    float3 pixel00_loc =
+        (viewport_upper_left + (make_float3(static_cast<float>(0.5)) *
+                                (pixel_delta_u + pixel_delta_v)));
+    float defocus_radius =
+        ((*cam).focus_dist *
+         tan((((*cam).defocus_angle / static_cast<float>(2)) *
+              static_cast<float>(3.14159)) /
+             static_cast<float>(180)));
+    float3 defocus_disk_u = (u * make_float3(defocus_radius));
+    float3 defocus_disk_v = (v * make_float3(defocus_radius));
+    float3 offset =
+        float3{static_cast<float>(rand()) / static_cast<float>(RAND_MAX) -
+                   static_cast<float>(0.5),
+               static_cast<float>(rand()) / static_cast<float>(RAND_MAX) -
+                   static_cast<float>(0.5),
+               static_cast<float>(0)};
+    float3 pixel_sample =
+        ((pixel00_loc + (make_float3(((float)i + offset.x)) * pixel_delta_u)) +
+         (make_float3(((float)j + offset.y)) * pixel_delta_v));
+    float3 _ray_origin = camera_center;
+    float3 *ray_origin = &_ray_origin;
+    if (static_cast<float>(0) < (*cam).defocus_angle) {
+        *ray_origin =
+            defocus_disk_sample(camera_center, defocus_disk_u, defocus_disk_v);
+    }
+    float3 ray_direction = (pixel_sample - (*ray_origin));
+    return Ray{(*ray_origin), ray_direction, INFINITY};
+}
+
+_option0 _traverse_tree0(Ray *r, _spheres_layout0 *spheres) {
+    __tuple_0 __best0 = __tuple_0{INFINITY, MaterialSphere{}};
+    __tuple_0 *_best0 = &__best0;
+    _recloop_func0(0u, spheres, r, _best0);
+    return (((*_best0)._field0 != INFINITY) ? _option0{(*_best0)._field1, true}
+                                            : _option0{});
+}
+
+hit_record get_hit_record(Ray *r, Sphere *s) {
+    float t = distmin_Ray_Sphere(r, s);
+    float3 p = ((*r).o + (make_float3(t) * (*r).d));
+    float3 outward_normal = ((p - (*s).center) / make_float3((*s).radius));
+    bool front_face = (dot((*r).d, outward_normal) < static_cast<float>(0));
+    float3 normal = (front_face ? outward_normal : -outward_normal);
+    hit_record record = hit_record{p, normal, t, front_face};
+    return record;
+}
+
+float3 random_unit_vector() {
+    float x1 = (static_cast<float>(-1) +
+                ((static_cast<float>(1) - static_cast<float>(-1)) *
+                 static_cast<float>(rand()) / static_cast<float>(RAND_MAX)));
+    float x2 = (static_cast<float>(-1) +
+                ((static_cast<float>(1) - static_cast<float>(-1)) *
+                 static_cast<float>(rand()) / static_cast<float>(RAND_MAX)));
+    float s = (((x1 * x1) + (x2 * x2)) + static_cast<float>(1e-08));
+    float factor = sqrt(static_cast<float>(2) / s);
+    float x = (factor * x1);
+    float y = (factor * x2);
+    float z = (static_cast<float>(1) - (static_cast<float>(2) * s));
+    float len = sqrt(((x * x) + (y * y)) + (z * z));
+    return float3{x / len, y / len, z / len};
+}
+
+float reflectance(float cos_theta, float refract_idx) {
+    float r0 = ((static_cast<float>(1) - refract_idx) /
+                (static_cast<float>(1) + refract_idx));
+    float r1 = (r0 * r0);
+    return (r1 +
+            ((static_cast<float>(1) - r1) *
+             pow(static_cast<float>(1) - cos_theta, static_cast<float>(5))));
+}
+
+float3 refract(float3 uv, float3 n, float etai_over_etat) {
+    float cos_theta = std::min<float>(dot(-uv, n), static_cast<float>(1));
+    float3 r_out_perp =
+        (make_float3(etai_over_etat) * (uv + (make_float3(cos_theta) * n)));
+    float3 r_out_parallel =
+        (make_float3(-sqrt(
+             abs(static_cast<float>(1) - sum((r_out_perp * r_out_perp))))) *
+         n);
+    return (r_out_perp + r_out_parallel);
+}
+
+scatter_record scatter(Ray *ray, MaterialSphere *ms) {
+    hit_record hit = get_hit_record(ray, (&(*ms).s));
+    if ((*ms).material == 0u) {
+        float3 _scatter_dir = (hit.normal + random_unit_vector());
+        float3 *scatter_dir = &_scatter_dir;
+        if (((abs((*scatter_dir).x) < static_cast<float>(1e-08)) &
+             (abs((*scatter_dir).y) < static_cast<float>(1e-08))) &
+            (abs((*scatter_dir).z) < static_cast<float>(1e-08))) {
+            *scatter_dir = hit.normal;
+        }
+        Ray l_scattered = Ray{hit.p, (*scatter_dir), INFINITY};
+        return scatter_record{(*ms).albedo, l_scattered, true};
+    } else {
+        if ((*ms).material == 1u) {
+            float3 ref = ((*ray).d - (make_float3((static_cast<float>(2) *
+                                                   dot((*ray).d, hit.normal))) *
+                                      hit.normal));
+            float3 reflected =
+                ((ref / make_float3(length(ref))) +
+                 (make_float3((*ms).fuzz) * random_unit_vector()));
+            Ray m_scattered = Ray{hit.p, reflected, INFINITY};
+            return scatter_record{(*ms).albedo, m_scattered, true};
+        } else {
+            float ri = (hit.front_face ? (static_cast<float>(1) / (*ms).fuzz)
+                                       : (*ms).fuzz);
+            float3 unit_dir = ((*ray).d / make_float3(length((*ray).d)));
+            float cos_theta = std::min<float>(dot(-unit_dir, hit.normal),
+                                              static_cast<float>(1));
+            float sin_theta =
+                sqrt(static_cast<float>(1) - (cos_theta * cos_theta));
+            bool cannot_refract =
+                ((static_cast<float>(1) < (ri * sin_theta)) |
+                 (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) <
+                  reflectance(cos_theta, ri)));
+            float3 direction =
+                (cannot_refract
+                     ? (unit_dir - (make_float3((static_cast<float>(2) *
+                                                 dot(unit_dir, hit.normal))) *
+                                    hit.normal))
+                     : refract(unit_dir, hit.normal, ri));
+            Ray d_scattered = Ray{hit.p, direction, INFINITY};
+            return scatter_record{make_float3(static_cast<float>(1),
+                                              static_cast<float>(1),
+                                              static_cast<float>(1)),
+                                  d_scattered, true};
+        }
+    }
+}
+
+float3 sample(Ray *r, int32_t depth, _spheres_layout0 *spheres) {
+    if (depth <= 0) {
+        return make_float3(static_cast<float>(0), static_cast<float>(0),
+                           static_cast<float>(0));
+    }
+    _option0 isect = _traverse_tree0(r, spheres);
+    if (isect.set) {
+        scatter_record data = scatter(r, (&isect.value));
+        if (data.hit) {
+            return (data.attenuation * sample((&data.ray), depth - 1, spheres));
+        } else {
+            return make_float3(static_cast<float>(0), static_cast<float>(0),
+                               static_cast<float>(0));
+        }
+    }
+    float3 unit_direction = ((*r).d / make_float3(length((*r).d)));
+    float a =
+        (static_cast<float>(0.5) * (unit_direction.y + static_cast<float>(1)));
+    return ((make_float3((static_cast<float>(1) - a)) *
+             make_float3(static_cast<float>(1), static_cast<float>(1),
+                         static_cast<float>(1))) +
+            (make_float3(a) * make_float3(static_cast<float>(0.5),
+                                          static_cast<float>(0.7),
+                                          static_cast<float>(1))));
+}
+
+float3 _traverse_array1(int32_t i, int32_t j, Camera *c,
+                        _spheres_layout0 *spheres) {
+    float3 __alloc1 = make_float3(static_cast<float>(0));
+    float3 *_alloc1 = &__alloc1;
+    for (uint32_t _i0 = 0u; _i0 < (*c).samples_per_pixel; _i0 += 1u) {
+        Ray _lv0 = build_ray(i, j, c);
+        *_alloc1 += sample((&_lv0), (*c).max_depth, spheres);
+    }
+    return (*_alloc1);
+}
+
+float3 pixel(int32_t i, int32_t j, Camera *c, _spheres_layout0 *spheres) {
+    return (_traverse_array1(i, j, c, spheres) /
+            make_float3((float)(*c).samples_per_pixel));
+}
+
+float linear_to_gamma_f(float l) {
+    if (static_cast<float>(0) < l) {
+        return sqrt(l);
+    }
+    return static_cast<float>(0);
+}
+
+int3 to_rgb(float3 v) {
+    float3 corrected = float3{linear_to_gamma_f(v.x), linear_to_gamma_f(v.y),
+                              linear_to_gamma_f(v.z)};
+    return make_int3((make_float3(static_cast<float>(256)) *
+                      min(max(corrected, make_float3(static_cast<float>(0))),
+                          make_float3(static_cast<float>(0.999))))
+                         .x,
+                     (make_float3(static_cast<float>(256)) *
+                      min(max(corrected, make_float3(static_cast<float>(0))),
+                          make_float3(static_cast<float>(0.999))))
+                         .y,
+                     (make_float3(static_cast<float>(256)) *
+                      min(max(corrected, make_float3(static_cast<float>(0))),
+                          make_float3(static_cast<float>(0.999))))
+                         .z);
+}
+
+int3 *_traverse_array0(Camera *c, int32_t height, _spheres_layout0 *spheres) {
+    int32_t *_alloc0;
+    // TODO(cgyurgyik): Fix this.
+    // (void)cudaMalloc((void **)&_alloc0,
+    //                  ((height * (*c).width) * 3) * sizeof(int32_t));
+    (void)cudaHostAlloc((void **)&_alloc0,
+                        ((height * (*c).width) * 3) * sizeof(int32_t), 0);
+    for (int32_t _i0 = 0; _i0 < height; _i0 += 1) {
+        for (int32_t _i1 = 0; _i1 < (*c).width; _i1 += 1) {
+            int3 __temp = to_rgb(pixel(_i1, _i0, c, spheres));
+            _alloc0[((_i0 * (*c).width) + _i1) * 3] = __temp.x;
+            _alloc0[(((_i0 * (*c).width) + _i1) * 3) + 1] = __temp.y;
+            _alloc0[(((_i0 * (*c).width) + _i1) * 3) + 2] = __temp.z;
+        }
+    }
+    return reinterpret_cast<int3 *>(_alloc0);
+}
+
+Sphere _unexported_bounding_sphere(Sphere *a, Sphere *b) {
+    float3 d = ((*b).center - (*a).center);
+    float dist_sq = sum((d * d));
+    float dist = sqrt(dist_sq);
+    if ((dist + (*b).radius) <= (*a).radius) {
+        return (*a);
+    } else {
+        if ((dist + (*a).radius) <= (*b).radius) {
+            return (*b);
+        }
+    }
+    float new_radius =
+        (static_cast<float>(0.5) * ((dist + (*a).radius) + (*b).radius));
+    float3 direction =
+        ((static_cast<float>(0) < dist)
+             ? (d / make_float3(dist))
+             : make_float3(static_cast<float>(1), static_cast<float>(0),
+                           static_cast<float>(0)));
+    float3 new_center =
+        ((*a).center + (direction * make_float3((new_radius - (*a).radius))));
+    return Sphere{new_center, new_radius};
+}
+
+float3 at(Ray *r, float t) { return ((*r).o + (make_float3(t) * (*r).d)); }
+
+void bounding_sphere(Sphere *_ret0, Sphere *a, Sphere *b) {
+    float3 d = ((*b).center - (*a).center);
+    float dist_sq = sum((d * d));
+    float dist = sqrt(dist_sq);
+    if ((dist + (*b).radius) <= (*a).radius) {
+        *_ret0 = (*a);
+        return;
+    } else {
+        if ((dist + (*a).radius) <= (*b).radius) {
+            *_ret0 = (*b);
+            return;
+        }
+    }
+    float new_radius =
+        (static_cast<float>(0.5) * ((dist + (*a).radius) + (*b).radius));
+    float3 direction =
+        ((static_cast<float>(0) < dist)
+             ? (d / make_float3(dist))
+             : make_float3(static_cast<float>(1), static_cast<float>(0),
+                           static_cast<float>(0)));
+    float3 new_center =
+        ((*a).center + (direction * make_float3((new_radius - (*a).radius))));
+    *_ret0 = Sphere{new_center, new_radius};
+    return;
+}
+
+float3 clamp(float3 x, float low, float high) {
+    return min(max(x, make_float3(low)), make_float3(high));
+}
+
+__tuple_1 closestPointonTriangle(Point *pt, Triangle *tri) {
+    float3 p = (*pt).vec;
+    float3 a = (*tri).p0;
+    float3 b = (*tri).p1;
+    float3 c = (*tri).p2;
+    float3 ab = (b - a);
+    float3 ac = (c - a);
+    float3 ap = (p - a);
+    float d1 = dot(ab, ap);
+    float d2 = dot(ac, ap);
+    if (d1 <= static_cast<float>(0)) {
+        if (d2 <= static_cast<float>(0)) {
+            return __tuple_1{Point{a}, Point{float3{static_cast<float>(1),
+                                                    static_cast<float>(0),
+                                                    static_cast<float>(0)}}};
+        }
+    }
+    float3 bp = (p - b);
+    float d3 = dot(ab, bp);
+    float d4 = dot(ac, bp);
+    if (static_cast<float>(0) <= d3) {
+        if (d4 <= d3) {
+            return __tuple_1{Point{b}, Point{float3{static_cast<float>(0),
+                                                    static_cast<float>(1),
+                                                    static_cast<float>(0)}}};
+        }
+    }
+    float vc = ((d1 * d4) - (d3 * d2));
+    if (vc <= static_cast<float>(0)) {
+        if (static_cast<float>(0) <= d1) {
+            if (d3 <= static_cast<float>(0)) {
+                float v0 = (d1 / (d1 - d3));
+                return __tuple_1{Point{a + (make_float3(v0) * ab)},
+                                 Point{float3{static_cast<float>(1) - v0, v0,
+                                              static_cast<float>(0)}}};
+            }
+        }
+    }
+    float3 cp = (p - c);
+    float d5 = dot(ab, cp);
+    float d6 = dot(ac, cp);
+    if (static_cast<float>(0) <= d6) {
+        if (d5 <= d6) {
+            return __tuple_1{Point{c}, Point{float3{static_cast<float>(0),
+                                                    static_cast<float>(0),
+                                                    static_cast<float>(1)}}};
+        }
+    }
+    float vb = ((d5 * d2) - (d1 * d6));
+    if (vb <= static_cast<float>(0)) {
+        if (static_cast<float>(0) <= d2) {
+            if (d6 <= static_cast<float>(0)) {
+                float w0 = (d2 / (d2 - d6));
+                return __tuple_1{Point{a + (make_float3(w0) * ac)},
+                                 Point{float3{static_cast<float>(1) - w0,
+                                              static_cast<float>(0), w0}}};
+            }
+        }
+    }
+    float va = ((d3 * d6) - (d5 * d4));
+    if (va <= static_cast<float>(0)) {
+        if (static_cast<float>(0) <= (d4 - d3)) {
+            if (static_cast<float>(0) <= (d5 - d6)) {
+                float w1 = ((d4 - d3) / ((d4 - d3) + (d5 - d6)));
+                return __tuple_1{Point{b + (make_float3(w1) * (c - b))},
+                                 Point{float3{static_cast<float>(0),
+                                              static_cast<float>(1) - w1, w1}}};
+            }
+        }
+    }
+    float denom = (static_cast<float>(1) / ((va + vb) + vc));
+    float v = (vb * denom);
+    float w = (vc * denom);
+    float u = (va * denom);
+    return __tuple_1{Point{(a + (ab * make_float3(v))) + (ac * make_float3(w))},
+                     Point{float3{u, v, w}}};
+}
+
+float3 cross_(float3 v0, float3 v1) {
+    return float3{__prod_diff_f32(v0.y, v1.z, v0.z, v1.y),
+                  __prod_diff_f32(v0.z, v1.x, v0.x, v1.z),
+                  __prod_diff_f32(v0.x, v1.y, v0.y, v1.x)};
+}
+
+float degrees_to_radians(float degrees) {
+    return ((degrees * static_cast<float>(3.14159)) / static_cast<float>(180));
+}
+
+_option1 intersectsp_ray_aabb(Ray *r, AABB *b) {
+    float3 invDir = (make_float3(static_cast<float>(1)) / (*r).d);
+    bool3 dirIsNeg = (invDir < make_float3(static_cast<float>(0)));
+    float3 low_parts = make_float3((dirIsNeg.x ? (*b).high.x : (*b).low.x),
+                                   (dirIsNeg.y ? (*b).high.y : (*b).low.y),
+                                   (dirIsNeg.z ? (*b).high.z : (*b).low.z));
+    float3 high_parts = make_float3((dirIsNeg.x ? (*b).low.x : (*b).high.x),
+                                    (dirIsNeg.y ? (*b).low.y : (*b).high.y),
+                                    (dirIsNeg.z ? (*b).low.z : (*b).high.z));
+    float3 _tMin = ((low_parts - (*r).o) * invDir);
+    float3 *tMin = &_tMin;
+    float3 _tMax = ((high_parts - (*r).o) * invDir);
+    float3 *tMax = &_tMax;
+    *tMax *= (static_cast<float>(1) +
+              (static_cast<float>(2) *
+               (((float)3 * static_cast<float>(5.96046e-08)) /
+                (static_cast<float>(1) -
+                 ((float)3 * static_cast<float>(5.96046e-08))))));
+    if (((*tMax).y < (*tMin).x) || ((*tMax).x < (*tMin).y)) {
+        return _option1{};
+    }
+    float _tmin = std::max<float>((*tMin).x, (*tMin).y);
+    float *tmin = &_tmin;
+    float _tmax = std::min<float>((*tMax).x, (*tMax).y);
+    float *tmax = &_tmax;
+    if (((*tMax).z < (*tmin)) || ((*tmax) < (*tMin).z)) {
+        return _option1{};
+    }
+    *tmin = std::max<float>((*tmin), (*tMin).z);
+    *tmax = std::min<float>((*tmax), (*tMax).z);
+    return _option1{FInterval{(*tmin), (*tmax)}, true};
+}
+
+float distmax_Ray_AABB(Ray *r, AABB *b) {
+    _option1 interval = intersectsp_ray_aabb(r, b);
+    if (interval.set) {
+        FInterval extract = interval.value;
+        return extract.high;
+    }
+    return INFINITY;
+}
+
+float distmax_Ray_MaterialSphere(Ray *r, MaterialSphere *ms) {
+    return distmax_Ray_Sphere(r, (&(*ms).s));
+}
+
+_option2 intersectsp_ray_tri(Ray *ray, Triangle *tri) {
+    if (sum((cross_((*tri).p2 - (*tri).p0, (*tri).p1 - (*tri).p0) *
+             cross_((*tri).p2 - (*tri).p0, (*tri).p1 - (*tri).p0))) ==
+        static_cast<float>(0)) {
+        return _option2{};
+    }
+    float3 _p0t = ((*tri).p0 - (*ray).o);
+    float3 *p0t = &_p0t;
+    float3 _p1t = ((*tri).p1 - (*ray).o);
+    float3 *p1t = &_p1t;
+    float3 _p2t = ((*tri).p2 - (*ray).o);
+    float3 *p2t = &_p2t;
+    uint32_t kz = idxmax(abs((*ray).d));
+    uint32_t kx = ((kz + 1u) % 3u);
+    uint32_t ky = ((kx + 1u) % 3u);
+    float3 d = shuffle((*ray).d, {kx, ky, kz});
+    *p0t = shuffle((*p0t), {kx, ky, kz});
+    *p1t = shuffle((*p1t), {kx, ky, kz});
+    *p2t = shuffle((*p2t), {kx, ky, kz});
+    float Sx = (-d.x / d.z);
+    float Sy = (-d.y / d.z);
+    float Sz = (static_cast<float>(1) / d.z);
+    *p0t += (Sx * (*p0t).z);
+    *p0t += (Sy * (*p0t).z);
+    *p1t += (Sx * (*p1t).z);
+    *p1t += (Sy * (*p1t).z);
+    *p2t += (Sx * (*p2t).z);
+    *p2t += (Sy * (*p2t).z);
+    float e0 = __prod_diff_f32((*p1t).x, (*p2t).y, (*p1t).y, (*p2t).x);
+    float e1 = __prod_diff_f32((*p2t).x, (*p0t).y, (*p2t).y, (*p0t).x);
+    float e2 = __prod_diff_f32((*p0t).x, (*p1t).y, (*p0t).y, (*p1t).x);
+    if (((e0 < static_cast<float>(0)) || (e1 < static_cast<float>(0))) ||
+        (e2 < static_cast<float>(0))) {
+        if (((static_cast<float>(0) < e0) || (static_cast<float>(0) < e1)) ||
+            (static_cast<float>(0) < e2)) {
+            return _option2{};
+        }
+    }
+    float det = ((e0 + e1) + e2);
+    if (det == static_cast<float>(0)) {
+        return _option2{};
+    }
+    *p0t *= Sz;
+    *p1t *= Sz;
+    *p2t *= Sz;
+    float tScaled = (((e0 * (*p0t).z) + (e1 * (*p1t).z)) + (e2 * (*p2t).z));
+    if ((det < static_cast<float>(0)) && ((static_cast<float>(0) <= tScaled) ||
+                                          (tScaled < ((*ray).tmax * det)))) {
+        return _option2{};
+    } else {
+        if ((static_cast<float>(0) < det) &&
+            ((tScaled <= static_cast<float>(0)) ||
+             (((*ray).tmax * det) < tScaled))) {
+            return _option2{};
+        }
+    }
+    float invDet = (static_cast<float>(1) / det);
+    float b0 = (e0 * invDet);
+    float b1 = (e1 * invDet);
+    float b2 = (e2 * invDet);
+    float t = (tScaled * invDet);
+    float maxZt = max(abs(float3{(*p0t).z, (*p1t).z, (*p2t).z}));
+    float deltaZ = ((((float)3 * static_cast<float>(5.96046e-08)) /
+                     (static_cast<float>(1) -
+                      ((float)3 * static_cast<float>(5.96046e-08)))) *
+                    maxZt);
+    float maxXt = max(abs(float3{(*p0t).x, (*p1t).x, (*p2t).x}));
+    float maxYt = max(abs(float3{(*p0t).y, (*p1t).y, (*p2t).y}));
+    float deltaX = ((((float)5 * static_cast<float>(5.96046e-08)) /
+                     (static_cast<float>(1) -
+                      ((float)5 * static_cast<float>(5.96046e-08)))) *
+                    (maxXt + maxZt));
+    float deltaY = ((((float)5 * static_cast<float>(5.96046e-08)) /
+                     (static_cast<float>(1) -
+                      ((float)5 * static_cast<float>(5.96046e-08)))) *
+                    (maxYt + maxZt));
+    float deltaE = (static_cast<float>(2) *
+                    (((((((float)2 * static_cast<float>(5.96046e-08)) /
+                         (static_cast<float>(1) -
+                          ((float)2 * static_cast<float>(5.96046e-08)))) *
+                        maxXt) *
+                       maxYt) +
+                      (deltaY * maxXt)) +
+                     (deltaX * maxYt)));
+    float maxE = max(abs(float3{e0, e1, e2}));
+    float deltaT = ((static_cast<float>(3) *
+                     (((((((float)3 * static_cast<float>(5.96046e-08)) /
+                          (static_cast<float>(1) -
+                           ((float)3 * static_cast<float>(5.96046e-08)))) *
+                         maxE) *
+                        maxZt) +
+                       (deltaE * maxZt)) +
+                      (deltaZ * maxE))) *
+                    abs(invDet));
+    if (t <= deltaT) {
+        return _option2{};
+    }
+    return _option2{TriangleIntersection{b0, b1, b2, t}, true};
+}
+
+float distmax_Ray_Triangle(Ray *ray, Triangle *tri) {
+    _option2 isect = intersectsp_ray_tri(ray, tri);
+    if (isect.set) {
+        TriangleIntersection isect_ = isect.value;
+        return isect_.t;
+    } else {
+        return -INFINITY;
+    }
+}
+
+float distmin_Point_AABB(Point *pt, AABB *a) {
+    return sqrt(SqDistPointAABB(pt, a));
+}
+
+float distmin_Point_Triangle(Point *p, Triangle *tri) {
+    __tuple_1 pts = closestPointonTriangle(p, tri);
+    return length((*p).vec - pts._field0.vec);
+}
+
+float distmin_Ray_AABB(Ray *r, AABB *b) {
+    _option1 interval = intersectsp_ray_aabb(r, b);
+    if (interval.set) {
+        FInterval extract = interval.value;
+        return extract.low;
+    }
+    return -INFINITY;
+}
+
+float distmin_Ray_MaterialSphere(Ray *r, MaterialSphere *ms) {
+    return distmin_Ray_Sphere(r, (&(*ms).s));
+}
+
+float distmin_Ray_Triangle(Ray *ray, Triangle *tri) {
+    _option2 isect = intersectsp_ray_tri(ray, tri);
+    if (isect.set) {
+        TriangleIntersection isect_ = isect.value;
+        return isect_.t;
+    } else {
+        return INFINITY;
+    }
+}
+
+float gamma(int32_t n) {
+    return (
+        ((float)n * static_cast<float>(5.96046e-08)) /
+        (static_cast<float>(1) - ((float)n * static_cast<float>(5.96046e-08))));
+}
+
+int3 *image(Camera *c, _spheres_layout0 *spheres) {
+    int32_t _height = (int32_t)((float)(*c).width / (*c).aspect_ratio);
+    int32_t *height = &_height;
+    *height = (((*height) < 1) ? 1 : (*height));
+    return _traverse_array0(c, (*height), spheres);
+}
+
+bool intersects_Ray_AABB(Ray *r, AABB *b) {
+    _option1 interval = intersectsp_ray_aabb(r, b);
+    if (interval.set) {
+        FInterval extract = interval.value;
+        return ((extract.low < (*r).tmax) &
+                (static_cast<float>(0) < extract.high));
+    }
+    return false;
+}
+
+bool intersects_Ray_MaterialSphere(Ray *r, MaterialSphere *ms) {
+    return intersects_Ray_Sphere(r, (&(*ms).s));
+}
+
+bool intersects_Ray_Triangle(Ray *ray, Triangle *tri) {
+    return intersectsp_ray_tri(ray, tri).set;
+}
+
+float len_squared(float3 v) { return sum((v * v)); }
+
+float3 linear_to_gamma_v(float3 l) {
+    return float3{linear_to_gamma_f(l.x), linear_to_gamma_f(l.y),
+                  linear_to_gamma_f(l.z)};
+}
+
+bool near_zero(float3 v) {
+    return (((abs(v.x) < static_cast<float>(1e-08)) &
+             (abs(v.y) < static_cast<float>(1e-08))) &
+            (abs(v.z) < static_cast<float>(1e-08)));
+}
+
+float random_float(float low, float high) {
+    return (low + ((high - low) * static_cast<float>(rand()) /
+                   static_cast<float>(RAND_MAX)));
+}
+
+float3 random_on_hemisphere(float3 normal) {
+    float3 on_unit_sphere = random_unit_vector();
+    if (static_cast<float>(0) < dot(on_unit_sphere, normal)) {
+        return on_unit_sphere;
+    } else {
+        return -on_unit_sphere;
+    }
+}
+
+float3 random_vec3f() {
+    return float3{static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
+                  static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
+                  static_cast<float>(rand()) / static_cast<float>(RAND_MAX)};
+}
+
+float3 random_vec3f_in(float low, float high) {
+    return float3{low + ((high - low) * static_cast<float>(rand()) /
+                         static_cast<float>(RAND_MAX)),
+                  low + ((high - low) * static_cast<float>(rand()) /
+                         static_cast<float>(RAND_MAX)),
+                  low + ((high - low) * static_cast<float>(rand()) /
+                         static_cast<float>(RAND_MAX))};
+}
+
+float3 reflect(float3 v, float3 n) {
+    return (v - (make_float3((static_cast<float>(2) * dot(v, n))) * n));
+}
+
+float3 sample_square() {
+    return float3{static_cast<float>(rand()) / static_cast<float>(RAND_MAX) -
+                      static_cast<float>(0.5),
+                  static_cast<float>(rand()) / static_cast<float>(RAND_MAX) -
+                      static_cast<float>(0.5),
+                  static_cast<float>(0)};
+}
+
+_option0 trace(Ray *r, _spheres_layout0 *spheres) {
+    return _traverse_tree0(r, spheres);
+}
+
+float3 unit_vector(float3 v) { return (v / make_float3(length(v))); }
+
+constexpr uint32_t LAMBERTIAN = 0;
+constexpr uint32_t METAL = 1;
+constexpr uint32_t DIALECTRIC = 2;
+
+constexpr uint32_t MAX_TREE_DEPTH = 64;
+
+inline float random_scalar_float() {
+    static std::uniform_real_distribution<float> distribution(0.0, 1.0);
+    static std::mt19937 generator;
+    return distribution(generator);
+}
+
+inline float get_axis(float3 v, int index) {
+    if (index == 0) {
+        return v.x;
+    }
+    if (index == 1) {
+        return v.y;
+    }
+    if (index == 2) {
+        return v.z;
+    }
+    __builtin_unreachable();
+}
+
+_spheres_layout0 build_tree_simple(std::vector<MaterialSphere> &spheres,
+                                   size_t max_prims) {
+    _spheres_layout0 tree;
+    tree.pCount = spheres.size();
+    tree.prims = spheres.data();
+    // Just do a simple split, don't even sort for now.
+    // First compute the number of nodes needed.
+    // Store at most two spheres per leaf node.
+    // Then build the tree.
+    size_t leaf_count = (tree.pCount + (max_prims - 1)) / max_prims;
+    size_t internal_count = leaf_count - 1;
+    tree.count = leaf_count + internal_count;
+    tree.spheres_index =
+        (_spheres_layout1 *)malloc(sizeof(_spheres_layout1) * tree.count);
+
+    uint32_t next_node = 0;
+
+    std::function<uint32_t(uint32_t, uint32_t, uint32_t)> handle_range =
+        [&](uint32_t low, uint32_t high, uint32_t depth) -> uint32_t {
+        assert(depth < MAX_TREE_DEPTH);
+        uint32_t count = high - low;
+        uint32_t this_index = next_node++;
+
+        if (count <= 2) {
+            // Leaf node
+            tree.spheres_index[this_index].nPrims = count;
+            *reinterpret_cast<uint16_t *>(
+                &tree.spheres_index[this_index].spheres_spliton_nPrims) = low;
+            if (count == 1) {
+                tree.spheres_index[this_index].center = spheres[low].s.center;
+                tree.spheres_index[this_index].radius = spheres[low].s.radius;
+            } else if (count == 2) {
+                Sphere merged;
+                bounding_sphere(&merged, &spheres[low].s, &spheres[low + 1].s);
+                tree.spheres_index[this_index].center = merged.center;
+                tree.spheres_index[this_index].radius = merged.radius;
+            }
+        } else {
+            // Internal node
+            tree.spheres_index[this_index].nPrims = 0;
+
+            float3 min_bound = spheres[low].s.center;
+            float3 max_bound = spheres[low].s.center;
+
+            for (uint32_t i = low + 1; i < high; ++i) {
+                min_bound = min(min_bound, spheres[i].s.center);
+                max_bound = max(max_bound, spheres[i].s.center);
+            }
+
+            // Choose axis with greatest extent
+            float3 extent = max_bound - min_bound;
+            int axis = 0;
+            if (extent.y > extent.x)
+                axis = 1;
+            if (extent.z > extent.y)
+                axis = 2;
+
+            // Partition at midpoint along chosen axis
+            auto mid_iter = spheres.begin() + low + count / 2;
+            std::nth_element(
+                spheres.begin() + low, mid_iter, spheres.begin() + high,
+                [axis](const MaterialSphere &a, const MaterialSphere &b) {
+                    return get_axis(a.s.center, axis) <
+                           get_axis(b.s.center, axis);
+                });
+
+            uint32_t mid = low + count / 2;
+
+            uint32_t left = handle_range(low, mid, depth + 1);
+            uint32_t right = handle_range(mid, high, depth + 1);
+
+            // Set split offset (offset from this node to right child)
+            uint32_t offset = right - this_index;
+            *reinterpret_cast<uint16_t *>(
+                &tree.spheres_index[this_index].spheres_spliton_nPrims) =
+                offset;
+
+            // Compute bounding volume
+            Sphere merged;
+            Sphere s1 = Sphere{tree.spheres_index[left].center,
+                               tree.spheres_index[left].radius};
+            Sphere s2 = Sphere{tree.spheres_index[right].center,
+                               tree.spheres_index[right].radius};
+            bounding_sphere(&merged, &s1, &s2);
+
+            tree.spheres_index[this_index].center = merged.center;
+            tree.spheres_index[this_index].radius = merged.radius;
+        }
+
+        return this_index;
+    };
+
+    handle_range(/*low=*/0, /*high=*/tree.pCount, /*depth=*/0);
+    return tree;
+}
+
+int main(int argc, char **argv) {
+    using clock = std::chrono::high_resolution_clock;
+
+    auto t0 = clock::now();
+
+    std::vector<MaterialSphere> spheres{
+        // Ground
+        {Sphere{{0, -1000, 0}, 1000}, LAMBERTIAN, {0.5, 0.5, 0.5}, 0.0},
+
+        {Sphere{{0, 1, 0}, 1}, DIALECTRIC, {0, 0, 0}, 1.5},
+        {Sphere{{-4, 1, 0}, 1}, LAMBERTIAN, {0.4, 0.2, 0.1}, 0.0},
+        {Sphere{{4, 1, 0}, 1}, METAL, {0.7, 0.6, 0.5}, 0.0},
+    };
+    for (int a = -11; a < 11; a++) {
+        for (int b = -11; b < 11; b++) {
+            auto choose_mat = random_scalar_float();
+            float3 center = {
+                static_cast<float>(a + 0.9 * random_scalar_float()), 0.2,
+                static_cast<float>(b + 0.9 * random_scalar_float())};
+
+            float3 a = {4, 0.2, 0};
+
+            float3 diff = (center - a);
+            float len = length(diff);
+
+            if (len > 0.9) {
+                if (choose_mat < 0.8) {
+                    // diffuse
+                    float3 r0 = {random_scalar_float(), random_scalar_float(),
+                                 random_scalar_float()};
+                    float3 r1 = {random_scalar_float(), random_scalar_float(),
+                                 random_scalar_float()};
+                    auto albedo = r0 * r1;
+                    spheres.push_back(
+                        {Sphere{center, 0.2}, LAMBERTIAN, albedo, 0.0});
+                } else if (choose_mat < 0.95) {
+                    // metal
+                    float3 albedo = {random_float(0.5, 1), random_float(0.5, 1),
+                                     random_float(0.5, 1)};
+                    float fuzz = random_float(0, 0.5);
+                    spheres.push_back(
+                        {Sphere{center, 0.2}, METAL, albedo, fuzz});
+                } else {
+                    // glass
+                    spheres.push_back(
+                        {Sphere{center, 0.2}, DIALECTRIC, {0, 0, 0}, 1.5});
+                }
+            }
+        }
+    }
+
+    _spheres_layout0 tree = build_tree_simple(spheres, 1);
+    Camera cam;
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.width = 1423; // makes height = 800
+    cam.samples_per_pixel = 50;
+    cam.max_depth = 10;
+
+    cam.vfov = 20;
+    cam.lookfrom = {13, 2, 3};
+    cam.lookat = {0, 0, 0};
+    cam.vup = {0, 1, 0};
+
+    cam.defocus_angle = 0.6;
+    cam.focus_dist = 10.0;
+
+    int image_width = cam.width;
+    float image_height = (int)(cam.width / cam.aspect_ratio);
+    image_height = (image_height < 1) ? 1 : image_height;
+    auto t1 = clock::now();
+    // Render
+    int *im = (int *)image(&cam, &tree);
+    auto t2 = clock::now();
+    std::string output_filename = "image.ppm";
+    std::ofstream out(output_filename);
+    if (!out) {
+        std::cerr << "Error: Cannot open file " << output_filename
+                  << " for writing\n";
+        cudaFree(im);
+        return 1;
+    }
+
+    out << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+
+    for (int j = 0; j < image_height; j++) {
+        for (int i = 0; i < image_width; i++) {
+            int ir = im[(j * image_width + i) * 3 + 0];
+            int ig = im[(j * image_width + i) * 3 + 1];
+            int ib = im[(j * image_width + i) * 3 + 2];
+            out << ir << ' ' << ig << ' ' << ib << '\n';
+        }
+    }
+
+    out.flush();
+    auto t3 = clock::now();
+
+    auto setup_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+    auto render_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+    auto write_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count();
+
+    std::cerr << "Setup time: " << setup_ms << " ms\n";
+    std::cerr << "Render time: " << render_ms << " ms\n";
+    std::cerr << "Write-to-output time: " << write_ms << " ms\n";
+
+    cudaFree(im);
+    return 0;
 }
