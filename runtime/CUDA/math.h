@@ -4,11 +4,13 @@
 // [1] https://github.com/NVIDIA/cuda-samples/blob/master/Common/helper_math.h
 
 #include "cuda_runtime.h"
+#include "curand_kernel.h"
+#include <cuda_fp16.h>
 
 #include <algorithm>
 #include <cstdint>
-#include <cuda_fp16.h>
 #include <initializer_list>
+#include <limits>
 #include <math.h>
 #include <type_traits>
 
@@ -1767,6 +1769,16 @@ T *argmax(T *current, T update) {
         return current;
     }
     return &update;
+}
+
+// Mimics curand_uniform by producing an output in (0, 1].
+// https://docs.nvidia.com/cuda/curand/group__DEVICE.html#group__DEVICE_1gf1ba3a7a4a53b2bee1d7c1c7b837c00d
+template <typename T>
+__forceinline__ __host__ T random() {
+    T v = static_cast<T>(std::rand()) / static_cast<T>(RAND_MAX);
+    // Scale to (0, 1].
+    return (static_cast<T>(1.0) - std::numeric_limits<T>::epsilon()) * v +
+           std::numeric_limits<T>::epsilon();
 }
 
 // Jesus christ

@@ -75,6 +75,50 @@ bool calls_rand(const Stmt &stmt,
     return finder.found;
 }
 
+// Splits functions that exist on both host and device and use rand() on CUDA.
+// There are two separate paths for these, since cuRAND is only allowed on host.
+void split_functions_with_rand(FuncMap &funcs) {
+    std::set<std::string> devices = find_device_functions(funcs),
+                          hosts = find_host_functions(funcs);
+    std::vector<std::string> intersection;
+    std::set_intersection(devices.begin(), devices.end(), hosts.begin(),
+                          hosts.end(), std::back_inserter(intersection));
+    for (const std::string &name : intersection) {
+        const auto &func = funcs[name];
+        if (!calls_rand(func->body, {})) {
+            continue;
+        }
+        // Insert two copies, one for host and one for device.
+        std::string new_device_name = "d_" + name;
+        std::string new_host_name = "h_" + name;
+        funcs[new_device_name] = std::make_shared<Function>(
+            new_device_name, func->args, func->ret_type, func->body,
+            func->interfaces, func->attributes);
+        funcs[new_host_name] = std::make_shared<Function>(
+            new_host_name, func->args, func->ret_type, func->body,
+            func->interfaces, func->attributes);
+
+        // Update the bodies of functions that use them.
+        for (const std::string &device_name : devices) {
+            internal_assert(funcs.contains(device_name)) << device_name;
+            auto &device_func = funcs[device_name];
+            std::map<std::string, std::string> replacements = {
+                {name, new_device_name},
+            };
+            device_func->body = replace(replacements, device_func->body);
+        }
+        for (const std::string &host_name : hosts) {
+            internal_assert(funcs.contains(host_name)) << host_name;
+            auto &host_func = funcs[host_name];
+            std::map<std::string, std::string> replacements = {
+                {name, new_host_name},
+            };
+            host_func->body = replace(replacements, host_func->body);
+        }
+        funcs.erase(name);
+    }
+}
+
 Stmt insert_rand_state(const Stmt &stmt,
                        const std::set<std::string> &funcs_call_rand) {
     // Purposefully does not look through Launch()!
@@ -151,50 +195,104 @@ Stmt insert_rand_state(const Stmt &stmt,
 } // namespace
 
 FuncMap LowerRandom::run(FuncMap funcs, const CompilerOptions &options) const {
-
-    const std::vector<std::string> topo_order =
-        lower::func_topological_order(funcs, /*undef_calls=*/false);
-
     std::set<std::string> call_rand;
-
-    // First find the set of all random calls.
-    // Technically needs to be done to convergence for mutual recursion.
-    static const size_t max_allowed_iters = 5;
-    size_t iter_count = 0;
-    size_t old_size = 0;
-
-    do {
-        old_size = call_rand.size();
-
-        for (const auto &[name, func] : funcs) {
-            if (call_rand.contains(name)) {
+    switch (options.target) {
+    case BackendTarget::CUDA: {
+        split_functions_with_rand(funcs);
+        // In CUDA, instances of rand() are lowered to cuRAND when running on
+        // the device. Since cuRAND is only available on device, we assume RNG
+        // state will be set up in the kernel, and then propagated to nested
+        // functions from there. Any host functions will simply use a CPU
+        // built-in random function.
+        lower::CallGraph call_graph = lower::build_call_graph(funcs);
+        // TODO(cgyurgyik): Extend this to support propagation through mutual
+        // recursion.
+        std::vector<std::string> topological_order =
+            func_topological_order(funcs);
+        std::reverse(topological_order.begin(), topological_order.end());
+        for (int i = 0, e = topological_order.size(); i < e; ++i) {
+            const std::string &name = topological_order[i];
+            auto &func = *funcs[name];
+            if (!func.is_kernel() && !call_rand.contains(name)) {
                 continue;
-            } else if (calls_rand(func->body, call_rand)) {
-                call_rand.insert(name);
+            }
+            if (func.is_kernel()) {
+                // The kernel only sets up the RNG.
+                func.attributes.push_back(Function::Attribute::setup_rng);
+            }
+            auto it = call_graph.find(name);
+            internal_assert(it != call_graph.end()) << name;
+            for (const std::string &nested : it->second) {
+                internal_assert(funcs.contains(nested)) << nested;
+                const Function &nested_function = *funcs[nested];
+                if (calls_rand(nested_function.body, call_rand)) {
+                    // We must propagate it from the kernel level.
+                    call_rand.insert(nested);
+                }
+            }
+        }
+        // Fix up the bodies of kernel functions.
+        for (const auto &[name, func] : funcs) {
+            if (!func->is_kernel()) {
+                continue;
+            }
+            func->body = insert_rand_state(std::move(func->body), call_rand);
+        }
+        // Insert the random state.
+        for (const std::string &name : call_rand) {
+            auto &func = funcs[name];
+            func->body = insert_rand_state(func->body, call_rand);
+            func->args.emplace_back(rng_state_name, Rand_State_t::make(),
+                                    /*default_value=*/Expr(),
+                                    /*mutating=*/true);
+        }
+        return funcs;
+    }
+    default: {
+        const std::vector<std::string> topo_order =
+            lower::func_topological_order(funcs);
+        static const size_t max_allowed_iters = 5;
+        size_t iter_count = 0, old_size = 0, new_size = 0;
+        // First find the set of all random calls.
+        // Technically needs to be done to convergence for mutual recursion.
+
+        do {
+            old_size = call_rand.size();
+
+            for (const auto &[name, func] : funcs) {
+                if (call_rand.contains(name)) {
+                    continue;
+                } else if (calls_rand(func->body, call_rand)) {
+                    call_rand.insert(name);
+                }
+            }
+
+            if (iter_count++ > max_allowed_iters) {
+                internal_error
+                    << "May have found pathological mutual recursion in "
+                       "Random lowering.";
+            }
+            new_size = call_rand.size();
+        } while (new_size != old_size);
+        for (const auto &fname : call_rand) {
+            funcs[fname]->body =
+                insert_rand_state(funcs[fname]->body, call_rand);
+            // Parallel functions must set up their own random state.
+            if (!(fname == "main" || funcs[fname]->is_kernel() ||
+                  funcs[fname]->is_exported())) {
+                funcs[fname]->args.emplace_back(rng_state_name,
+                                                Rand_State_t::make(),
+                                                /*default_value=*/Expr(),
+                                                /*mutating=*/true);
+            } else {
+                funcs[fname]->attributes.push_back(
+                    Function::Attribute::setup_rng);
             }
         }
 
-        if (iter_count++ > max_allowed_iters) {
-            internal_error << "May have found pathological mutual recursion in "
-                              "Random lowering.";
-        }
-    } while (call_rand.size() > old_size);
-
-    for (const auto &fname : call_rand) {
-        funcs[fname]->body = insert_rand_state(funcs[fname]->body, call_rand);
-        // Parallel functions must set up their own random state.
-        if (!(fname == "main" || funcs[fname]->is_kernel() ||
-              funcs[fname]->is_exported())) {
-            funcs[fname]->args.emplace_back(rng_state_name,
-                                            Rand_State_t::make(),
-                                            /*default_value=*/Expr(),
-                                            /*mutating=*/true);
-        } else {
-            funcs[fname]->attributes.push_back(Function::Attribute::setup_rng);
-        }
+        return funcs;
     }
-
-    return funcs;
+    }
 }
 
 } // namespace lower

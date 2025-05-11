@@ -77,27 +77,6 @@ std::string cuda_intrinsic(std::string intrinsic, Type type) {
     }
 }
 
-// Returns a list of functions that need the __device__ attribute. Kernels being
-// launched are not included since they will be annotated with __global__.
-std::set<std::string> find_device_functions(const FuncMap &funcs) {
-    std::set<std::string> kernel_devices;
-    // TODO(cgyurgyik): does this go beyond one level of nesting? Probably need
-    // what the random pass is doing.
-    lower::CallGraph call_graph =
-        lower::build_call_graph(funcs, /*undef_calls=*/false);
-    for (const auto &[name, graph] : call_graph) {
-        auto it = funcs.find(name);
-        const Function &function = *it->second;
-        if (!function.is_kernel()) {
-            continue;
-        }
-        // Propagate to respective function calls used by this kernel.
-        kernel_devices.insert(graph.begin(), graph.end());
-    }
-
-    return kernel_devices;
-}
-
 std::string bonsai_scalar_type_to_cpp(Type type) {
     if (const auto *float_t = type.as<Float_t>()) {
         internal_assert(float_t->is_ieee754());
@@ -574,12 +553,27 @@ void CodeGen_CUDA::visit(const ir::Intrinsic *node) {
         os << ')';
         return;
     }
-    // TODO(cgyurgyik): I don't think this will work on device, need to use
-    // cuRAND (https://docs.nvidia.com/cuda/curand/index.html).
     case ir::Intrinsic::OpType::rand: {
+        // This always produces a random float in (0, 1].
         internal_assert(node->args.empty())
             << "TODO: support vector rand generation on CUDA: " << Expr(node);
-        os << "curand_uniform(" << lower::rng_state_name << ")";
+        const auto *float_t = node->type.as<Float_t>();
+        internal_assert(float_t && float_t->is_ieee754()) << node->type;
+        if (on_device) {
+            switch (float_t->bits()) {
+            case 64:
+                os << "curand_uniform_double(" << lower::rng_state_name << ")";
+                return;
+            case 32:
+                os << "curand_uniform(" << lower::rng_state_name << ")";
+                return;
+            default:
+                internal_error << "unsupported on-device random type: "
+                               << node->type;
+            }
+        }
+        os << "random" << '<' << bonsai_scalar_type_to_cpp(node->type) << '>'
+           << '(' << ')';
         return;
     }
     case ir::Intrinsic::OpType::fma: {
@@ -757,6 +751,7 @@ void CodeGen_CUDA::visit(const ir::Return *node) {
 }
 
 void CodeGen_CUDA::visit(const ir::CallStmt *node) {
+    // TODO(cgyurgyik): kernel calls must be configured <<<X,Y>>>
     os << get_indent();
     node->func.accept(this);
     os << '(';
@@ -872,12 +867,14 @@ void CodeGen_CUDA::print(const Program &program) {
     const std::vector<std::string> topological_order =
         lower::func_topological_order(program.funcs,
                                       /*undef_calls=*/false);
-    std::set<std::string> kernel_devices = find_device_functions(program.funcs);
+    std::set<std::string> devices = lower::find_device_functions(program.funcs);
+    std::set<std::string> hosts = lower::find_host_functions(program.funcs);
     for (int i = 0, e = topological_order.size(); i < e; ++i) {
         const std::string &name = topological_order[i];
         const auto &it = program.funcs.find(name);
         internal_assert(it != program.funcs.end());
         const auto &func = it->second;
+        ScopedValue<bool> _(on_device, devices.contains(func->name));
         if (func == nullptr) {
             // Minimize aborts when printing, since we use printing to
             // debug.
@@ -886,15 +883,16 @@ void CodeGen_CUDA::print(const Program &program) {
         }
         if (func->is_kernel()) {
             os << "__global__" << ' ';
+            internal_assert(func->ret_type.is<Void_t>())
+                << "bonsai kernels must have a void return type, received: "
+                << func->ret_type;
         } else {
-            if (kernel_devices.contains(func->name)) {
+            if (devices.contains(func->name)) {
                 os << "__device__" << ' ';
             }
-            // TODO(cgyurgyik): We also want the complement; any function that
-            // is *not* used by device functions should be marked as __host__.
-            // For now, we just assume everything may be used by the host
-            // device.
-            os << "__host__" << ' ';
+            if (hosts.contains(func->name)) {
+                os << "__host__" << ' ';
+            }
         }
         print(*func);
         os << '\n';
@@ -924,18 +922,15 @@ void CodeGen_CUDA::print(const Function &function) {
     }
     os << ')' << ' ' << '{' << '\n';
     increment();
-    /*
-    // TODO(cgyurgyik): set up for kernel launch.
     if (function.must_setup_rng()) {
         internal_assert(function.is_kernel())
-            << "CUDA rng can only run on __device__:\n"
+            << "CUDA rng can only run on device, received:\n"
             << function;
         os << get_indent() << "curandState " << lower::rng_state_name << ";\n";
-        // TODO: need `idx` to be set!!
+        // TODO(cgyurgyik): need `idx` to be set!!
         os << get_indent() << "curand_init(idx, 0, 0, &"
            << lower::rng_state_name << ");\n";
     }
-    */
 
     function.body.accept(this);
     decrement();
