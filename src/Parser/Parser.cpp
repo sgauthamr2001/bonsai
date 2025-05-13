@@ -2034,6 +2034,17 @@ struct Parser {
                 schedule.func_transforms[func].emplace_back(
                     ir::Split{std::move(i), std::move(io), std::move(ii),
                               std::move(factor), generate_tail});
+            } else if (rewrite == "collapse") {
+                ir::Location io = parse_location();
+                expect(Token::Type::COMMA);
+                ir::Location ii = parse_location();
+                expect(Token::Type::COMMA);
+                ir::Location i = parse_location();
+                schedule.func_transforms[func].emplace_back(ir::Collapse{
+                    .io = std::move(io),
+                    .ii = std::move(ii),
+                    .i = std::move(i),
+                });
             } else if (rewrite == "loopify") {
                 std::optional<ir::Expr> queue_size;
                 if (peek().type != Token::Type::RPAREN) {

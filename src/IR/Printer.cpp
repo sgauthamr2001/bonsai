@@ -309,6 +309,15 @@ void Printer::print(const Schedule &schedule) {
                                       print(split.factor);
                                       os << ", " << split.generate_tail << ")";
                                   },
+                                  [&](const Collapse &collapse) {
+                                      os << "collapse(";
+                                      print(collapse.io);
+                                      os << ", ";
+                                      print(collapse.ii);
+                                      os << ", ";
+                                      print(collapse.i);
+                                      os << ")";
+                                  },
                                   [&](const Parallelize &par) {
                                       switch (par.strategy) {
                                       case Parallelize::CPUThread: {
