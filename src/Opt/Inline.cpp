@@ -25,6 +25,8 @@ class Inliner : public ir::Mutator {
     ir::Expr visit(const ir::Call *node) override {
         const ir::Var *v = node->func.as<ir::Var>();
         if (v == nullptr) {
+            // (here and below)
+            // TODO(bonsai/issues/176): this should be visiting recursively.
             return node;
         }
         const std::string &function_name = v->name;
@@ -41,7 +43,10 @@ class Inliner : public ir::Mutator {
                        [](const auto &a) { return a.name; });
         // Replace function arguments with call arguments.
         std::map<std::string, ir::Expr> repls;
-        internal_assert(argument_names.size() == node->args.size());
+        internal_assert(argument_names.size() == node->args.size())
+            << "mismatch in function argument size: " << argument_names.size()
+            << " and call argument size: " << node->args.size()
+            << " for function: " << function_name;
         for (int i = 0, e = argument_names.size(); i < e; ++i) {
             repls[argument_names[i]] = node->args[i];
         }
