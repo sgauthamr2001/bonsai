@@ -19,6 +19,30 @@ struct Location {
     std::vector<std::string> names;
 };
 
+// Collapse two for-loops (io, ii) into a single for-loop (i).
+// Note that io is shorthand for index in the outer loop, and ii
+// is shorthand for index in the inner loop.
+struct Collapse {
+    Location io;
+    Location ii;
+    Location i;
+};
+
+// consumer.defer(producer, i, queue)
+// says "when `producer()` is called in `consumer`", instead
+// write it to a queue that is allocated at loop level `i`.
+// This turns the body of `i` into a do-while loop that
+// iterates as long as any queues are non-empty.
+// Note that loops over queues (which are forall loops)
+// should also be scheduled.
+// TODO(ajr): support `continue` parameter!
+// TODO(ajr): support type-specialization e.g. trace(Treelet)
+struct Defer {
+    Location producer;
+    Location loop;
+    Location queue;
+};
+
 // Turn recursion into iteration.
 // For tail-call recursion, generates a DoWhile loop over the recursion
 // condition.
@@ -63,16 +87,8 @@ struct Split {
     bool generate_tail;
 };
 
-// Collapse two for-loops (io, ii) into a single for-loop (i).
-// Note that io is shorthand for index in the outer loop, and ii
-// is shorthand for index in the inner loop.
-struct Collapse {
-    Location io;
-    Location ii;
-    Location i;
-};
-
-using Transform = std::variant<Collapse, Loopify, Parallelize, Split, Sort>;
+using Transform =
+    std::variant<Collapse, Defer, Loopify, Parallelize, Split, Sort>;
 
 // Keys are function names.
 using TransformMap = std::map<std::string, std::vector<Transform>>;

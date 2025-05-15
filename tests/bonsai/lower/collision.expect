@@ -195,5 +195,6 @@ func tri_tri_axis(A : f32x3, a0 : f32x3, a1 : f32x3, a2 : f32x3, b0 : f32x3, b1 
 }
 
 
-schedule host{
+schedule host {
+
 }

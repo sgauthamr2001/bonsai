@@ -623,7 +623,11 @@ ir::Program LoopTransforms::run(ir::Program program,
 
         Stmt body = std::move(func->body);
         for (const auto &t : ts) {
-            std::visit(Overloaded{[&](const Loopify &l) {
+            std::visit(Overloaded{[&](const Defer &def) {
+                                      // no-op, should have been handled in
+                                      // Lower/Defers.cpp
+                                  },
+                                  [&](const Loopify &l) {
                                       body =
                                           loopify(name, std::move(body),
                                                   l.queue_size, program.funcs);

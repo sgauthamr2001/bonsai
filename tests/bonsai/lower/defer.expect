@@ -1,0 +1,51 @@
+type Float = f32
+type Half = f16
+type Ray = struct Ray{ o : f32x3; d : f32x3; tmax : f32 }
+type vec3f = f32x3
+type vec3h = f16x3
+
+func _queued_expensive(ray : Ray, _write__alloc0 : mut i32[n], _write__i0 : i32) -> void {
+  _write__alloc0[_write__i0] = cast<i32>(reduce<+>(ray.d + ray.o))
+  return
+}
+
+func bounce(ray : Ray) -> Ray {
+  return build<Ray>(ray.o + rand(3), rand(3), (f32)inf)
+}
+
+func expensive(ray : Ray) -> i32 {
+  return cast<i32>(reduce<+>(ray.d + ray.o))
+}
+
+func foo(ray : Ray) -> bool {
+  return ray.d[0] < rand()
+}
+
+func map_hits(n : i32, rays : Ray[n]) -> i32[n] {
+  exp_queue : mut queue_t[Ray, i32[n], i32]
+  alloc _alloc0 : mut i32[n]
+  forall _i0 in [0:n:1] {
+    num_hits(rays[_i0], 100, 0, _alloc0, _i0, exp_queue)
+  }
+  foreach _exp_queue_task in exp_queue {
+    _queued_expensive(_exp_queue_task[0], _exp_queue_task[1], _exp_queue_task[2])
+  }
+  return _alloc0
+}
+
+func num_hits(ray : Ray, depth : i32, acc : i32, _write__alloc0 : mut i32[n], _write__i0 : i32, exp_queue : mut queue_t[Ray, i32[n], i32]) -> void {
+  if (depth <= 0) {
+    enqueue<exp_queue>(ray, _write__alloc0, _write__i0)
+    return
+  } else if (foo(ray)) {
+    num_hits(bounce(ray), depth - 1, acc + 1, _write__alloc0, _write__i0, exp_queue)
+    return
+  } else {
+    return acc
+  }
+}
+
+
+schedule host {
+    num_hits.defer(expensive, map_hits.root, exp_queue)
+}

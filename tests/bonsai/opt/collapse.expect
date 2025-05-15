@@ -78,5 +78,6 @@ func process4(w : i32) -> i32[w] {
 }
 
 
-schedule host{
+schedule host {
+
 }

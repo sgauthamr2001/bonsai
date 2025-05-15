@@ -133,6 +133,12 @@ std::ostream &operator<<(std::ostream &os, const Schedule &schedule) {
     return os;
 }
 
+std::ostream &operator<<(std::ostream &os, const Location &loc) {
+    Printer printer(os, /*verbose=*/true);
+    printer.print(loc);
+    return os;
+}
+
 std::string to_string(const Layout &layout) {
     std::ostringstream oss;
     oss << layout;
@@ -186,9 +192,11 @@ void Printer::print(const Program &program) {
         // Similarly, we always verbosely print the schedule.
         ScopedValue<bool> _(verbose, true);
         for (const auto &[target, schedule] : program.schedules) {
-            os << "schedule " << target << "{\n";
+            os << "schedule " << target << " {\n";
+            indent++;
             print(schedule);
-            os << '}';
+            indent--;
+            os << "\n}";
         }
         if (!program.schedules.empty()) {
             os << std::endl;
@@ -265,26 +273,39 @@ void Printer::print(const Function &function) {
 
 void Printer::print(const Schedule &schedule) {
     for (const auto &[name, type] : schedule.tree_types) {
-        os << name << " : ";
+        os << get_indent() << name << " : ";
+        indent++;
         print(type);
+        indent--;
         os << '\n';
     }
 
     for (const auto &[name, layout] : schedule.tree_layouts) {
-        os << name << " : ";
+        os << get_indent() << name << " : ";
+        indent++;
         print(layout);
+        indent--;
         os << '\n';
     }
 
     for (const auto &[func, ts] : schedule.func_transforms) {
-        os << func;
+        os << get_indent() << func;
         std::string whitespace(func.size(), ' ');
         for (size_t i = 0; i < ts.size(); i++) {
             if (i > 0) {
-                os << "\n" << whitespace;
+                os << "\n" << get_indent() << whitespace;
             }
             os << ".";
-            std::visit(Overloaded{[&](const Loopify &l) {
+            std::visit(Overloaded{[&](const Defer &def) {
+                                      os << "defer(";
+                                      print(def.producer);
+                                      os << ", ";
+                                      print(def.loop);
+                                      os << ", ";
+                                      print(def.queue);
+                                      os << ")";
+                                  },
+                                  [&](const Loopify &l) {
                                       os << "loopify(";
                                       if (l.queue_size.has_value()) {
                                           print(*l.queue_size);
@@ -583,6 +604,12 @@ void Printer::visit(const BVH_t *node) {
 }
 
 void Printer::visit(const Rand_State_t *node) { os << "rng_state_t"; }
+
+void Printer::visit(const Queue_t *node) {
+    os << "queue_t[";
+    print_type_list(node->arg_types);
+    os << "]";
+}
 
 void Printer::visit(const IEmpty *node) { os << "IEmpty"; }
 
@@ -1246,6 +1273,13 @@ void Printer::visit(const Launch *node) {
     os << get_indent() << "launch ";
     print_no_parens(node->n);
     os << " " << node->func << "(";
+    print_expr_list(node->args);
+    os << ")\n";
+}
+
+void Printer::visit(const QueueWrite *node) {
+    os << get_indent() << "enqueue<";
+    os << node->queue << ">(";
     print_expr_list(node->args);
     os << ")\n";
 }
