@@ -128,7 +128,7 @@ bool Type::is_stack_allocatable() const {
                 [](const auto &p) { return p.is_stack_allocatable(); }));
 }
 
-bool Type::is_iterable() const { return is<Vector_t, Array_t>(); }
+bool Type::is_iterable() const { return is<Vector_t, Array_t, Set_t>(); }
 
 bool Type::is_func() const { return is<Function_t>(); }
 
@@ -535,7 +535,8 @@ Type get_field_type(const Type &struct_type, const std::string &field) {
         return as_array->etype;
     } else if (const Tuple_t *as_tuple = struct_type.as<Tuple_t>()) {
         internal_assert(!field.empty());
-        internal_assert(field.starts_with("_field")) << field;
+        internal_assert(field.starts_with("_field"))
+            << field << " of " << struct_type;
         int64_t p = field.find_first_of("0123456789");
         std::string number = field.substr(p);
         internal_assert(!number.empty()) << field;
