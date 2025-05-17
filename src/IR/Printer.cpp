@@ -312,6 +312,17 @@ void Printer::print(const Schedule &schedule) {
                                       }
                                       os << ")";
                                   },
+                                  [&](const MakeQueue &q) {
+                                      os << "make_queue(";
+                                      print(q.queue);
+                                      os << ", ";
+                                      print(q.loop);
+                                      if (q.queue_size.has_value()) {
+                                          os << ", ";
+                                          print(*q.queue_size);
+                                      }
+                                      os << ")";
+                                  },
                                   [&](const Sort &sort) {
                                       os << "sort(";
                                       print(sort.loc);
@@ -364,6 +375,7 @@ void Printer::print(const Schedule &schedule) {
                                   }},
                        ts[i]);
         }
+        os << "\n";
     }
     // TODO: the rest of the schedule.
 }
@@ -604,12 +616,6 @@ void Printer::visit(const BVH_t *node) {
 }
 
 void Printer::visit(const Rand_State_t *node) { os << "rng_state_t"; }
-
-void Printer::visit(const Queue_t *node) {
-    os << "queue_t[";
-    print_type_list(node->arg_types);
-    os << "]";
-}
 
 void Printer::visit(const IEmpty *node) { os << "IEmpty"; }
 
@@ -1017,6 +1023,14 @@ void Printer::visit(const Deref *node) {
     os << ")";
 }
 
+void Printer::visit(const AtomicAdd *node) {
+    os << "atomic_add(";
+    print_no_parens(node->ptr);
+    os << ", ";
+    print_no_parens(node->value);
+    os << ")";
+}
+
 void Printer::visit(const CallStmt *node) {
     os << get_indent();
     print_no_parens(node->func);
@@ -1159,8 +1173,6 @@ void Printer::visit(const Accumulate *node) {
     }
     print_no_parens(node->value);
     os << "\n";
-    // TODO: fix this!! bring back SSA
-    // print(node->body);
 }
 
 void Printer::visit(const Label *node) {
@@ -1273,13 +1285,6 @@ void Printer::visit(const Launch *node) {
     os << get_indent() << "launch ";
     print_no_parens(node->n);
     os << " " << node->func << "(";
-    print_expr_list(node->args);
-    os << ")\n";
-}
-
-void Printer::visit(const QueueWrite *node) {
-    os << get_indent() << "enqueue<";
-    os << node->queue << ">(";
     print_expr_list(node->args);
     os << ")\n";
 }

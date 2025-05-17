@@ -222,8 +222,6 @@ Type Mutator::visit(const BVH_t *node) {
 
 Type Mutator::visit(const Rand_State_t *node) { return node; }
 
-Type Mutator::visit(const Queue_t *node) { return node; }
-
 Interface Mutator::visit(const IEmpty *node) { return node; }
 
 Interface Mutator::visit(const IFloat *node) { return node; }
@@ -434,6 +432,15 @@ Expr Mutator::visit(const Deref *node) {
     return Deref::make(std::move(expr));
 }
 
+Expr Mutator::visit(const AtomicAdd *node) {
+    Expr ptr = mutate(node->ptr);
+    Expr value = mutate(node->value);
+    if (ptr.same_as(node->ptr) && value.same_as(node->value)) {
+        return node;
+    }
+    return AtomicAdd::make(std::move(ptr), std::move(value));
+}
+
 Stmt Mutator::visit(const CallStmt *node) {
     Expr func = mutate(node->func);
     auto [args, not_changed] = visit_list(this, node->args);
@@ -639,14 +646,6 @@ Stmt Mutator::visit(const Launch *node) {
         return node;
     }
     return Launch::make(node->func, std::move(n), std::move(args));
-}
-
-Stmt Mutator::visit(const QueueWrite *node) {
-    auto [args, not_changed] = visit_list(this, node->args);
-    if (not_changed) {
-        return node;
-    }
-    return QueueWrite::make(node->queue, std::move(args));
 }
 
 } // namespace ir

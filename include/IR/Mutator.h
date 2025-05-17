@@ -34,7 +34,6 @@ struct Mutator {
     virtual Type visit(const Generic_t *);
     virtual Type visit(const BVH_t *);
     virtual Type visit(const Rand_State_t *);
-    virtual Type visit(const Queue_t *);
     // Interfaces
     virtual Interface visit(const IEmpty *);
     virtual Interface visit(const IFloat *);
@@ -68,6 +67,7 @@ struct Mutator {
     virtual Expr visit(const Instantiate *);
     virtual Expr visit(const PtrTo *);
     virtual Expr visit(const Deref *);
+    virtual Expr visit(const AtomicAdd *);
     // Stmts
     virtual Stmt visit(const CallStmt *);
     virtual Stmt visit(const Print *);
@@ -91,7 +91,6 @@ struct Mutator {
     virtual Stmt visit(const ForEach *);
     virtual Stmt visit(const Continue *);
     virtual Stmt visit(const Launch *);
-    virtual Stmt visit(const QueueWrite *);
 };
 
 #define RESTRICT_MUTATOR(IRType, IRNODE)                                       \

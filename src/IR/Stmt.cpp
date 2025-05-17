@@ -167,7 +167,6 @@ Stmt Accumulate::make(WriteLoc loc, OpType op, Expr value) {
     node->loc = std::move(loc);
     node->op = op;
     node->value = std::move(value);
-    // node->body = std::move(body);
     return node;
 }
 
@@ -313,19 +312,6 @@ Stmt Launch::make(std::string func, Expr n, std::vector<Expr> args) {
     Launch *node = new Launch;
     node->func = std::move(func);
     node->n = std::move(n);
-    node->args = std::move(args);
-    return node;
-}
-
-Stmt QueueWrite::make(std::string queue, std::vector<Expr> args) {
-    internal_assert(!queue.empty())
-        << "QueueWrite::make received undefined func";
-    internal_assert(std::all_of(args.cbegin(), args.cend(),
-                                [](const Expr &e) { return e.defined(); }))
-        << "Launch::make received undefined arg to func: " << queue;
-
-    QueueWrite *node = new QueueWrite;
-    node->queue = std::move(queue);
     node->args = std::move(args);
     return node;
 }
