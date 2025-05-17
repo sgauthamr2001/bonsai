@@ -316,5 +316,17 @@ Stmt Launch::make(std::string func, Expr n, std::vector<Expr> args) {
     return node;
 }
 
+Stmt Append::make(WriteLoc loc, Expr value) {
+    internal_assert(!loc.base.empty())
+        << "Append::make received empty allocation name";
+    internal_assert(loc.type.defined())
+        << "Append::make received untyped allocation";
+    internal_assert(value.defined()) << "Append::make received undefined value";
+    Append *node = new Append;
+    node->loc = std::move(loc);
+    node->value = std::move(value);
+    return node;
+}
+
 } // namespace ir
 } // namespace bonsai

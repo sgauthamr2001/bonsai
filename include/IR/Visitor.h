@@ -19,6 +19,7 @@ struct Visitor {
     virtual void visit(const Struct_t *);
     virtual void visit(const Tuple_t *);
     virtual void visit(const Array_t *);
+    virtual void visit(const DynArray_t *);
     virtual void visit(const Option_t *);
     virtual void visit(const Set_t *);
     virtual void visit(const Function_t *);
@@ -82,6 +83,7 @@ struct Visitor {
     virtual void visit(const ForEach *);
     virtual void visit(const Continue *);
     virtual void visit(const Launch *);
+    virtual void visit(const Append *);
     // Layouts
     virtual void visit(const Name *);
     virtual void visit(const Pad *);

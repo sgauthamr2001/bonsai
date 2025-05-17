@@ -39,6 +39,7 @@ enum class IRStmtEnum {
     ForEach,
     Continue,
     Launch,
+    Append,
 };
 
 using IRStmtNode = IRNode<Stmt, IRStmtEnum>;
@@ -138,6 +139,8 @@ struct Sequence : StmtNode<Sequence> {
     std::vector<Stmt> stmts;
 
     static Stmt make(std::vector<Stmt> stmts);
+    // Makes a single statement sequence.
+    static Stmt make(Stmt stmt);
 
     static const IRStmtEnum node_type = IRStmtEnum::Sequence;
 };
@@ -309,6 +312,14 @@ struct Launch : StmtNode<Launch> {
     static Stmt make(std::string func, Expr n, std::vector<Expr> args);
 
     static const IRStmtEnum node_type = IRStmtEnum::Launch;
+};
+
+struct Append : StmtNode<Append> {
+    WriteLoc loc;
+    Expr value;
+    static Stmt make(WriteLoc loc, Expr value);
+
+    static const IRStmtEnum node_type = IRStmtEnum::Append;
 };
 
 } // namespace ir

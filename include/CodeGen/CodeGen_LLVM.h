@@ -103,13 +103,15 @@ struct CodeGen_LLVM : public ir::Visitor {
     virtual void visit(const ir::Vector_t *) override;
     virtual void visit(const ir::Array_t *) override;
     virtual void visit(const ir::Struct_t *) override;
-    virtual void visit(const ir::Tuple_t *) override;
     virtual void visit(const ir::Function_t *) override;
+    virtual void visit(const ir::Rand_State_t *) override;
+    // These should have been lowered already.
+    RESTRICT_VISITOR(ir::DynArray_t);
     RESTRICT_VISITOR(ir::Option_t);
+    RESTRICT_VISITOR(ir::Tuple_t);
     RESTRICT_VISITOR(ir::Set_t);
     RESTRICT_VISITOR(ir::Generic_t);
     RESTRICT_VISITOR(ir::BVH_t);
-    virtual void visit(const ir::Rand_State_t *) override;
     // Interfaces
     RESTRICT_VISITOR(ir::IEmpty);
     RESTRICT_VISITOR(ir::IFloat);
@@ -157,6 +159,7 @@ struct CodeGen_LLVM : public ir::Visitor {
     virtual void visit(const ir::Store *) override;
     virtual void visit(const ir::Accumulate *) override;
     virtual void visit(const ir::Label *) override;
+    virtual void visit(const ir::Append *) override;
     // TODO(cgyurgyik): support deallocation.
     RESTRICT_VISITOR(ir::Free);
     RESTRICT_VISITOR(ir::RecLoop);
@@ -177,6 +180,17 @@ struct CodeGen_LLVM : public ir::Visitor {
     // the arguments `args`.
     void print_helper(const ir::Expr &expr, std::vector<llvm::Value *> &args,
                       std::string &to_print, uint32_t indent_level = 0);
+
+    // Allocates memory for the dynamic array type in Bonsai.
+    void allocate_dynamic_array_type(const ir::Allocate *);
+    // Ensure buffer has capacity for one more element, growing if needed.
+    // Returns the (possibly reallocated) buffer pointer.
+    llvm::Value *ensure_capacity(llvm::Value *dynamic_array,
+                                 const ir::Struct_t *struct_t,
+                                 llvm::Type *llvm_struct_t,
+                                 llvm::Value *buffer_ptr, llvm::Value *size_ptr,
+                                 llvm::Value *capacity_ptr, llvm::Type *elt_ty,
+                                 const std::string &base_n);
 
     // Local state for codegen() impls.
     llvm::Value *value = nullptr;

@@ -134,6 +134,15 @@ Type Mutator::visit(const Array_t *node) {
     return Array_t::make(std::move(etype), node->size);
 }
 
+Type Mutator::visit(const DynArray_t *node) {
+    Type etype = mutate(node->etype);
+    // TODO: should we mutate the size? unclear.
+    if (etype.same_as(node->etype)) {
+        return node;
+    }
+    return DynArray_t::make(std::move(etype), node->capacity);
+}
+
 Type Mutator::visit(const Option_t *node) {
     Type etype = mutate(node->etype);
     if (etype.same_as(node->etype)) {
@@ -509,7 +518,10 @@ Stmt Mutator::visit(const Sequence *node) {
 
 Stmt Mutator::visit(const Allocate *node) {
     auto [loc, not_changed] = mutate_writeloc(node->loc);
-    Expr value = mutate(node->value);
+    Expr value = node->value;
+    if (value.defined()) {
+        value = mutate(node->value);
+    }
     if (not_changed && value.same_as(node->value)) {
         return node;
     }
@@ -646,6 +658,15 @@ Stmt Mutator::visit(const Launch *node) {
         return node;
     }
     return Launch::make(node->func, std::move(n), std::move(args));
+}
+
+Stmt Mutator::visit(const Append *node) {
+    auto [loc, not_changed] = mutate_writeloc(node->loc);
+    Expr value = mutate(node->value);
+    if (not_changed && value.same_as(node->value)) {
+        return node;
+    }
+    return Append::make(std::move(loc), std::move(value));
 }
 
 } // namespace ir

@@ -167,6 +167,8 @@ Type Type::element_of() const {
         return this->as<BVH_t>()->primitive;
     } else if (this->is<Array_t>()) {
         return this->as<Array_t>()->etype;
+    } else if (this->is<DynArray_t>()) {
+        return this->as<DynArray_t>()->etype;
     } else if (this->is<Ptr_t>()) {
         return this->as<Ptr_t>()->etype;
     } else {
@@ -371,6 +373,18 @@ Type Array_t::make(Type etype, Expr size) {
     Array_t *node = new Array_t;
     node->etype = std::move(etype);
     node->size = std::move(size);
+    return node;
+}
+
+Type DynArray_t::make(Type etype, Expr capacity) {
+    internal_assert(etype.defined())
+        << "DynArray_t::make received undefined etype";
+    if (!capacity.defined()) {
+        capacity = Expr(16);
+    }
+    DynArray_t *node = new DynArray_t;
+    node->etype = std::move(etype);
+    node->capacity = std::move(capacity);
     return node;
 }
 

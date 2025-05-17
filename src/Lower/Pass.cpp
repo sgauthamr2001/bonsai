@@ -1,6 +1,8 @@
 #include "Lower/Pass.h"
 
 #include "CompilerOptions.h"
+#include "IR/Equality.h"
+#include "IR/Printer.h"
 
 namespace bonsai {
 namespace lower {
@@ -10,7 +12,7 @@ ir::Program Pass::run(ir::Program program,
     ir::Program new_program;
     new_program.types = run(std::move(program.types), options);
     new_program.externs = run(std::move(program.externs), options);
-    new_program.funcs = run(std::move(program.funcs), options);
+    new_program.funcs = run(program.funcs, options);
     new_program.schedules = run(std::move(program.schedules), options);
     return new_program;
 }

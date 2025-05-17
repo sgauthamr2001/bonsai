@@ -1,7 +1,3 @@
-//! flags: -p canonicalize -p lower-maps -p lower-trees -p lower-geometrics -p lower-layouts
-
-
-
 element Float = f32;
 element vec3f = vector[Float, 3];
 

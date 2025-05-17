@@ -61,6 +61,8 @@ void Visitor::visit(const Tuple_t *node) { visit_list(this, node->etypes); }
 
 void Visitor::visit(const Array_t *node) { node->etype.accept(this); }
 
+void Visitor::visit(const DynArray_t *node) { node->etype.accept(this); }
+
 void Visitor::visit(const Option_t *node) { node->etype.accept(this); }
 
 void Visitor::visit(const Set_t *node) { node->etype.accept(this); }
@@ -280,6 +282,11 @@ void Visitor::visit(const Launch *node) {
     visit_list(this, node->args);
 }
 
+void Visitor::visit(const Append *node) {
+    visit_writeloc(this, node->loc);
+    node->value.accept(this);
+}
+  
 void Visitor::visit(const Name *node) {}
 
 void Visitor::visit(const Pad *node) {}
