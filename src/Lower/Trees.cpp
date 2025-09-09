@@ -33,13 +33,34 @@ std::string unique_iter_name() { return "_iter" + std::to_string(counter++); }
 std::pair<std::vector<ir::TypedVar>, std::vector<ir::TypedVar>>
 analyze_node(const ir::BVH_t::Node &node, const ir::Type &prim_t) {
     std::vector<ir::TypedVar> data, children;
+    // Search for nodes annotated as data.
+    for (const auto &annot : node.annotations) {
+        if (const auto *d = annot.as<ir::Annotation::Data>()) {
+            // TODO: make this not n^2.
+            for (const auto &param : node.fields()) {
+                if (param.name == d->name) {
+                    const bool is_prim = ir::equals(prim_t, param.type);
+                    const bool is_array_prim =
+                        (param.type.is<ir::Array_t>() &&
+                         ir::equals(prim_t,
+                                    param.type.as<ir::Array_t>()->etype));
+                    const bool is_vector_prim =
+                        (param.type.is<ir::Vector_t>() &&
+                         ir::equals(prim_t,
+                                    param.type.as<ir::Vector_t>()->etype));
+
+                    internal_assert(is_prim || is_array_prim || is_vector_prim)
+                        << param.type << " versus " << prim_t << "\n";
+                    data.push_back(param);
+                }
+            }
+        }
+    }
+
+    // Search for recursive references.
     for (const auto &param : node.fields()) {
-        if (ir::equals(prim_t, param.type) ||
-            (param.type.is<ir::Array_t>() &&
-             ir::equals(prim_t, param.type.as<ir::Array_t>()->etype))) {
-            data.push_back(param);
-        } else if (param.type.is<ir::Ref_t>()) { // TODO: and is ref to
-                                                 // current tree type?
+        if (param.type.is<ir::Ref_t>()) { // TODO: and is ref to
+                                          // current tree type?
             children.push_back(param);
         }
     }
@@ -85,6 +106,11 @@ ir::Stmt lower_iterate(const ir::Expr &expr) {
 struct Rewriter : public ir::Mutator {
     // The list of volumes for the currently match arms.
     std::vector<ir::Expr> volumes;
+    // The list of tagged intervals. Holds scalar interval OR map of field
+    // intervals.
+    std::vector<
+        std::variant<std::monostate, Interval, std::map<std::string, Interval>>>
+        intervals;
     // The list of nodes for the current matches.
     std::vector<ir::Expr> locs;
 
@@ -97,23 +123,64 @@ struct Rewriter : public ir::Mutator {
         ir::Match::Arms new_arms(n);
         for (size_t i = 0; i < n; i++) {
             ir::Expr tree = ir::Unwrap::make(i, node->loc);
-            if (node->arms[i].first.volume.has_value()) {
-                const size_t n_args =
-                    node->arms[i].first.volume->initializers.size();
+
+            const auto &bvh_node = node->arms[i].first;
+
+            const auto make_interval =
+                [&](const std::string &low,
+                    const std::string &high) -> Interval {
+                ir::Expr low_expr = ir::Access::make(low, tree);
+                ir::Expr high_expr = ir::Access::make(high, tree);
+                return Interval{std::move(low_expr), std::move(high_expr)};
+            };
+
+            if (bvh_node.has_volume()) {
+                const auto &volume = bvh_node.get_volume();
+                const auto &inits = volume->initializers;
+                const size_t n_args = inits.size();
                 std::vector<ir::Expr> args(n_args);
                 for (size_t j = 0; j < n_args; j++) {
-                    const auto &name =
-                        node->arms[i].first.volume->initializers[j];
+                    const auto &name = inits[j];
                     args[j] = ir::Access::make(name, tree);
                 }
-                ir::Expr vol = ir::Build::make(
-                    node->arms[i].first.volume->struct_type, args);
+                ir::Expr vol = ir::Build::make(volume->struct_type, args);
                 volumes.emplace_back(std::move(vol));
             } else {
                 volumes.emplace_back(); // undef volume
             }
+            std::variant<std::monostate, Interval,
+                         std::map<std::string, Interval>>
+                interval;
+            for (const auto &annot : node->arms[i].first.annotations) {
+                if (const auto *a_interval =
+                        annot.as<ir::Annotation::Interval>()) {
+                    Interval m_interval =
+                        make_interval(a_interval->low, a_interval->high);
+                    if (a_interval->scalar.empty()) {
+                        internal_assert(
+                            std::holds_alternative<std::monostate>(interval))
+                            << "Multiple primitive interval annotations on "
+                               "node: "
+                            << ir::Stmt(node);
+                        interval = m_interval;
+                    } else {
+                        if (std::holds_alternative<std::monostate>(interval)) {
+                            interval = std::map<std::string, Interval>{
+                                {a_interval->scalar, m_interval}};
+                        } else {
+                            auto *as_map =
+                                std::get_if<std::map<std::string, Interval>>(
+                                    &interval);
+                            (*as_map)[a_interval->scalar] = m_interval;
+                        }
+                    }
+                }
+            }
+            intervals.emplace_back(std::move(interval));
+
             ir::Stmt stmt = mutate(node->arms[i].second);
             volumes.pop_back();
+            intervals.pop_back();
             new_arms[i] = {node->arms[i].first, std::move(stmt)};
         }
         locs.pop_back();
@@ -133,6 +200,30 @@ struct Rewriter : public ir::Mutator {
             vols[args[i].name] = volumes[i];
         }
         return vols;
+    }
+
+    IntervalMap make_interval_map(const std::vector<ir::TypedVar> &args,
+                                  const IntervalMap &existing) const {
+        IntervalMap ints = existing;
+        const size_t n = intervals.size();
+        internal_assert(n == args.size())
+            << "Making interval map with incorrect number of arguments: "
+            << args.size() << " vs. " << n;
+        for (size_t i = 0; i < n; i++) {
+            if (const auto *interval = std::get_if<Interval>(&intervals[i])) {
+                // name -> interval (set of scalars)
+                ints[args[i]] = *interval;
+            } else if (const auto *field_map =
+                           std::get_if<std::map<std::string, Interval>>(
+                               &intervals[i])) {
+                ir::Expr var = args[i];
+                for (const auto &field : *field_map) {
+                    ir::Expr expr = ir::Access::make(field.first, var);
+                    ints[expr] = field.second;
+                }
+            }
+        }
+        return ints;
     }
 
     using ir::Mutator::visit;
@@ -182,9 +273,9 @@ ir::Stmt build_filter(ir::Stmt body, ir::Expr predicate,
             ir::Stmt body = ir::IfElse::make(std::move(cond), node);
 
             VolumeMap vols = make_volume_map(lambda->args);
+            IntervalMap ints = make_interval_map(lambda->args, intervals);
 
-            Interval bounds =
-                predicate_analysis(lambda->value, vols, intervals);
+            Interval bounds = predicate_analysis(lambda->value, vols, ints);
             if (bounds.max.defined()) {
                 // Maybe true.
                 body = ir::IfElse::make(std::move(bounds.max), std::move(body));
@@ -211,9 +302,9 @@ ir::Stmt build_filter(ir::Stmt body, ir::Expr predicate,
             internal_assert(volumes.size() == lambda->args.size());
 
             VolumeMap vols = make_volume_map(lambda->args);
+            IntervalMap ints = make_interval_map(lambda->args, intervals);
 
-            Interval bounds =
-                predicate_analysis(lambda->value, vols, intervals);
+            Interval bounds = predicate_analysis(lambda->value, vols, ints);
             internal_assert(bounds.max.defined())
                 << "Cannot accelerate predicate: " << predicate
                 << " on: " << ir::Stmt(node);
@@ -552,47 +643,7 @@ ir::Stmt build_traversal(const ir::Expr &expr, const ir::TypeMap &tree_types,
         const ir::BVH_t *bvh = tree.as<ir::BVH_t>();
         internal_assert(bvh);
 
-        ir::Expr bvh_expr = ir::Var::make(tree, as_var->name);
-
-        const size_t n_nodes = bvh->nodes.size();
-        ir::Match::Arms arms(n_nodes);
-        for (size_t i = 0; i < n_nodes; i++) {
-            ir::Expr node = ir::Unwrap::make(i, bvh_expr);
-            const auto [data, children] =
-                analyze_node(bvh->nodes[i], as_var->type.element_of());
-
-            std::vector<ir::Stmt> stmts(data.size() + !children.empty());
-            // TODO: visit order should be scheduable?
-            for (size_t i = 0; i < data.size(); i++) {
-                ir::Expr access = ir::Access::make(data[i].name, node);
-                if (data[i].type.is_iterable()) {
-                    // forall d in data: yield d
-                    stmts[i] = ir::Iterate::make(std::move(access));
-                } else {
-                    // yield d
-                    stmts[i] = ir::Yield::make(std::move(access));
-                }
-            }
-            if (!children.empty()) {
-                std::vector<ir::Expr> cs;
-                cs.reserve(children.size());
-                for (const auto &c : children) {
-                    cs.push_back(ir::Access::make(c.name, node));
-                }
-                stmts.back() = ir::Scan::make(make_tuple(cs));
-            }
-
-            arms[i].first = bvh->nodes[i];
-            internal_assert(!stmts.empty());
-            if (stmts.size() == 1) {
-                // Special case.
-                arms[i].second = stmts[0];
-            } else {
-                arms[i].second = ir::Sequence::make(std::move(stmts));
-            }
-        }
-        ir::Expr var = ir::Var::make(tree, as_var->name);
-        return ir::Match::make(std::move(var), std::move(arms));
+        return build_base_scan(as_var->name, bvh);
     }
 
     const ir::SetOp *as_set = expr.as<ir::SetOp>();
@@ -708,6 +759,57 @@ struct LowerBVH : public ir::Mutator {
 };
 
 } // namespace
+
+ir::Stmt build_base_scan(const std::string &name, const ir::BVH_t *bvh_t) {
+    ir::Expr bvh_expr = ir::Var::make(bvh_t, name);
+
+    const size_t n_nodes = bvh_t->nodes.size();
+    ir::Match::Arms arms(n_nodes);
+    for (size_t i = 0; i < n_nodes; i++) {
+        ir::Expr node = ir::Unwrap::make(i, bvh_expr);
+        const auto [data, children] =
+            analyze_node(bvh_t->nodes[i], bvh_t->primitive);
+
+        std::vector<ir::Stmt> stmts(data.size() + !children.empty());
+        // TODO: visit order should be scheduable?
+        for (size_t i = 0; i < data.size(); i++) {
+            ir::Expr access = ir::Access::make(data[i].name, node);
+            if (data[i].type.is_iterable()) {
+                // forall d in data: yield d
+                if (data[i].type.is<ir::Array_t>() &&
+                    data[i].type.as<ir::Array_t>()->size.defined() &&
+                    !is_const(data[i].type.as<ir::Array_t>()->size)) {
+                    // Size must be a parameter of the type, need to change the
+                    // size somehow...
+                    internal_error
+                        << "TODO: handle array size in tree params\n";
+                }
+                stmts[i] = ir::Iterate::make(std::move(access));
+            } else {
+                // yield d
+                stmts[i] = ir::Yield::make(std::move(access));
+            }
+        }
+        if (!children.empty()) {
+            std::vector<ir::Expr> cs;
+            cs.reserve(children.size());
+            for (const auto &c : children) {
+                cs.push_back(ir::Access::make(c.name, node));
+            }
+            stmts.back() = ir::Scan::make(make_tuple(cs));
+        }
+
+        arms[i].first = bvh_t->nodes[i];
+        internal_assert(!stmts.empty());
+        if (stmts.size() == 1) {
+            // Special case.
+            arms[i].second = stmts[0];
+        } else {
+            arms[i].second = ir::Sequence::make(std::move(stmts));
+        }
+    }
+    return ir::Match::make(std::move(bvh_expr), std::move(arms));
+}
 
 ir::Program LowerTrees::run(ir::Program program,
                             const CompilerOptions &options) const {

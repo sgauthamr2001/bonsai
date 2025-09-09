@@ -104,7 +104,9 @@ struct Parser {
             "norm",
             "pow",
             "rand",
+            "round",
             "sin",
+            "sqr",
             "sqrt",
             "tan",
             // Set operations
@@ -1321,9 +1323,11 @@ struct Parser {
             {"norm", 1, ir::Intrinsic::norm},
             {"pow", 2, ir::Intrinsic::pow},
             // rand() can have 0 or 1 args (a seed).
+            {"round", 1, ir::Intrinsic::round},
             {"rand", 0, ir::Intrinsic::rand, /*skippable=*/true},
             {"rand", 1, ir::Intrinsic::rand},
             {"sin", 1, ir::Intrinsic::sin},
+            {"sqr", 1, ir::Intrinsic::sqr},
             {"sqrt", 1, ir::Intrinsic::sqrt},
             {"tan", 1, ir::Intrinsic::tan},
         });
@@ -2136,7 +2140,7 @@ struct Parser {
         ir::Type primitive = parse_type();
         expect(Token::Type::RBRACKET);
         expect(Token::Type::RBRACKET);
-        auto [name, params, volume] = parse_node();
+        auto [name, params, annotations] = parse_node();
 
         if (program.types.contains(name)) {
             report_error() << "Tree named: " << name
@@ -2144,7 +2148,7 @@ struct Parser {
                            << program.types[name];
         }
 
-        if (volume.has_value() != !params.empty()) {
+        if (annotations.empty() != params.empty()) {
             report_error() << "Parsing of tree " << name
                            << " has incompatible volume and params";
         }
@@ -2171,10 +2175,10 @@ struct Parser {
         // parent.params or node.params BVH_t::make asserts this. we should
         // catch that failure, and report a backtrace.
         ir::Type type;
-        if (volume.has_value()) {
+        if (!annotations.empty()) {
             type = ir::BVH_t::make(std::move(primitive), std::move(name),
                                    std::move(params), std::move(nodes),
-                                   std::move(*volume));
+                                   std::move(annotations));
         } else {
             type = ir::BVH_t::make(std::move(primitive), std::move(name),
                                    std::move(nodes));
@@ -2183,43 +2187,79 @@ struct Parser {
         return type;
     }
 
-    ir::BVH_t::Volume parse_volume() {
+    ir::Annotation parse_annotation() {
         std::string name = get_id();
 
-        internal_assert(program.types.contains(name))
-            << "Unknown volume type: " << name;
-        ir::Type type = program.types[std::move(name)];
+        if (name == "data") {
+            if (consume(Token::Type::ASSIGN)) {
+                std::string label = get_id();
+                return ir::Annotation{ir::Annotation::Data{std::move(label)}};
+            } else {
+                // Must be a set of scalars, and therefore this is an interval
+                // TODO: code dedup
+                expect(Token::Type::IN);
+                expect(Token::Type::LBRACKET);
+                auto low = get_id();
+                expect(Token::Type::COMMA);
+                auto high = get_id();
+                expect(Token::Type::RBRACKET);
+                // No scalar name.
+                return ir::Annotation{ir::Annotation::Interval{
+                    "", std::move(low), std::move(high)}};
+            }
 
-        expect(Token::Type::LPAREN);
+        } else if (program.types.contains(name)) {
+            ir::Type type = program.types[std::move(name)];
 
-        std::vector<std::string> initializers;
-        do {
-            std::string iname = get_id();
-            initializers.emplace_back(std::move(iname));
-        } while (consume(Token::Type::COMMA));
+            expect(Token::Type::LPAREN);
 
-        expect(Token::Type::RPAREN);
+            std::vector<std::string> initializers;
+            do {
+                std::string iname = get_id();
+                initializers.emplace_back(std::move(iname));
+            } while (consume(Token::Type::COMMA));
 
-        return ir::BVH_t::Volume{std::move(type), std::move(initializers)};
+            expect(Token::Type::RPAREN);
+
+            std::string gname;
+            if (consume(Token::Type::ON)) {
+                gname = get_id();
+            }
+            // TODO: support broadcast checking...
+
+            return ir::Annotation{ir::Annotation::Volume{
+                std::move(gname), std::move(type), std::move(initializers),
+                /* broadcast */ false}};
+        } else if (consume(Token::Type::IN)) {
+            expect(Token::Type::LBRACKET);
+            auto low = get_id();
+            expect(Token::Type::COMMA);
+            auto high = get_id();
+            expect(Token::Type::RBRACKET);
+            return ir::Annotation{ir::Annotation::Interval{
+                std::move(name), std::move(low), std::move(high)}};
+        } else {
+            internal_error << "Unknown volume type: " << name;
+        }
     }
 
-    std::tuple<std::string, ir::Struct_t::Map, std::optional<ir::BVH_t::Volume>>
+    std::tuple<std::string, ir::Struct_t::Map, std::vector<ir::Annotation>>
     parse_node() {
         std::string name = get_id();
 
         std::vector<ir::TypedVar> params;
-        std::optional<ir::BVH_t::Volume> volume;
+        std::vector<ir::Annotation> annotations;
 
         if (consume(Token::Type::LPAREN)) {
             params = parse_tree_params();
             expect(Token::Type::RPAREN);
         }
 
-        if (consume(Token::Type::WITH)) {
-            volume = parse_volume();
+        while (consume(Token::Type::WITH)) {
+            annotations.push_back(parse_annotation());
         }
 
-        return {name, params, volume};
+        return {std::move(name), std::move(params), std::move(annotations)};
     }
 
     std::vector<ir::TypedVar> parse_tree_params() {

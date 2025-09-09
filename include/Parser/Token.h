@@ -41,13 +41,14 @@ class Token {
         // Data structure specification related keywords
         TREE,   // tree
         WITH,   // with
+        ON,     // on
+        IN,     // in
         LAYOUT, // layout
         GROUP,  // group
         SWITCH, // switch
 
         // WHILE, // while
         FOR,   // for
-        IN,    // in
         IF,    // if
         ELIF,  // elif
         ELSE,  // else

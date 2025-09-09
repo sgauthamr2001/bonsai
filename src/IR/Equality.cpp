@@ -260,33 +260,91 @@ Cmp compare_types(const Type &t0, const Type &t1) {
             return compare_primitives(b0->name, b1->name);
         }
 
-        static const auto compare_volumes =
-            [](const std::optional<BVH_t::Volume> &vol0,
-               const std::optional<BVH_t::Volume> &vol1) {
+        static const auto compare_annotation = [](const Annotation &annot0,
+                                                  const Annotation &annot1) {
+            if (const auto *data0 = annot0.as<Annotation::Data>()) {
+                const auto *data1 = annot1.as<Annotation::Data>();
+                if (!data1)
+                    return Cmp::Less;
                 if (const Cmp valid =
-                        compare_primitives(vol0.has_value(), vol1.has_value());
+                        compare_primitives(data0->name, data1->name);
+                    valid != Cmp::Equals) {
+                    return valid;
+                }
+            } else if (const auto *vol0 = annot0.as<Annotation::Volume>()) {
+                const auto *vol1 = annot1.as<Annotation::Volume>();
+                if (!vol1)
+                    return annot1.as<Annotation::Data>() ? Cmp::Greater
+                                                         : Cmp::Less;
+                if (const Cmp geometry =
+                        compare_primitives(vol0->geometry, vol1->geometry);
+                    geometry != Cmp::Equals) {
+                    return geometry;
+                }
+
+                if (const Cmp broadcast =
+                        compare_primitives(vol0->broadcast, vol1->broadcast);
+                    broadcast != Cmp::Equals) {
+                    return broadcast;
+                }
+
+                if (const Cmp vtype =
+                        compare_types(vol0->struct_type, vol1->struct_type);
+                    vtype != Cmp::Equals) {
+                    return vtype;
+                }
+
+                if (const Cmp inits =
+                        compare_lists(vol0->initializers, vol1->initializers,
+                                      compare_primitives<std::string>);
+                    inits != Cmp::Equals) {
+                    return inits;
+                }
+            } else if (const auto *int0 = annot0.as<Annotation::Interval>()) {
+                const auto *int1 = annot1.as<Annotation::Interval>();
+                if (!int1)
+                    return Cmp::Greater;
+                if (const Cmp valid =
+                        compare_primitives(int0->scalar, int1->scalar);
                     valid != Cmp::Equals) {
                     return valid;
                 }
 
-                if (vol0.has_value()) {
-                    internal_assert(vol1.has_value());
-                    const auto &v0 = *vol0;
-                    const auto &v1 = *vol1;
+                if (const Cmp valid = compare_primitives(int0->low, int1->low);
+                    valid != Cmp::Equals) {
+                    return valid;
+                }
 
-                    if (const Cmp vtype =
-                            compare_types(v0.struct_type, v1.struct_type);
-                        vtype != Cmp::Equals) {
-                        return vtype;
-                    }
+                if (const Cmp valid =
+                        compare_primitives(int0->high, int1->high);
+                    valid != Cmp::Equals) {
+                    return valid;
+                }
+            } else {
+                internal_error
+                    << "TODO: support variant other than Data or "
+                       "Volume or Interval for Annotation comparison!\n";
+            }
+            return Cmp::Equals;
+        };
 
-                    if (const Cmp inits =
-                            compare_lists(v0.initializers, v1.initializers,
-                                          compare_primitives<std::string>);
-                        inits != Cmp::Equals) {
-                        return inits;
+        static const auto compare_annotations =
+            [](const std::vector<Annotation> &annot0,
+               const std::vector<Annotation> &annot1) {
+                if (const Cmp valid =
+                        compare_primitives(annot0.size(), annot1.size());
+                    valid != Cmp::Equals) {
+                    return valid;
+                }
+
+                for (size_t i = 0, e = annot0.size(); i < e; i++) {
+                    if (const Cmp cmp =
+                            compare_annotation(annot0[i], annot1[i]);
+                        cmp != Cmp::Equals) {
+                        return cmp;
                     }
                 }
+
                 return Cmp::Equals;
             };
 
@@ -305,9 +363,10 @@ Cmp compare_types(const Type &t0, const Type &t1) {
                 return rec;
             }
 
-            if (const Cmp volumes = compare_volumes(node0.volume, node1.volume);
-                volumes != Cmp::Equals) {
-                return volumes;
+            if (const Cmp annots =
+                    compare_annotations(node0.annotations, node1.annotations);
+                annots != Cmp::Equals) {
+                return annots;
             }
         }
         // return compare_volumes(b0->volume, b1->volume);

@@ -6,6 +6,7 @@
 #include "IR/Program.h"
 #include "IR/Type.h"
 #include "IR/Visitor.h"
+#include "Lower/TopologicalOrder.h"
 
 #include "CompilerOptions.h"
 #include "Error.h"
@@ -97,11 +98,19 @@ void emit_type(std::ostream &ss, Type type) {
             ss << "*";
         }
 
+        void visit(const Set_t *node) override {
+            ss << "set<";
+            node->etype.accept(this);
+            ss << ">";
+        }
+
+        void visit(const BVH_t *node) override { ss << node->name; }
+
         RESTRICT_VISITOR(Option_t);
-        RESTRICT_VISITOR(Set_t);
+        // RESTRICT_VISITOR(Set_t);
         RESTRICT_VISITOR(Function_t);
         RESTRICT_VISITOR(Generic_t);
-        RESTRICT_VISITOR(BVH_t);
+        // RESTRICT_VISITOR(BVH_t);
         RESTRICT_VISITOR(Rand_State_t);
     };
 
@@ -199,7 +208,7 @@ void emit_type_declaration(std::stringstream &ss, Type type) {
         for (const auto &[name, child] : struct_t->fields) {
             ss << indent;
             if (const Array_t *array_t = child.as<Array_t>();
-                array_t && is_const(array_t->size) &&
+                array_t && array_t->size.defined() && is_const(array_t->size) &&
                 // The buffer field of dynamic arrays should always be treated
                 // as a pointers, since its capacity may be resized.
                 !is_dynamic_array_struct_type(type)) {
@@ -227,37 +236,66 @@ void emit_type_declaration(std::stringstream &ss, Type type) {
         ss << ";\n";
         return;
     } else if (const Vector_t *vector_t = type.as<Vector_t>()) {
-        ss << "typedef ";
-        emit_type(ss, vector_t->etype);
-        ss << " ";
+        ss << "using ";
         emit_type(ss, type); // get the name
-        ss << " __attribute__((vector_size(";
-        ss << vector_t->lanes * vector_t->etype.bytes() << ")));\n";
+        ss << " = vector<";
+        emit_type(ss, vector_t->etype);
+        // ss << " __attribute__((vector_size(";
+        ss << ", " << vector_t->lanes << ">;\n";
+        return;
+    } else if (const BVH_t *bvh_t = type.as<BVH_t>()) {
+        for (const auto &node : bvh_t->nodes) {
+            // Forward declare
+            ss << "struct " << node.name() << ";\n";
+        }
+        ss << "using " << bvh_t->name << " = ";
+        ss << "tree<";
+        bool first = true;
+        for (const auto &node : bvh_t->nodes) {
+            if (!first) {
+                ss << ", ";
+            }
+            first = false;
+            ss << node.name();
+        }
+        ss << ">;\n";
         return;
     }
     internal_error << "Can't emit type declaration for: " << type;
 }
 
-class BonsaiToCpp {
+class BonsaiToCpp : ir::Printer {
   public:
+    BonsaiToCpp() : ir::Printer(ss, 1) {}
+
     // Creates the bonsai header with external functions and their respective
     // struct definitions.
-    std::string create_header(const Program &program) {
-        emit_prologue();
+    std::string create_header(const Program &program, bool allow_mangling) {
+        emit_prologue(allow_mangling);
         emit_program(program);
-        emit_epilogue();
+        emit_epilogue(allow_mangling);
+        return ss.str();
+    }
+
+    std::string create_source(const Program &program,
+                              std::string header_name = "") {
+        if (!header_name.empty()) {
+            ss << "#include \"" << header_name << "\""
+               << '\n'; // c++ runtime types.
+        }
+        emit_funcs(program.funcs);
         return ss.str();
     }
 
   private:
-    std::string indent() { return std::string(indent_level, ' '); }
-    int64_t indent_level = 0;
     std::stringstream ss;
 
     void emit_signature_type(const Type &type, bool is_mutating = false,
                              bool is_return_type = false) {
-        internal_assert(!type.is<Struct_t>());
-        if (!is_mutating && !is_return_type) {
+        // TODO: understand why this was here.
+        // internal_assert(!type.is<Struct_t>()) << type;
+        const bool is_const = !is_mutating && !is_return_type;
+        if (is_const) {
             ss << "const ";
         }
         if (const Ptr_t *ptr_t = type.as<Ptr_t>()) {
@@ -265,10 +303,23 @@ class BonsaiToCpp {
             ss << "&";
         } else {
             emit_type(ss, type);
+            if (!is_return_type && should_be_ref(type)) {
+                ss << "&";
+            }
         }
     }
 
-    void emit_func(const Function &func) {
+    bool should_be_ref(const Type &type) const {
+        // TODO: finish
+        return type.is<Set_t>() || type.is<BVH_t>();
+    }
+
+    void emit_func_decl(const Function &func) {
+        emit_func_header(func);
+        ss << ";\n";
+    }
+
+    void emit_func_header(const Function &func) {
         emit_signature_type(func.ret_type, /*is_mutating=*/false,
                             /*is_return_type=*/true);
         ss << ' ' << func.name;
@@ -282,7 +333,7 @@ class BonsaiToCpp {
             }
             ss << ',' << ' ';
         }
-        ss << ')' << ';' << '\n';
+        ss << ")";
     }
 
     // Recursively acquire all *unique* types and inserted them into `types`.
@@ -307,12 +358,33 @@ class BonsaiToCpp {
             if (auto [_, inserted] = deduplicate.insert(type); inserted) {
                 types.push_back(type);
             }
+        } else if (const BVH_t *bvh_t = type.as<BVH_t>()) {
+            if (auto [_, inserted] = deduplicate.insert(type); inserted) {
+                types.push_back(type);
+            }
+            for (const auto &node : bvh_t->nodes) {
+                get_declared_types(node.struct_type, deduplicate, types);
+                for (const auto &annot : node.annotations) {
+                    if (const auto *vol = annot.as<Annotation::Volume>()) {
+                        get_declared_types(vol->struct_type, deduplicate,
+                                           types);
+                    }
+                }
+            }
         }
     }
 
     void emit_program(const Program &program) {
         std::set<Type> deduplicate;
         std::vector<Type> exported_types;
+
+        // Any generated structs might be used in code generated,
+        // and therefore must be ommitted.
+        for (const auto &[name, type] : program.types) {
+            if (name.starts_with("_tree"))
+                get_declared_types(type, deduplicate, exported_types);
+        }
+
         for (const auto &[_, func] : program.funcs) {
             if (!func->is_exported()) {
                 continue;
@@ -323,7 +395,7 @@ class BonsaiToCpp {
             }
         }
         for (const Type &type : exported_types) {
-            ss << indent();
+            ss << get_indent();
             emit_type_declaration(ss, type);
         }
         ss << '\n';
@@ -331,27 +403,246 @@ class BonsaiToCpp {
             if (!func->is_exported()) {
                 continue;
             }
-            ss << indent();
-            emit_func(*func);
+            ss << get_indent();
+            emit_func_decl(*func);
         }
     }
 
-    void emit_prologue() {
+    void emit_prologue(bool allow_mangling) {
         // Only include this header once during compilation.
         ss << "#pragma once";
         ss << '\n' << '\n';
 
         // Headers for C++ types.
         ss << "#include <cstdint>" << '\n'; // integer
+        ss << "#include \"runtime/bonsai_cpp.h\"\n\n";
 
         // Disable C++ name mangling.
-        ss << '\n' << "extern \"C\"";
-        ss << ' ' << '{' << '\n';
+        if (!allow_mangling) {
+            ss << '\n' << "extern \"C\"";
+            ss << ' ' << '{' << '\n';
+        }
     }
 
-    void emit_epilogue() {
-        ss << '}';
-        ss << '\n';
+    void emit_epilogue(bool allow_mangling) {
+        if (!allow_mangling) {
+            ss << '}';
+            ss << '\n';
+        }
+    }
+
+    void emit_funcs(const FuncMap &funcs) {
+        const std::vector<std::string> topological_order =
+            lower::func_topological_order(funcs,
+                                          /*undef_calls=*/false);
+
+        for (int i = 0, e = topological_order.size(); i < e; ++i) {
+            const std::string &name = topological_order[i];
+            const auto &it = funcs.find(name);
+            internal_assert(it != funcs.end());
+            const auto &func = it->second;
+
+            ss << get_indent();
+            emit_func_header(*func);
+            ss << " {\n";
+            increment();
+            func->body.accept(this);
+            decrement();
+            ss << "}\n";
+        }
+    }
+
+    // Exprs
+    // void visit(const IntImm *) override;
+    // void visit(const UIntImm *) override;
+    void visit(const FloatImm *node) override {
+        std::ios::fmtflags f = ss.flags();
+        std::streamsize p = ss.precision();
+
+        double val = node->value;
+
+        // Ensure float is parsed correctly in C++ by forcing float literal
+        // syntax Add 'f' suffix and a decimal point if needed
+        if (std::isnan(val)) {
+            ss << "NAN";
+        } else if (std::isinf(val)) {
+            ss << (val < 0 ? "-" : "") << "INFINITY";
+        } else {
+            ss << std::fixed << std::setprecision(8) << val << "f";
+        }
+
+        ss.flags(f);
+        ss.precision(p);
+    }
+    // void visit(const BoolImm *) override;
+    // void visit(const VecImm *) override;
+    // void visit(const StringImm *) override;
+    // void visit(const Infinity *) override;
+    // void visit(const Var *) override;
+    // void print(const BinOp::OpType &op);
+    // void visit(const BinOp *) override;
+    // void print(const UnOp::OpType &op);
+    // void visit(const UnOp *) override;
+    void visit(const Select *node) override {
+        ss << "(";
+        print(node->cond);
+        ss << " ? ";
+        print(node->tvalue);
+        ss << " : ";
+        print(node->fvalue);
+        ss << ")";
+    }
+
+    void visit(const Cast *node) override {
+        if (node->mode == Cast::Mode::Reinterpret) {
+            ss << "reinterpret<";
+            emit_type(ss, node->type);
+            ss << ">(";
+            print_no_parens(node->value);
+            ss << ")";
+            return;
+        } else {
+            ss << "(";
+            emit_type(ss, node->type);
+            ss << ")(";
+            print_no_parens(node->value);
+            ss << ")";
+            return;
+        }
+        internal_error << "TODO: cast C++ codegen: " << Expr(node);
+    }
+    // void visit(const Broadcast *) override;
+    // void print(const VectorReduce::OpType &op);
+    // void visit(const VectorReduce *) override;
+    // void visit(const VectorShuffle *) override;
+    // void visit(const Ramp *) override;
+    // void visit(const Extract *) override;
+    // void visit(const Build *) override;
+    void visit(const Access *node) override {
+        if (node->type.is<Ref_t>()) {
+            ss << "(*"; // deref
+        }
+        ir::Printer::visit(node);
+        if (node->type.is<Ref_t>()) {
+            ss << ")";
+        }
+    }
+    void visit(const Unwrap *node) override {
+        // TODO: be less hacky about this. relies on current Match lowering.
+        print_no_parens(node->value);
+        ss << "_" << node->type.as<Struct_t>()->name;
+    }
+    // void visit(const Intrinsic *) override;
+    // void visit(const Generator *) override;
+    void visit(const Lambda *node) override {
+        ss << "[&](";
+        for (size_t i = 0, e = node->args.size(); i < e; i++) {
+            const TypedVar &tvar = node->args[i];
+            emit_signature_type(tvar.type, false);
+            ss << "& " << tvar.name;
+            if (i + 1 == e) {
+                continue;
+            }
+            ss << ", ";
+        }
+        ss << ") { return ";
+        print_no_parens(node->value);
+        ss << "; }";
+    }
+    // void visit(const GeomOp *) override;
+    // void visit(const Call *) override;
+    // void visit(const Instantiate *) override;
+    // void visit(const PtrTo *) override;
+    // void visit(const Deref *) override;
+    // void visit(const AtomicAdd *) override;
+    // Stmts
+    // void visit(const CallStmt *) override;
+    // void visit(const Print *) override;
+
+    // needs to override for ending `;`
+    // void visit(const Return *node) override;
+
+    // void visit(const LetStmt *) override;
+    // void visit(const IfElse *) override;
+    // void visit(const DoWhile *) override;
+    // void visit(const Sequence *) override;
+    void visit(const Allocate *node) override {
+        internal_assert(node->loc.base_type.is<Set_t>())
+            << "TODO: C++ Allocate lowering: " << Stmt(node);
+        ss << get_indent();
+        emit_type(ss, node->loc.base_type);
+        ss << " " << node->loc.base;
+        internal_assert(!node->value.defined())
+            << "TODO: C++ Allocate lowering: " << Stmt(node);
+        ss << ";\n";
+    }
+    // void visit(const Free *) override;
+    // void visit(const Store *) override;
+    // void visit(const Accumulate *) override;
+    // void visit(const Label *) override;
+    // void visit(const RecLoop *) override;
+    void visit(const Match *node) override {
+        ss << get_indent();
+        print(node->loc);
+        ss << ".match(\n";
+        increment();
+        for (size_t i = 0, e = node->arms.size(); i < e; i++) {
+            const auto &arm = node->arms[i];
+            ss << get_indent() << "[&](const ";
+            ss << arm.first.struct_type.as<Struct_t>()->name;
+            ss << "& ";
+            print(node->loc);
+            ss << "_";
+            ss << arm.first.struct_type.as<Struct_t>()->name;
+            // e.g. (const Interior& tree_Interior) { . . . }
+            ss << ") {\n";
+            increment();
+            print(arm.second);
+            decrement();
+            ss << get_indent() << "}";
+            if (i != (e - 1)) {
+                ss << ",\n";
+            } else {
+                ss << "\n";
+            }
+        }
+        decrement();
+        ss << get_indent() << ");\n";
+    }
+    // void visit(const Yield *) override;
+    // void visit(const Iterate *) override;
+    // void visit(const Scan *) override;
+    // void visit(const YieldFrom *) override;
+    void visit(const ForAll *node) override {
+        ss << get_indent();
+        ss << "for (";
+        emit_type(ss, node->slice.begin.type());
+        ss << " " << node->index << " = ";
+        print_no_parens(node->slice.begin);
+        ss << "; " << node->index << " < ";
+        print_no_parens(node->slice.end);
+        ss << "; " << node->index << " += ";
+        print_no_parens(node->slice.stride);
+        ss << ") {\n";
+        increment();
+        print(node->body);
+        decrement();
+        ss << get_indent() << "}\n";
+    }
+    // void visit(const ForEach *) override;
+    // void visit(const Continue *) override;
+    // void visit(const Launch *) override;
+    void visit(const Append *node) override {
+        ss << get_indent();
+        print(node->loc);
+        ss << ".push_back(";
+        print_no_parens(node->value);
+        // if (node->value.type().is<Array_t>() &&
+        // !node->loc.type.is<Array_t>()) {
+        //     ss << ", ";
+        //     print_no_parens(node->value.type().as<Array_t>()->size);
+        // }
+        ss << ");\n";
     }
 };
 
@@ -372,7 +663,9 @@ void to_cpp(const ir::Program &program, const CompilerOptions &options) {
     if (options.output_file.empty()) {
         // Mostly for dry-run / testing purposes.
         llvm::outs() << "// Bonsai Header" << '\n';
-        llvm::outs() << BonsaiToCpp().create_header(program) << '\n';
+        llvm::outs() << BonsaiToCpp().create_header(program,
+                                                    /*allow_mangling=*/false)
+                     << '\n';
         llvm::outs() << std::string(42, '-') << '\n';
         llvm::outs() << '\n' << "; LLVM Module" << '\n';
         codegen.print_module(*module, llvm::outs(), /*redacted=*/true);
@@ -396,8 +689,38 @@ void to_cpp(const ir::Program &program, const CompilerOptions &options) {
     // Write C++ header file with struct and function declarations (`.h`).
     std::ofstream file;
     file.open(options.output_file + ".h");
-    file << BonsaiToCpp().create_header(program);
+    file << BonsaiToCpp().create_header(program,
+                                        /*allow_mangling=*/false);
     file.close();
+}
+
+void to_cppx(const ir::Program &program, const CompilerOptions &options) {
+    // Compile the program to C++.
+
+    if (options.output_file.empty()) {
+        // Mostly for dry-run / testing purposes.
+        llvm::outs() << "// Bonsai Header" << '\n';
+        llvm::outs() << BonsaiToCpp().create_header(program,
+                                                    /* allow_mangling */ true)
+                     << '\n';
+        llvm::outs() << std::string(42, '-') << '\n';
+        llvm::outs() << BonsaiToCpp().create_source(program) << '\n';
+        return;
+    }
+
+    // Write C++ header file with struct and function declarations (`.h`).
+    std::ofstream h_file;
+    h_file.open(options.output_file + ".h");
+    h_file << BonsaiToCpp().create_header(program,
+                                          /* allow_mangling */ true);
+    h_file.close();
+
+    // Write C++ source file with struct and function declarations (`.cpp`).
+    std::ofstream src_file;
+    src_file.open(options.output_file + ".cpp");
+    src_file << BonsaiToCpp().create_source(program,
+                                            options.output_file + ".h");
+    src_file.close();
 }
 
 } // namespace codegen
