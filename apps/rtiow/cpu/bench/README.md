@@ -7,12 +7,6 @@ distribution and sharding of an acceleration structure could be beneficial. To
 setup the harness, we design it around a M4 Pro CPU  at the L1D <-> L2 level,
 with a largest working set of 2.5 MB which is comfortably below the 4 MB L2.
 
-> **Scope limit you should remember**: this bench cannot speak to L2 -> SLC
-> or L2 -> DRAM partitioning gains. The largest scene we can build still
-> fits in L2. What we *can* measure is the L1D crossing as the BVH grows,
-> shared-L2 contention as P-cores are added, and the inner-loop reuse
-> behavior (samples sweep).
-
 ---
 
 ## Layout
@@ -102,7 +96,6 @@ tool *only* exposes **downgrade** clamps via `-c`: `utility`, `background`,
 "prefer P-cores" clamp. So our default is `--taskpolicy=default` (i.e. no
 wrapper). With the t10 variant we emit 10 worker chunks; the GCD default
 queue runs them on the 10 P-cores in practice on M4 Pro.
-
 
 ---
 
