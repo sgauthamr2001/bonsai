@@ -13,8 +13,22 @@ if (ModernLLVM_FIND_VERSION_EXACT)
 else ()
     set(_EXACT "")
 endif ()
+
+# Prefer LLVM from this repo's deps/ (README: install to deps/llvm-install) so
+# you do not need -DLLVM_DIR=... or a fresh deps/llvm-build when llvm-install
+# is already present.
+get_filename_component(_FindModernLLVM_bonsai_root "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+set(_ModernLLVM_hints
+    "${_FindModernLLVM_bonsai_root}/deps/llvm-install/lib/cmake/llvm"
+    "${_FindModernLLVM_bonsai_root}/deps/llvm-build/lib/cmake/llvm"
+)
+if (DEFINED ENV{LLVM_ROOT} AND NOT "$ENV{LLVM_ROOT}" STREQUAL "")
+    list(PREPEND _ModernLLVM_hints "$ENV{LLVM_ROOT}/lib/cmake/llvm")
+endif ()
+
 find_package(
     LLVM ${ModernLLVM_FIND_VERSION} ${_EXACT}
+    HINTS ${_ModernLLVM_hints}
     PATHS
     # macOS paths
     "/opt/homebrew/opt/llvm@${ModernLLVM_FIND_VERSION_MAJOR}"
